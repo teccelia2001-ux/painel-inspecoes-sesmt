@@ -13,7 +13,7 @@ const DDATA = [
 ];
 
 /* Inspetores — [INSPETOR, CARGO, ÁREA, REGIONAL, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
-const INSPETORES = [
+let INSPETORES = [
   ["Acacio","Supervisor","Obras RD","OESTE","Supervisor",4,0],
   ["Arisleudo","Supervisor","Obras RD","OESTE","Supervisor",4,0],
   ["Arlan","Supervisor","Obras RD","OESTE","Supervisor",4,0],
@@ -31,7 +31,7 @@ const INSPETORES = [
 const META_MESES = ["4/2026","5/2026","6/2026","7/2026"];
 
 /* Equipes — [EQUIPE, TIPO, SUPERVISOR, PONTOS/mês] */
-const EQUIPES = [
+let EQUIPES = [
   ["CONST 1","LM","Acacio",100],["CONST 2","LM","Acacio",100],["CONST 3","LM","Acacio",100],
   ["CONST 4","LM","Acacio",100],["CONST 5","LM","Acacio",100],["CONST 6","LM","Humberto",100],
   ["CONST 7","LM","Humberto",100],["CONST 8","LM","Humberto",100],["CONST 9","LM","Humberto",100],

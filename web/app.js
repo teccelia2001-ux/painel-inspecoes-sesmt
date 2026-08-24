@@ -11,7 +11,8 @@ const PAGINAS = [
   { id: "avanco",  nome: "Avanço Mensal",     icone: "📈", desc: "Evolução mês a mês da taxa e do ICIT" },
   { id: "icit",    nome: "ICIT",              icone: "🛡️", desc: "Conformidade e inconformidades" },
   { id: "dia",     nome: "Inspeções por dia", icone: "📅", desc: "Volume diário de inspeções" },
-  { id: "jornada", nome: "Jornada Segura",    icone: "🏆", desc: "Ranking de pontuação das equipes" }
+  { id: "jornada", nome: "Jornada Segura",    icone: "🏆", desc: "Ranking de pontuação das equipes" },
+  { id: "ajustes", nome: "Ajustes",           icone: "⚙️", desc: "Cadastro de equipes e inspetores" }
 ];
 let paginaAtual = "painel";
 
@@ -280,8 +281,14 @@ function pgJornada() {
   return pg;
 }
 
+/* --- 8. Ajustes (cadastros) --- */
+function pgAjustes() {
+  const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-ajustes";
+  return Ajustes.montar(pg);
+}
+
 /* ---------- montagem ---------- */
-[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada()]
+[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgAjustes()]
   .forEach(p => canvas.appendChild(p));
 canvas.appendChild(abas());
 
@@ -426,6 +433,8 @@ function render() {
     legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
       { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
+
+  if (paginaAtual === "ajustes") { Ajustes.render(); return; }
 
   if (paginaAtual === "jornada") {
     const j = jornada(f, ms).filter(l => l.pontosIniciais !== null);
@@ -586,3 +595,9 @@ document.documentElement.style.setProperty("--foto-podio", `url("${FOTO_PODIO}")
 
 escalar();
 irPara(location.hash.slice(1) || "painel");
+
+/* Cadastros vêm do banco; sem rede, seguem valendo os embutidos em data.js */
+Cadastros.carregar().then(() => {
+  render();
+  if (paginaAtual === "ajustes") Ajustes.render();
+});

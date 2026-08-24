@@ -215,6 +215,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   /* alvos de toque maiores */
   .lista label{padding:9px 8px}
   .slicer>button{height:46px}
+
+  /* (as regras da aba Ajustes no modo fluido ficam no fim da folha,
+      depois das regras base, para não serem sobrescritas por elas) */
 }
 
 /* celular estreito: 2 cards por linha, visuais mais altos */
@@ -227,6 +230,96 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .marca .nome{font-size:14px}
   .voltar{height:36px}
 }
+
+/* ============================================================
+   AJUSTES — tela de cadastro
+   ============================================================ */
+.aj{position:absolute;left:16px;right:16px;top:88px;bottom:38px;display:flex;flex-direction:column;gap:10px}
+.aj-estado{position:absolute;left:70px;right:16px;top:88px;height:0;display:flex;align-items:center;
+  gap:10px;font-size:11.5px;overflow:visible;z-index:5}
+.aj-estado span{padding:6px 10px;border-radius:7px;line-height:1.35}
+.aj-estado i{font-style:normal;opacity:.75}
+.aj-estado.ok span{background:#e8f5e9;color:#1b5e20;border:1px solid #c3e6c8}
+.aj-estado.aviso span{background:var(--acento-suave);color:var(--acento-forte);border:1px solid #f7cdbd}
+.aj-estado.erro span{background:#fdecea;color:#b3261e;border:1px solid #f5c6c2}
+.aj-estado button{height:28px;padding:0 12px;border-radius:7px;cursor:pointer;font-size:11.5px;
+  border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
+.aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
+
+.aj-abas{display:flex;gap:4px;margin-top:26px}
+.aj-abas button{background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--txt2);font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer}
+.aj-abas button:hover{color:var(--txt)}
+.aj-abas button.on{color:var(--acento-forte);border-bottom-color:var(--acento)}
+
+.aj-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.aj-tit{margin:0;font-size:20px;font-weight:800;border-left:4px solid var(--acento);padding-left:10px}
+.aj-desc{margin:3px 0 0 14px;font-size:11.5px;color:var(--txt2)}
+.aj-novo{height:38px;padding:0 16px;border-radius:8px;border:0;cursor:pointer;
+  background:var(--acento);color:#fff;font-size:13px;font-weight:700;box-shadow:var(--sombra)}
+.aj-novo:hover{background:var(--acento-forte)}
+
+.aj-filtros{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;
+  background:var(--painel-alt);border:1px solid var(--linha-borda);border-radius:8px;padding:8px 10px}
+.aj-filtro{display:flex;flex-direction:column;gap:3px;font-size:9px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--txt2)}
+.aj-filtro select,.aj-filtro input{height:32px;min-width:135px;border-radius:7px;padding:0 8px;
+  border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt);
+  font-size:12px;text-transform:none;letter-spacing:0}
+.aj-filtro select:focus,.aj-filtro input:focus{outline:2px solid var(--acento);outline-offset:-1px}
+.aj-busca input{min-width:190px}
+.aj-cont{margin-left:auto;font-size:11.5px;color:var(--txt2);align-self:center}
+
+.aj-tabela{flex:1 1 auto;border:1px solid var(--linha-borda);border-radius:8px;background:var(--painel)}
+.aj-tabela .forte{font-weight:700}
+.etiqueta{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;
+  background:var(--painel-alt);border:1px solid var(--linha-borda);color:var(--txt2)}
+.situacao{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600}
+.situacao.sim{background:#e8f5e9;color:#1b5e20}
+.situacao.nao{background:#f3f0ec;color:var(--txt2)}
+
+/* menu de ações da linha */
+.aj-acoes{position:relative}
+.aj-pontos{width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:15px;line-height:1;
+  border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt2)}
+.aj-pontos:hover{border-color:var(--acento);color:var(--acento-forte)}
+.aj-menu{display:none;position:absolute;z-index:20;left:0;top:30px;min-width:132px;padding:4px;
+  background:var(--painel);border:1px solid var(--linha-borda);border-radius:8px;
+  box-shadow:0 8px 24px rgba(60,44,28,.18)}
+.aj-acoes.aberto .aj-menu{display:block}
+.aj-menu button{display:block;width:100%;text-align:left;padding:7px 9px;border:0;border-radius:6px;
+  background:transparent;color:var(--txt);font-size:12px;cursor:pointer}
+.aj-menu button:hover:not(:disabled){background:var(--acento-suave)}
+.aj-menu button.perigo{color:var(--ruim)}
+.aj-menu button:disabled{opacity:.45;cursor:not-allowed}
+
+/* diálogo */
+.aj-fundo{position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:rgba(36,31,26,.45);padding:20px}
+.aj-dialogo{width:min(430px,100%);max-height:100%;overflow:auto;background:var(--painel);
+  border-radius:12px;box-shadow:0 20px 60px rgba(36,31,26,.35);display:flex;flex-direction:column}
+.aj-dcab{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px}
+.aj-dcab h3{margin:0;font-size:17px;font-weight:800}
+.aj-x{border:0;background:transparent;color:var(--txt2);font-size:16px;cursor:pointer;
+  width:28px;height:28px;border-radius:6px}
+.aj-x:hover{background:var(--acento-suave);color:var(--acento-forte)}
+.aj-dcorpo{padding:0 18px;display:flex;flex-direction:column;gap:12px}
+.aj-campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--txt)}
+.aj-campo input,.aj-campo select{height:38px;border-radius:8px;padding:0 10px;font-size:13px;
+  border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt);font-weight:400}
+.aj-campo input:focus,.aj-campo select:focus{outline:2px solid var(--acento);outline-offset:-1px}
+.aj-aviso{margin:0;font-size:12px;color:var(--txt2);line-height:1.45}
+.aj-aviso.forte{color:var(--ruim)}
+.aj-derro{padding:0 18px;color:var(--ruim);font-size:12px;min-height:16px;margin-top:8px}
+.aj-drod{display:flex;justify-content:flex-end;gap:8px;padding:6px 18px 18px}
+.aj-drod button{height:38px;padding:0 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.aj-cancelar{border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
+.aj-cancelar:hover{background:var(--painel-alt)}
+.aj-ok{border:0;background:var(--acento);color:#fff}
+.aj-ok:hover:not(:disabled){background:var(--acento-forte)}
+.aj-ok:disabled{opacity:.6;cursor:progress}
+.aj-ok.perigo{background:var(--ruim)}
+.aj-ok.perigo:hover:not(:disabled){background:#a01f1f}
 
 /* siglas com descrição ao passar o cursor */
 .sigla{border-bottom:1px dotted currentColor;cursor:help}
@@ -264,6 +357,22 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   color:#fff;backdrop-filter:blur(3px)}
 .podio .lugar .nomes{text-align:left;line-height:1.25}
 .podio .lugar .detalhe{margin-left:auto;font-size:10.5px;opacity:.85;white-space:nowrap}
+/* ============================================================
+   Ajustes no modo fluido — precisa vir DEPOIS das regras base
+   da tela de cadastro, senão elas vencem por ordem na cascata.
+   ============================================================ */
+@media (max-width:1099px){
+  .aj{position:static;grid-column:1/-1;inset:auto;height:auto;gap:12px;padding-bottom:8px}
+  .aj-estado{position:static;grid-column:1/-1;inset:auto;height:auto;flex-wrap:wrap}
+  .aj-abas{margin-top:0}
+  .aj-cab{flex-direction:column;align-items:stretch;gap:10px}
+  .aj-novo{width:100%;height:44px}
+  .aj-filtro{flex:1 1 140px}
+  .aj-filtro select,.aj-filtro input{min-width:0;width:100%;height:40px}
+  .aj-cont{margin-left:0;width:100%}
+  .aj-tabela{max-height:60vh;min-height:220px}
+  .aj-fundo{position:fixed}
+}
 .podio .lugar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .podio .lugar .detalhe + b{margin-left:0}
 
@@ -282,7 +391,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 <script src="assets.js"></script>
 <script src="data.js"></script>
 <script src="model.js"></script>
+<script src="servidor.js"></script>
 <script src="charts.js"></script>
+<script src="ajustes.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

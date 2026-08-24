@@ -2,31 +2,40 @@
    MODELO SEMÂNTICO — réplica em JS das medidas DAX do relatório
    ============================================================ */
 
-const IDX_INSPETOR = Object.fromEntries(INSPETORES.map(r => [r[0], r]));
-const IDX_EQUIPE   = Object.fromEntries(EQUIPES.map(r => [r[0], r]));
-const NC_BY_ID     = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
-const MESES_NOME   = ["","jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const MESES_NOME = ["","jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const NC_BY_ID   = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
 
-/* Enriquecimento das inspeções: {id, inspetor, equipe, tipo, data, mesAno, serial, dia, area, funcao, supervisor, tipoEquipe} */
-const FATO = INSPECOES.map(r => {
-  const [d, m, y] = r[4].split("/").map(Number);
-  const mesAno = m + "/" + y;
-  // As dimensões INSPETOR e EQUIPE se ligam ao fato por chaves versionadas por mês
-  // (INSPETOR_ID / EQUIPE_ID em "Meta Inspetores" e "Equipes"). Meses sem cadastro
-  // não casam e caem no grupo "(vazio)", exatamente como no relatório original.
-  const vigente = META_MESES.includes(mesAno);
-  const insp = vigente ? IDX_INSPETOR[r[1]] : null;
-  const eq   = vigente ? IDX_EQUIPE[r[2]]   : null;
-  return {
-    id: r[0], inspetor: insp ? r[1] : "", inspetorBruto: r[1],
-    equipe: eq ? r[2] : "", equipeBruta: r[2],
-    tipo: r[3], data: new Date(y, m - 1, d),
-    dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
-    ano: "" + y, mes: "" + m,
-    area: insp ? insp[2] : "", funcao: insp ? insp[4] : "", cargo: insp ? insp[1] : "",
-    supervisor: eq ? eq[2] : "", tipoEquipe: eq ? eq[1] : ""
-  };
-});
+/* Índices e tabela de fato enriquecida. Como os cadastros de equipes e
+   inspetores podem ser editados na aba Ajustes, tudo isto é reconstruído
+   por reconstruirModelo() a cada alteração. */
+let IDX_INSPETOR, IDX_EQUIPE, FATO;
+
+function reconstruirModelo() {
+  IDX_INSPETOR = Object.fromEntries(INSPETORES.map(r => [r[0], r]));
+  IDX_EQUIPE   = Object.fromEntries(EQUIPES.map(r => [r[0], r]));
+
+  FATO = INSPECOES.map(r => {
+    const [d, m, y] = r[4].split("/").map(Number);
+    const mesAno = m + "/" + y;
+    // As dimensões INSPETOR e EQUIPE se ligam ao fato por chaves versionadas por mês
+    // (INSPETOR_ID / EQUIPE_ID em "Meta Inspetores" e "Equipes"). Meses sem cadastro
+    // não casam e caem no grupo "(vazio)", exatamente como no relatório original.
+    const vigente = META_MESES.includes(mesAno);
+    const insp = vigente ? IDX_INSPETOR[r[1]] : null;
+    const eq   = vigente ? IDX_EQUIPE[r[2]]   : null;
+    return {
+      id: r[0], inspetor: insp ? r[1] : "", inspetorBruto: r[1],
+      equipe: eq ? r[2] : "", equipeBruta: r[2],
+      tipo: r[3], data: new Date(y, m - 1, d),
+      dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
+      ano: "" + y, mes: "" + m,
+      area: insp ? insp[2] : "", funcao: insp ? insp[4] : "", cargo: insp ? insp[1] : "",
+      supervisor: eq ? eq[2] : "", tipoEquipe: eq ? eq[1] : ""
+    };
+  });
+  return FATO;
+}
+reconstruirModelo();
 
 /* ---------- Filtros ---------- */
 const CAMPOS = ["ano", "mes", "area", "inspetor", "funcao", "supervisor", "equipe"];

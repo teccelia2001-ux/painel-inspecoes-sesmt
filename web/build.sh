@@ -12,7 +12,7 @@ out=../index.html
   sed -n '/^<style>$/,/^<\/style>$/p' index.html | sed '1d;$d'
   echo '</style>'
   echo '<div id="palco"><div id="canvas"></div></div>'
-  for f in assets.js data.js model.js charts.js app.js; do
+  for f in assets.js data.js model.js servidor.js charts.js ajustes.js app.js; do
     echo '<script>'; cat "$f"; echo '</script>'
   done
 } > "$out"
