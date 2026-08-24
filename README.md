@@ -4,7 +4,7 @@ Réplica web de um painel de inspeções de segurança feito originalmente em Po
 Um único arquivo HTML, sem servidor, sem build e sem dependências externas —
 abre em celular, tablet e computador.
 
-**Acesso:** https://teccelia2001-ux.github.io/sesmt/ (ou o atalho https://teccelia2001-ux.github.io/)
+**Acesso:** https://teccelia2001-ux.github.io/painel-inspecoes-sesmt/
 
 ## O que o painel mostra
 
@@ -34,8 +34,7 @@ Link direto para uma página pela âncora do endereço: `#icit`, `#jornada`,
 
 ## Estrutura do repositório
 
-    index.html      página publicada na raiz (gerada — não editar à mão)
-    sesmt/index.html mesma página, no endereço nomeado (gerada)
+    index.html      página publicada (gerada — não editar à mão)
     dashboard.html  cópia idêntica, para anexar em e-mail
     web/            fontes
       data.js       dados
