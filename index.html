@@ -245,7 +245,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   background:rgba(251,69,19,.80);border:1px solid rgba(255,255,255,.34);
   box-shadow:0 6px 22px rgba(0,0,0,.35)}
 .podio .tit{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#ffe4da}
-.podio .eq{font-size:25px;font-weight:800;color:#fff;line-height:1.05;
+.podio .eq{font-size:30px;font-weight:800;color:#fff;line-height:1.05;
   text-shadow:0 2px 10px rgba(0,0,0,.45)}
 .podio .pts{font-size:12px;color:#ffeee8;font-variant-numeric:tabular-nums}
 .podio .chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;
@@ -253,7 +253,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio .chip{font-size:10.5px;font-weight:600;color:#fff;padding:3px 8px;border-radius:20px;
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.30);white-space:nowrap;cursor:help}
 .podio .chip.lider{background:#fff;color:var(--acento-forte);border-color:#fff}
-.podio .empate{font-size:9.5px;color:#ffe4da;line-height:1.3;max-width:330px}
+.podio .sup{font-size:11px;color:#ffeee8;opacity:.9}
+.podio .empate{font-size:10px;color:#ffe4da;line-height:1.35;max-width:340px;cursor:help;
+  border-top:1px solid rgba(255,255,255,.25);padding-top:6px;margin-top:2px}
 .podio .lista-lugares{display:flex;flex-direction:column;gap:6px;width:100%;max-width:400px}
 .podio .lugar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
   background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);font-size:12.5px;
@@ -824,9 +826,10 @@ function comboChart(host, dados, opt) {
       const c = el("circle", { cx: x, cy: y, r: 3.4, fill: cor });
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
-      if (dados.length <= 16)
+      // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
+      if (bw >= 34)
         g.appendChild(el("text", { x, y: y - 11, class: "rotulo-linha", "text-anchor": "middle" },
-          opt.pctLinha ? fmtP(v, 0) : fmtD(v, 0)));
+          opt.pctLinha ? fmtP(v, 1) : fmtD(v, 1)));
     });
     for (let i = 0; i <= 4; i++) {
       const y = ih - (ih / 4) * i, v = (maxL / 4) * i;
@@ -1456,37 +1459,27 @@ function podioPioresHTML(linhas) {
   </div>`;
 }
 
-/* Pódio: agrupa por pontuação, de modo que equipes empatadas dividem o lugar */
+/* Pódio: só o primeiro lugar. Havendo empate em pontos, vence quem lidera
+   no critério de desempate — a mesma ordem da tabela ao lado. */
 function podioHTML(linhas) {
   if (!linhas.length) return `<div class="podio"><div class="tit">sem dados</div></div>`;
 
   const lugares = agruparPorPontos(linhas);
-  const medalhas = ["🥇", "🥈", "🥉"];
-  const campeas = lugares[0].equipes;          // já vêm ordenadas pelo desempate
-  const empate = campeas.length > 1;
-
-  // 2º e 3º lugares, compactos — o nome completo do grupo vai no title
-  const demais = lugares.slice(1, 3).map((lug, i) => `
-    <div class="lugar" title="${lug.equipes.map(e => e.equipe).join(", ")}">
-      <span class="medalha">${medalhas[i + 1]}</span>
-      <span class="nomes">${lug.equipes.length > 1
-        ? `${lug.equipes.length} equipes empatadas`
-        : lug.equipes[0].equipe}</span>
-      <b>${fmtN(lug.pontos)}</b></div>`).join("");
+  const campea = lugares[0].equipes[0];        // já vêm ordenadas pelo desempate
+  const empatadas = lugares[0].equipes.length;
 
   return `<div class="podio">
     <img class="marca-podio" src="${LOGO_TECCEL}" alt="Teccel Energia">
     <div class="coroa">
-      <div class="tit">${empate ? "🏆 Liderança empatada" : "🏆 Equipe destaque"}</div>
-      <div class="eq">${empate ? `${campeas.length} equipes` : campeas[0].equipe}</div>
-      <div class="pts">${fmtN(lugares[0].pontos)} pontos${
-        empate ? " cada" : ` · ICIT ${fmtP(campeas[0].icit, 0)} · ${campeas[0].qtd} inspeções`}</div>
-      ${empate ? `<div class="chips">${campeas.map((e, i) =>
-        `<span class="chip${i === 0 ? " lider" : ""}" title="${e.qtd} inspeções · desempate ${fmtD(e.desempate, 1)}"
-          >${e.equipe}</span>`).join("")}</div>
-        <div class="empate">A ordem entre elas é decidida pelo critério de desempate</div>` : ""}
+      <div class="tit">🏆 Equipe campeã</div>
+      <div class="eq">${campea.equipe}</div>
+      <div class="pts">${fmtN(campea.pontosFinal)} pontos · ICIT ${fmtP(campea.icit, 1)}
+        · ${campea.qtd} inspeç${campea.qtd === 1 ? "ão" : "ões"}</div>
+      ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
+      ${empatadas > 1 ? `<div class="empate"
+        title="${lugares[0].equipes.map(e => e.equipe).join(", ")}"
+        >1º entre ${empatadas} equipes com ${fmtN(campea.pontosFinal)} pontos, pelo critério de desempate</div>` : ""}
     </div>
-    <div class="lista-lugares">${demais}</div>
   </div>`;
 }
 

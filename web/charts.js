@@ -93,9 +93,10 @@ function comboChart(host, dados, opt) {
       const c = el("circle", { cx: x, cy: y, r: 3.4, fill: cor });
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
-      if (dados.length <= 16)
+      // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
+      if (bw >= 34)
         g.appendChild(el("text", { x, y: y - 11, class: "rotulo-linha", "text-anchor": "middle" },
-          opt.pctLinha ? fmtP(v, 0) : fmtD(v, 0)));
+          opt.pctLinha ? fmtP(v, 1) : fmtD(v, 1)));
     });
     for (let i = 0; i <= 4; i++) {
       const y = ih - (ih / 4) * i, v = (maxL / 4) * i;

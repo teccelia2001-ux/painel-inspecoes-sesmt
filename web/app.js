@@ -490,37 +490,27 @@ function podioPioresHTML(linhas) {
   </div>`;
 }
 
-/* Pódio: agrupa por pontuação, de modo que equipes empatadas dividem o lugar */
+/* Pódio: só o primeiro lugar. Havendo empate em pontos, vence quem lidera
+   no critério de desempate — a mesma ordem da tabela ao lado. */
 function podioHTML(linhas) {
   if (!linhas.length) return `<div class="podio"><div class="tit">sem dados</div></div>`;
 
   const lugares = agruparPorPontos(linhas);
-  const medalhas = ["🥇", "🥈", "🥉"];
-  const campeas = lugares[0].equipes;          // já vêm ordenadas pelo desempate
-  const empate = campeas.length > 1;
-
-  // 2º e 3º lugares, compactos — o nome completo do grupo vai no title
-  const demais = lugares.slice(1, 3).map((lug, i) => `
-    <div class="lugar" title="${lug.equipes.map(e => e.equipe).join(", ")}">
-      <span class="medalha">${medalhas[i + 1]}</span>
-      <span class="nomes">${lug.equipes.length > 1
-        ? `${lug.equipes.length} equipes empatadas`
-        : lug.equipes[0].equipe}</span>
-      <b>${fmtN(lug.pontos)}</b></div>`).join("");
+  const campea = lugares[0].equipes[0];        // já vêm ordenadas pelo desempate
+  const empatadas = lugares[0].equipes.length;
 
   return `<div class="podio">
     <img class="marca-podio" src="${LOGO_TECCEL}" alt="Teccel Energia">
     <div class="coroa">
-      <div class="tit">${empate ? "🏆 Liderança empatada" : "🏆 Equipe destaque"}</div>
-      <div class="eq">${empate ? `${campeas.length} equipes` : campeas[0].equipe}</div>
-      <div class="pts">${fmtN(lugares[0].pontos)} pontos${
-        empate ? " cada" : ` · ICIT ${fmtP(campeas[0].icit, 0)} · ${campeas[0].qtd} inspeções`}</div>
-      ${empate ? `<div class="chips">${campeas.map((e, i) =>
-        `<span class="chip${i === 0 ? " lider" : ""}" title="${e.qtd} inspeções · desempate ${fmtD(e.desempate, 1)}"
-          >${e.equipe}</span>`).join("")}</div>
-        <div class="empate">A ordem entre elas é decidida pelo critério de desempate</div>` : ""}
+      <div class="tit">🏆 Equipe campeã</div>
+      <div class="eq">${campea.equipe}</div>
+      <div class="pts">${fmtN(campea.pontosFinal)} pontos · ICIT ${fmtP(campea.icit, 1)}
+        · ${campea.qtd} inspeç${campea.qtd === 1 ? "ão" : "ões"}</div>
+      ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
+      ${empatadas > 1 ? `<div class="empate"
+        title="${lugares[0].equipes.map(e => e.equipe).join(", ")}"
+        >1º entre ${empatadas} equipes com ${fmtN(campea.pontosFinal)} pontos, pelo critério de desempate</div>` : ""}
     </div>
-    <div class="lista-lugares">${demais}</div>
   </div>`;
 }
 
