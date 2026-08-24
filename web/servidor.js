@@ -123,8 +123,12 @@ const Banco = {
     }, extra || {});
   },
   async pedir(caminho, opcoes, jaRenovou) {
-    const r = await fetch(`${SERVIDOR.url}/rest/v1/${caminho}`,
-      Object.assign({ headers: this.cabecalhos(opcoes && opcoes.headers) }, opcoes));
+    // Atenção à ordem: os cabeçalhos precisam ser montados DEPOIS de copiar
+    // as opções, senão um `headers` vindo em opcoes (como o Prefer das
+    // gravações) substitui o bloco inteiro e a requisição sai sem apikey.
+    const req = Object.assign({}, opcoes);
+    req.headers = this.cabecalhos(opcoes && opcoes.headers);
+    const r = await fetch(`${SERVIDOR.url}/rest/v1/${caminho}`, req);
     const txt = await r.text();
     if (r.ok) return txt ? JSON.parse(txt) : null;
 
