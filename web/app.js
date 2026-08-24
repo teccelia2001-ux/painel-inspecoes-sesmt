@@ -275,7 +275,8 @@ function pgJornada() {
   const c = visual(pg, 23, 163, 910, 512, "Jornada Segura — pontuação por equipe");
   c.classList.add("rolagem");
   R.joTabela = c;
-  R.joPodio  = visual(pg, 951, 163, 537, 512, "Pódio");
+  R.joPodio  = visual(pg, 951, 163, 537, 316, "Pódio — melhores equipes");
+  R.joPiores = visual(pg, 951, 487, 537, 188, "Pódio — piores equipes");
   return pg;
 }
 
@@ -442,20 +443,58 @@ function render() {
       { titulo: "Pts final", valor: l => fmtN(l.pontosFinal), num: true, classe: () => "ok" },
       { titulo: "Desempate", valor: l => fmtD(l.desempate, 1), num: true }
     ], j);
-    R.joPodio.innerHTML = podioHTML(j);
+    R.joPodio.innerHTML  = podioHTML(j);
+    R.joPiores.innerHTML = podioPioresHTML(j);
   }
 }
 
-/* Pódio: agrupa por pontuação, de modo que equipes empatadas dividem o lugar */
-function podioHTML(linhas) {
-  if (!linhas.length) return `<div class="podio"><div class="tit">sem dados</div></div>`;
-
+/* Agrupa por pontuação: equipes com a mesma pontuação dividem o lugar.
+   A ordem dentro do grupo é a do critério de desempate. */
+function agruparPorPontos(linhas) {
   const lugares = [];
   linhas.forEach(l => {
     const ultimo = lugares[lugares.length - 1];
     if (ultimo && ultimo.pontos === l.pontosFinal) ultimo.equipes.push(l);
     else lugares.push({ pontos: l.pontosFinal, equipes: [l] });
   });
+  return lugares;
+}
+
+/* Pódio invertido: as equipes que mais perderam pontos */
+function podioPioresHTML(linhas) {
+  if (!linhas.length) return `<div class="podio piores"><div class="tit">sem dados</div></div>`;
+  const lugares = agruparPorPontos(linhas);
+  // do fim para o começo: o último grupo é o de menor pontuação.
+  // Não repete grupos que já aparecem no pódio dos melhores.
+  const topo = new Set(lugares.slice(0, 3).map(l => l.pontos));
+  const fundo = lugares.slice(-3).reverse().filter(l => !topo.has(l.pontos));
+  const marcas = ["🚩", "2º", "3º"];
+
+  if (!fundo.length) return `<div class="podio piores" title="Menor pontuação final — cada não conformidade desconta pontos da equipe">
+    <div class="tit">⚠️ Precisam de atenção</div>
+    <div class="empate">Todas as equipes filtradas estão no pódio dos melhores</div></div>`;
+
+  return `<div class="podio piores">
+    <div class="tit">⚠️ Precisam de atenção</div>
+    <div class="lista-lugares">
+      ${fundo.map((lug, i) => `
+        <div class="lugar${i === 0 ? " pior" : ""}" title="${lug.equipes.map(e =>
+            `${e.equipe} — ${e.ncLinhas} N.C, ICIT ${fmtP(e.icit, 0)}`).join(" | ")}">
+          <span class="medalha">${marcas[i]}</span>
+          <span class="nomes">${lug.equipes.length > 1
+            ? `${lug.equipes.length} equipes empatadas`
+            : lug.equipes[0].equipe}</span>
+          <span class="detalhe">${fmtN(lug.equipes.reduce((a, e) => a + e.ncLinhas, 0))} N.C</span>
+          <b>${fmtN(lug.pontos)}</b></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+/* Pódio: agrupa por pontuação, de modo que equipes empatadas dividem o lugar */
+function podioHTML(linhas) {
+  if (!linhas.length) return `<div class="podio"><div class="tit">sem dados</div></div>`;
+
+  const lugares = agruparPorPontos(linhas);
   const medalhas = ["🥇", "🥈", "🥉"];
   const campeas = lugares[0].equipes;          // já vêm ordenadas pelo desempate
   const empate = campeas.length > 1;
