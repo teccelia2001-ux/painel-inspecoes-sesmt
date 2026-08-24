@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2a">
+<title>Painel de Inspeções — SESMT</title>
+<style>
+:root{
+  --bg:#0d1b2a; --bg2:#132639; --painel:#16304a; --linha-borda:#22496b;
+  --txt:#e8f1fa; --txt2:#93b0c9; --acento:#00b8d4;
+  --c1:#00b8d4;           /* realizado */
+  --c2:#f4a11a;           /* meta / secundário */
+  --c3:#7a5cff;           /* terceira série */
+  --c-linha:#ffd166;      /* linha % */
+  --c-total:#4a6fa5;
+  --ruim:#e04f5f; --medio:#f4a11a; --bom:#2ec27e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#08131f;color:var(--txt);
+  font-family:"Segoe UI","Open Sans",system-ui,-apple-system,sans-serif;overflow:hidden}
+
+/* ---- palco: canvas 1510x720 escalado ---- */
+#palco{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#canvas{position:relative;flex:0 0 auto;width:1510px;height:720px;transform-origin:center center;
+  background:radial-gradient(1200px 600px at 20% -10%,#1b3a57 0%,var(--bg) 60%);
+  box-shadow:0 20px 60px rgba(0,0,0,.6);border-radius:6px;overflow:hidden}
+.pagina{position:absolute;inset:0;display:none}
+.pagina.ativa{display:block}
+
+/* ---- visuais ---- */
+.v{position:absolute}
+.painel{background:var(--painel);border:1px solid var(--linha-borda);border-radius:8px}
+.titulo{font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--txt2);
+  text-transform:uppercase;padding:8px 10px 0}
+.corpo{position:absolute;left:6px;right:6px;top:26px;bottom:6px}
+.corpo.semtitulo{top:6px}
+
+/* cards de KPI */
+.card{background:var(--painel);border:1px solid var(--linha-borda);border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.card .valor{font-size:24px;font-weight:700;line-height:1}
+.card .rot{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2)}
+.card.destaque .valor{color:var(--acento)}
+.card.alerta .valor{color:var(--ruim)}
+.card.ok .valor{color:var(--bom)}
+
+/* cabeçalho */
+.faixa-topo{position:absolute;left:0;right:0;top:0;height:78px;
+  background:linear-gradient(90deg,#0f2337 0%,#16304a 60%,#0f2337 100%);
+  border-bottom:2px solid var(--acento)}
+.marca{position:absolute;left:16px;top:14px;display:flex;align-items:center;gap:10px}
+.marca .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--acento),#0075a2);
+  display:grid;place-items:center;font-weight:800;font-size:15px;color:#06202e}
+.marca .nome{font-size:15px;font-weight:700;letter-spacing:.04em}
+.marca .sub{font-size:10px;color:var(--txt2);letter-spacing:.1em;text-transform:uppercase}
+.voltar{position:absolute;left:16px;top:86px;width:44px;height:44px;border-radius:10px;
+  background:var(--painel);border:1px solid var(--linha-borda);color:var(--txt);
+  cursor:pointer;font-size:18px}
+.voltar:hover{border-color:var(--acento);color:var(--acento)}
+
+/* slicers */
+.faixa-slicers{position:absolute;left:70px;right:16px;top:88px;height:44px;
+  display:flex;gap:8px;align-items:center}
+.slicer{position:relative;flex:1;max-width:150px}
+.slicer>button{width:100%;height:40px;border-radius:8px;background:var(--painel);
+  border:1px solid var(--linha-borda);color:var(--txt);text-align:left;padding:4px 22px 4px 9px;
+  cursor:pointer;font-size:11px;line-height:1.15}
+.slicer>button .lb{display:block;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2)}
+.slicer>button .vl{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slicer>button::after{content:"▾";position:absolute;right:8px;top:12px;color:var(--txt2)}
+.slicer.on>button{border-color:var(--acento);box-shadow:0 0 0 1px var(--acento) inset}
+.lista{position:absolute;z-index:40;top:42px;left:0;min-width:100%;max-height:230px;overflow:auto;
+  background:#0f2337;border:1px solid var(--acento);border-radius:8px;padding:4px;display:none}
+.slicer.aberto .lista{display:block}
+.lista label{display:flex;gap:6px;align-items:center;padding:4px 6px;font-size:11px;
+  border-radius:5px;cursor:pointer;white-space:nowrap}
+.lista label:hover{background:#16304a}
+.limpar{flex:0 0 auto;height:40px;padding:0 12px;border-radius:8px;white-space:nowrap;
+  background:transparent;border:1px solid var(--linha-borda);color:var(--txt2);cursor:pointer;font-size:11px}
+.limpar:hover{border-color:var(--ruim);color:var(--ruim)}
+.btn-filtros{display:none}
+
+/* navegação (PAINEL) */
+.menu-btn{display:flex;align-items:center;gap:14px;width:100%;height:100%;
+  background:linear-gradient(90deg,var(--painel),#1a3a57);border:1px solid var(--linha-borda);
+  border-left:4px solid var(--acento);border-radius:10px;color:var(--txt);cursor:pointer;
+  padding:0 18px;font-size:16px;font-weight:600;letter-spacing:.03em;text-align:left}
+.menu-btn:hover{background:linear-gradient(90deg,#1e4467,#265b86);border-color:var(--acento);transform:translateX(3px)}
+.menu-btn{transition:.15s}
+.menu-btn .ic{font-size:20px;width:26px;text-align:center}
+.menu-btn .desc{display:block;font-size:10.5px;font-weight:400;color:var(--txt2)}
+
+/* rodapé de páginas */
+.abas{position:absolute;left:0;right:0;bottom:0;height:30px;background:#0a1a29;
+  border-top:1px solid var(--linha-borda);display:flex;align-items:center;gap:2px;padding:0 8px;z-index:30}
+.abas button{background:transparent;border:0;color:var(--txt2);font-size:11px;padding:5px 10px;
+  border-radius:5px;cursor:pointer}
+.abas button:hover{color:var(--txt);background:#132639}
+.abas button.on{background:var(--acento);color:#06202e;font-weight:700}
+.abas .att{margin-left:auto;font-size:10px;color:#5d7b95;padding-right:6px}
+
+/* tabelas */
+.tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.tbl thead th{position:sticky;top:0;background:#0f2337;color:var(--txt2);text-align:left;
+  padding:6px 8px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  border-bottom:1px solid var(--acento);white-space:nowrap}
+.tbl td{padding:5px 8px;border-bottom:1px solid #1c3950}
+.tbl tbody tr:hover{background:#1a3a57}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .ok{color:var(--bom);font-weight:600}
+.tbl .nok{color:var(--ruim);font-weight:600}
+.rolagem{overflow:auto;height:100%}
+.medalha{font-size:14px}
+
+/* svg */
+.chart{display:block}
+.grade{stroke:#24425f;stroke-width:1}
+.eixo{fill:var(--txt2);font-size:9.5px}
+.eixo2{fill:var(--c-linha)}
+.rotulo{fill:var(--txt);font-size:9px;font-weight:600}
+.rotulo-linha{fill:var(--c-linha);font-size:9px;font-weight:700}
+.rotulo-barra{fill:var(--txt);font-size:10px}
+.vazio{fill:var(--txt2);font-size:12px}
+.meta{stroke:var(--c2);stroke-width:1.5;stroke-dasharray:5 4}
+.ponteiro{stroke:var(--txt);stroke-width:3;stroke-linecap:round}
+.pivo{fill:var(--txt)}
+.gauge-valor{fill:var(--txt);font-size:22px;font-weight:800}
+.legenda{position:absolute;right:8px;top:6px;display:flex;gap:10px;font-size:9px;color:var(--txt2)}
+.legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+
+/* ============================================================
+   MODO FLUIDO — telas estreitas (celular / tablet retrato)
+   Os mesmos visuais, reempilhados numa grade de 2 colunas.
+   ============================================================ */
+@media (max-width:1099px){
+  html,body{overflow:auto;height:auto;-webkit-text-size-adjust:100%}
+  #palco{position:static;display:block}
+  #canvas{width:100%;height:auto;min-height:100vh;transform:none;border-radius:0;box-shadow:none}
+  .pagina{position:static;inset:auto}
+  .pagina.ativa{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;padding:10px 10px 66px;align-content:start}
+
+  .faixa-topo{display:none}
+  .marca{position:static;grid-column:1/-1;padding:4px 0}
+  .voltar{position:static;grid-column:1/-1;width:auto;height:38px;padding:0 14px;
+    justify-self:start;font-size:14px}
+
+  /* todo visual perde o posicionamento absoluto e vira item da grade */
+  .v{position:relative;left:auto!important;top:auto!important;
+    width:auto!important;height:auto!important}
+  .card{grid-column:span 1;min-height:74px;padding:8px 4px}
+  /* no fluido o painel vira coluna flex: o título pode quebrar em 2 linhas
+     sem passar por cima do conteúdo */
+  .painel{grid-column:1/-1;min-height:290px;display:flex;flex-direction:column}
+  .titulo{position:static;flex:0 0 auto;padding:9px 10px 4px;font-size:11px}
+  .corpo{position:static;flex:1 1 auto;min-height:240px;margin:0 6px 6px}
+  .legenda{position:static;justify-content:flex-end;padding:0 8px 4px}
+
+  /* filtros recolhidos atrás de um botão */
+  .btn-filtros{display:flex;align-items:center;justify-content:center;gap:8px;
+    grid-column:1/-1;height:42px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;
+    background:var(--painel);border:1px solid var(--linha-borda);color:var(--txt)}
+  .btn-filtros .cont{font-size:11px;color:var(--txt2)}
+  .btn-filtros.on{border-color:var(--acento);color:var(--acento)}
+  .faixa-slicers{display:none}
+  .pagina.filtros-abertos .faixa-slicers{position:static;grid-column:1/-1;height:auto;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px}
+  .slicer{max-width:none}
+  .limpar{grid-column:1/-1;width:100%;height:42px}
+  .lista{max-height:52vh}
+
+  /* tabela rola na horizontal em vez de espremer as colunas */
+  .rolagem{max-height:66vh}
+  .tbl{font-size:12.5px;min-width:620px}
+  .tbl td,.tbl thead th{padding:8px 9px;white-space:nowrap}
+
+  .abas{position:fixed;bottom:0;overflow-x:auto;flex-wrap:nowrap;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .abas::-webkit-scrollbar{display:none}
+  .abas button{white-space:nowrap;flex:0 0 auto}
+  .abas .att{display:none}
+
+  /* alvos de toque maiores */
+  .lista label{padding:9px 8px}
+  .slicer>button{height:46px}
+}
+
+/* celular estreito: 2 cards por linha, visuais mais altos */
+@media (max-width:520px){
+  .pagina.ativa{padding:8px 8px 66px;gap:8px}
+  .card{min-height:62px;padding:6px 4px}
+  .card .valor{font-size:20px}
+  .card .rot{font-size:8.5px}
+  .painel{min-height:300px}
+  .marca .nome{font-size:14px}
+  .voltar{height:36px}
+}
+
+/* pódio */
+.podio{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px}
+.podio .tit{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt2)}
+.podio .eq{font-size:30px;font-weight:800;color:var(--c-linha)}
+.podio .pts{font-size:13px;color:var(--txt2)}
+.podio .lugar{display:flex;align-items:center;gap:10px;width:80%;padding:8px 14px;border-radius:8px;
+  background:#12293f;border:1px solid var(--linha-borda);font-size:13px}
+.podio .lugar b{margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div id="palco"><div id="canvas"></div></div>
+<script src="data.js"></script>
+<script src="model.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
