@@ -298,6 +298,16 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   background:rgba(36,31,26,.45);padding:20px}
 .aj-dialogo{width:min(430px,100%);max-height:100%;overflow:auto;background:var(--painel);
   border-radius:12px;box-shadow:0 20px 60px rgba(36,31,26,.35);display:flex;flex-direction:column}
+/* chama atenção quando alguém tenta sair com alterações pendentes */
+.aj-dialogo.chama{animation:aj-chama .28s ease}
+@keyframes aj-chama{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-6px)}
+  75%{transform:translateX(6px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .aj-dialogo.chama{animation:none;outline:2px solid var(--acento);outline-offset:2px}
+}
 .aj-dcab{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px}
 .aj-dcab h3{margin:0;font-size:17px;font-weight:800}
 .aj-x{border:0;background:transparent;color:var(--txt2);font-size:16px;cursor:pointer;

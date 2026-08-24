@@ -338,13 +338,35 @@ const Ajustes = {
         <button type="submit" class="aj-ok${perigo ? " perigo" : ""}">${rotuloOk}</button>
       </div></form>`;
     canvas.appendChild(fundo);
-    const fechar = () => fundo.remove();
+    const form = fundo.querySelector("form");
+
+    /* Fechar sem querer apaga o que foi digitado. Clique fora e Esc só
+       fecham enquanto nada tiver sido alterado; havendo mudança, o
+       diálogo chama atenção e fica aberto — sai pelo Cancelar ou pelo X. */
+    const inicial = new FormData(form);
+    const alterado = () => {
+      const agora = new FormData(form);
+      for (const [k, v] of agora) if (String(inicial.get(k)) !== String(v)) return true;
+      return false;
+    };
+    const insistir = () => {
+      fundo.querySelector(".aj-dialogo").classList.remove("chama");
+      void fundo.offsetWidth;                       // reinicia a animação
+      fundo.querySelector(".aj-dialogo").classList.add("chama");
+      const erro = fundo.querySelector(".aj-derro");
+      erro.textContent = "Há alterações não salvas. Use Cancelar para descartar.";
+    };
+
+    const aoTeclar = e => { if (e.key === "Escape") (alterado() ? insistir() : fechar()); };
+    const fechar = () => {
+      document.removeEventListener("keydown", aoTeclar);
+      fundo.remove();
+    };
     fundo.querySelector(".aj-x").onclick = fechar;
     fundo.querySelector(".aj-cancelar").onclick = fechar;
-    fundo.onclick = e => { if (e.target === fundo) fechar(); };
-    document.addEventListener("keydown", function esc(e) {
-      if (e.key === "Escape") { fechar(); document.removeEventListener("keydown", esc); }
-    });
+    fundo.onclick = e => { if (e.target === fundo) (alterado() ? insistir() : fechar()); };
+    document.addEventListener("keydown", aoTeclar);
+
     const primeiro = fundo.querySelector("input, select");
     if (primeiro) primeiro.focus();
 
