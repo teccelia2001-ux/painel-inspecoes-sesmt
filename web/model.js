@@ -29,7 +29,7 @@ function reconstruirModelo() {
       tipo: r[3], data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
       ano: "" + y, mes: "" + m,
-      area: insp ? insp[2] : "", funcao: insp ? insp[4] : "", cargo: insp ? insp[1] : "",
+      polo: insp ? insp[1] : "", funcao: insp ? insp[2] : "",
       supervisor: eq ? eq[2] : "", tipoEquipe: eq ? eq[1] : ""
     };
   });
@@ -38,7 +38,7 @@ function reconstruirModelo() {
 reconstruirModelo();
 
 /* ---------- Filtros ---------- */
-const CAMPOS = ["ano", "mes", "area", "inspetor", "funcao", "supervisor", "equipe"];
+const CAMPOS = ["ano", "mes", "polo", "inspetor", "funcao", "supervisor", "equipe"];
 const filtros = Object.fromEntries(CAMPOS.map(c => [c, new Set()]));
 
 const ativo = c => filtros[c].size > 0;
@@ -57,7 +57,7 @@ function fatoFiltrado(ignorar) {
   const ig = new Set(ignorar || []);
   const ok = (c, v) => ig.has(c) || bate(c, v);
   return FATO.filter(f =>
-    ok("ano", f.ano) && ok("mes", f.mes) && ok("area", f.area) &&
+    ok("ano", f.ano) && ok("mes", f.mes) && ok("polo", f.polo) &&
     ok("inspetor", f.inspetor) && ok("funcao", f.funcao) &&
     ok("supervisor", f.supervisor) && ok("equipe", f.equipe));
 }
@@ -68,7 +68,7 @@ function Dias_uteis(ms)          { return (ms || mesesAtivos()).reduce((a, d) =>
 function Dias_uteis_ate_hoje(ms) { return (ms || mesesAtivos()).reduce((a, d) => a + d[3], 0); }
 
 function inspetoresValidos() {
-  return INSPETORES.filter(i => bate("area", i[2]) && bate("inspetor", i[0]) && bate("funcao", i[4]));
+  return INSPETORES.filter(i => bate("polo", i[1]) && bate("inspetor", i[0]) && bate("funcao", i[2]));
 }
 function Qtd_Inspetor(ms) {
   const meses = (ms || mesesAtivos()).map(d => d[0]).filter(m => META_MESES.includes(m));
@@ -77,7 +77,7 @@ function Qtd_Inspetor(ms) {
 // Meta_Insp = SUMX('Meta Inspetores'; [META INSPEÇÃO DINAMICA]) — metas versionadas por mês
 function Meta_Insp(ms) {
   const meses = (ms || mesesAtivos()).map(d => d[0]).filter(m => META_MESES.includes(m));
-  const porMes = inspetoresValidos().reduce((a, i) => a + i[5], 0);
+  const porMes = inspetoresValidos().reduce((a, i) => a + i[3], 0);
   return porMes * meses.length;
 }
 // Meta_insp_dia = Meta_Insp / Dias_uteis * Dias_uteis_até_hoje
@@ -129,7 +129,7 @@ function agrupar(f, campo, ms) {
       const i = IDX_INSPETOR[k];
       const meses = ms.map(d => d[0]).filter(m => META_MESES.includes(m)).length;
       const du = Dias_uteis(ms);
-      meta = i ? i[5] * meses : 0;
+      meta = i ? i[3] * meses : 0;
       metaDia = du ? meta / du * Dias_uteis_ate_hoje(ms) : 0;
     }
     const nc = Qtd_Inspecao_NC(rows);
@@ -151,7 +151,7 @@ function porInspetor(f, ms, comVazio) {
   const du = Dias_uteis(ms), duh = Dias_uteis_ate_hoje(ms);
   inspetoresValidos().forEach(i => {
     if (achados.has(i[0])) return;
-    const meta = i[5] * meses;
+    const meta = i[3] * meses;
     g.push({
       chave: i[0], fato: [], qtd: 0, nc: 0, ncLinhas: 0, icit: null,
       meta, metaDia: du ? meta / du * duh : 0, pct: 0, pctTotal: 0, pontosNC: 0
@@ -239,8 +239,8 @@ function opcoes(campo) {
   } else {
     base.forEach(f => { if (f[campo]) vals.add(f[campo]); });
     if (campo === "inspetor") INSPETORES.forEach(i => vals.add(i[0]));
-    if (campo === "area")     INSPETORES.forEach(i => vals.add(i[2]));
-    if (campo === "funcao")   INSPETORES.forEach(i => vals.add(i[4]));
+    if (campo === "polo")     INSPETORES.forEach(i => vals.add(i[1]));
+    if (campo === "funcao")   INSPETORES.forEach(i => vals.add(i[2]));
   }
   return [...vals].sort((a, b) =>
     campo === "mes" ? a - b : String(a).localeCompare(String(b), "pt-BR", { numeric: true }));

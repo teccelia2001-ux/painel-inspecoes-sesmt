@@ -246,11 +246,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 
-.aj-abas{display:flex;gap:4px;margin-top:26px}
-.aj-abas button{background:transparent;border:0;border-bottom:2px solid transparent;
-  color:var(--txt2);font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer}
-.aj-abas button:hover{color:var(--txt)}
-.aj-abas button.on{color:var(--acento-forte);border-bottom-color:var(--acento)}
+/* seletor de seção: botões de verdade, não texto sublinhado */
+.aj-abas{display:inline-flex;gap:4px;margin-top:26px;padding:4px;border-radius:10px;
+  background:var(--painel-alt);border:1px solid var(--linha-borda);align-self:flex-start}
+.aj-abas button{background:transparent;border:1px solid transparent;border-radius:7px;
+  color:var(--txt2);font-size:13px;font-weight:700;padding:9px 22px;cursor:pointer;transition:.12s}
+.aj-abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
+.aj-abas button.on{background:var(--acento);color:#fff;box-shadow:0 1px 4px rgba(251,69,19,.4)}
+.aj-abas button.on:hover{background:var(--acento-forte);color:#fff}
 
 .aj-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .aj-tit{margin:0;font-size:20px;font-weight:800;border-left:4px solid var(--acento);padding-left:10px}

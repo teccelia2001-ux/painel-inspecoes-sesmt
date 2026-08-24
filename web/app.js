@@ -103,7 +103,7 @@ function cabecalho(pg, cards) {
   const faixa = document.createElement("div");
   faixa.className = "faixa-slicers";
   pg.appendChild(faixa);
-  [["ano", "Ano"], ["mes", "Mês"], ["area", "Área"], ["inspetor", "Inspetor"],
+  [["ano", "Ano"], ["mes", "Mês"], ["polo", "Polo"], ["inspetor", "Inspetor"],
    ["funcao", "Função"], ["supervisor", "Supervisor"], ["equipe", "Equipe"]]
     .forEach(([campo, rot]) => faixa.appendChild(montarSlicer(campo, rot)));
 
@@ -368,8 +368,8 @@ function render() {
     tabela(R.rkTabela, [
       { titulo: "#", valor: (l, i) => "", num: true },
       { titulo: "Inspetor", valor: l => l.chave },
-      { titulo: "Função", valor: l => (IDX_INSPETOR[l.chave] || ["","","","",""])[4] },
-      { titulo: "Área", valor: l => (IDX_INSPETOR[l.chave] || ["","",""])[2] },
+      { titulo: "Função", valor: l => (IDX_INSPETOR[l.chave] || ["","",""])[2] },
+      { titulo: "Polo", valor: l => (IDX_INSPETOR[l.chave] || ["",""])[1] },
       { titulo: "Meta inspeção", valor: l => fmtN(l.meta), num: true },
       { titulo: "Meta até hoje", valor: l => fmtD(l.metaDia, 1), num: true },
       { titulo: "Realizado", valor: l => fmtN(l.qtd), num: true },

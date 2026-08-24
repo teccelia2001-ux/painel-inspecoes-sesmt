@@ -19,12 +19,8 @@ const CAMPOS_INSPETOR = [
   { k: "inspetor", rot: "Nome do inspetor", obrigatorio: true },
   { k: "funcao", rot: "Função", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.funcao))].filter(Boolean).sort() },
-  { k: "cargo", rot: "Cargo", tipo: "select-livre", origem: () => [...new Set(
-      Cadastros.inspetores.map(i => i.cargo))].filter(Boolean).sort() },
-  { k: "area", rot: "Área", tipo: "select-livre", origem: () => [...new Set(
-      Cadastros.inspetores.map(i => i.area))].filter(Boolean).sort() },
-  { k: "regional", rot: "Regional", tipo: "select-livre", origem: () => [...new Set(
-      Cadastros.inspetores.map(i => i.regional))].filter(Boolean).sort() },
+  { k: "polo", rot: "Polo", tipo: "select-livre", origem: () => [...new Set(
+      Cadastros.inspetores.map(i => i.polo))].filter(Boolean).sort() },
   { k: "meta_dinamica", rot: "Meta de inspeção dinâmica (por mês)", tipo: "numero", padrao: 0 },
   { k: "meta_estatica", rot: "Meta de inspeção estática (por mês)", tipo: "numero", padrao: 0 },
   { k: "ativo", rot: "Situação", tipo: "booleano", rotSim: "Ativo", rotNao: "Inativo", padrao: true }
@@ -45,11 +41,11 @@ const SECOES = {
   inspetores: {
     titulo: "Inspetores", desc: "Quem faz as inspeções e a meta individual de cada um.",
     novo: "Novo inspetor", chave: "inspetor", campos: CAMPOS_INSPETOR, statusK: "ativo",
-    filtros: [["funcao", "Função"], ["area", "Área"], ["ativo", "Situação"]],
+    filtros: [["funcao", "Função"], ["polo", "Polo"], ["ativo", "Situação"]],
     colunas: [
       { t: "Inspetor", v: r => r.inspetor, forte: true },
       { t: "Função", v: r => r.funcao || "—" },
-      { t: "Área", v: r => r.area || "—", etiqueta: true },
+      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
       { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true }
     ]

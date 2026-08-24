@@ -12,19 +12,19 @@ const DDATA = [
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
-/* Inspetores — [INSPETOR, CARGO, ÁREA, REGIONAL, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
+/* Inspetores — [INSPETOR, POLO, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
 let INSPETORES = [
-  ["Acacio","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Arisleudo","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Arlan","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Edney","Supervisor","Obras RD","OESTE","Técnico Segurança",12,2],
-  ["Francisco","Técnico Segurança","Obras RD","OESTE","Técnico Segurança",12,2],
-  ["Gustavo","Coordenador","Obras RD","OESTE","Coordenador Operacional",4,2],
-  ["Huislan","Técnico Segurança","Obras RD","OESTE","Técnico Segurança",12,2],
-  ["Humberto","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Joab","Engenheiro Segurança","Obras RD","OESTE","Engenheiro Segurança",4,0],
-  ["Julierme","Gerente Operacional","Obras RD","OESTE","Gerente Operacional",2,2],
-  ["Rangel","Supervisor","Obras RD","OESTE","Supervisor",4,2]
+  ["Acacio","Obras RD","Supervisor",4,0],
+  ["Arisleudo","Obras RD","Supervisor",4,0],
+  ["Arlan","Obras RD","Supervisor",4,0],
+  ["Edney","Obras RD","Técnico Segurança",12,2],
+  ["Francisco","Obras RD","Técnico Segurança",12,2],
+  ["Gustavo","Obras RD","Coordenador Operacional",4,2],
+  ["Huislan","Obras RD","Técnico Segurança",12,2],
+  ["Humberto","Obras RD","Supervisor",4,0],
+  ["Joab","Obras RD","Engenheiro Segurança",4,0],
+  ["Julierme","Obras RD","Gerente Operacional",2,2],
+  ["Rangel","Obras RD","Supervisor",4,2]
 ];
 
 /* Meses com metas cadastradas em "Meta Inspetores" (abr–jul/2026) */
@@ -204,4 +204,4 @@ const NC = [
 const ATUALIZACAO = "24/08/2026 07:20:36";
 
 /* Versão do build — carimbada no rodapé para conferir cache do navegador */
-const VERSAO = "20260824-1704";
+const VERSAO = "20260824-1715";

@@ -244,11 +244,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 
-.aj-abas{display:flex;gap:4px;margin-top:26px}
-.aj-abas button{background:transparent;border:0;border-bottom:2px solid transparent;
-  color:var(--txt2);font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer}
-.aj-abas button:hover{color:var(--txt)}
-.aj-abas button.on{color:var(--acento-forte);border-bottom-color:var(--acento)}
+/* seletor de seção: botões de verdade, não texto sublinhado */
+.aj-abas{display:inline-flex;gap:4px;margin-top:26px;padding:4px;border-radius:10px;
+  background:var(--painel-alt);border:1px solid var(--linha-borda);align-self:flex-start}
+.aj-abas button{background:transparent;border:1px solid transparent;border-radius:7px;
+  color:var(--txt2);font-size:13px;font-weight:700;padding:9px 22px;cursor:pointer;transition:.12s}
+.aj-abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
+.aj-abas button.on{background:var(--acento);color:#fff;box-shadow:0 1px 4px rgba(251,69,19,.4)}
+.aj-abas button.on:hover{background:var(--acento-forte);color:#fff}
 
 .aj-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .aj-tit{margin:0;font-size:20px;font-weight:800;border-left:4px solid var(--acento);padding-left:10px}
@@ -418,19 +421,19 @@ const DDATA = [
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
-/* Inspetores — [INSPETOR, CARGO, ÁREA, REGIONAL, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
+/* Inspetores — [INSPETOR, POLO, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
 let INSPETORES = [
-  ["Acacio","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Arisleudo","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Arlan","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Edney","Supervisor","Obras RD","OESTE","Técnico Segurança",12,2],
-  ["Francisco","Técnico Segurança","Obras RD","OESTE","Técnico Segurança",12,2],
-  ["Gustavo","Coordenador","Obras RD","OESTE","Coordenador Operacional",4,2],
-  ["Huislan","Técnico Segurança","Obras RD","OESTE","Técnico Segurança",12,2],
-  ["Humberto","Supervisor","Obras RD","OESTE","Supervisor",4,0],
-  ["Joab","Engenheiro Segurança","Obras RD","OESTE","Engenheiro Segurança",4,0],
-  ["Julierme","Gerente Operacional","Obras RD","OESTE","Gerente Operacional",2,2],
-  ["Rangel","Supervisor","Obras RD","OESTE","Supervisor",4,2]
+  ["Acacio","Obras RD","Supervisor",4,0],
+  ["Arisleudo","Obras RD","Supervisor",4,0],
+  ["Arlan","Obras RD","Supervisor",4,0],
+  ["Edney","Obras RD","Técnico Segurança",12,2],
+  ["Francisco","Obras RD","Técnico Segurança",12,2],
+  ["Gustavo","Obras RD","Coordenador Operacional",4,2],
+  ["Huislan","Obras RD","Técnico Segurança",12,2],
+  ["Humberto","Obras RD","Supervisor",4,0],
+  ["Joab","Obras RD","Engenheiro Segurança",4,0],
+  ["Julierme","Obras RD","Gerente Operacional",2,2],
+  ["Rangel","Obras RD","Supervisor",4,2]
 ];
 
 /* Meses com metas cadastradas em "Meta Inspetores" (abr–jul/2026) */
@@ -610,7 +613,7 @@ const NC = [
 const ATUALIZACAO = "24/08/2026 07:20:36";
 
 /* Versão do build — carimbada no rodapé para conferir cache do navegador */
-const VERSAO = "20260824-1704";
+const VERSAO = "20260824-1715";
 </script>
 <script>
 /* ============================================================
@@ -644,7 +647,7 @@ function reconstruirModelo() {
       tipo: r[3], data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
       ano: "" + y, mes: "" + m,
-      area: insp ? insp[2] : "", funcao: insp ? insp[4] : "", cargo: insp ? insp[1] : "",
+      polo: insp ? insp[1] : "", funcao: insp ? insp[2] : "",
       supervisor: eq ? eq[2] : "", tipoEquipe: eq ? eq[1] : ""
     };
   });
@@ -653,7 +656,7 @@ function reconstruirModelo() {
 reconstruirModelo();
 
 /* ---------- Filtros ---------- */
-const CAMPOS = ["ano", "mes", "area", "inspetor", "funcao", "supervisor", "equipe"];
+const CAMPOS = ["ano", "mes", "polo", "inspetor", "funcao", "supervisor", "equipe"];
 const filtros = Object.fromEntries(CAMPOS.map(c => [c, new Set()]));
 
 const ativo = c => filtros[c].size > 0;
@@ -672,7 +675,7 @@ function fatoFiltrado(ignorar) {
   const ig = new Set(ignorar || []);
   const ok = (c, v) => ig.has(c) || bate(c, v);
   return FATO.filter(f =>
-    ok("ano", f.ano) && ok("mes", f.mes) && ok("area", f.area) &&
+    ok("ano", f.ano) && ok("mes", f.mes) && ok("polo", f.polo) &&
     ok("inspetor", f.inspetor) && ok("funcao", f.funcao) &&
     ok("supervisor", f.supervisor) && ok("equipe", f.equipe));
 }
@@ -683,7 +686,7 @@ function Dias_uteis(ms)          { return (ms || mesesAtivos()).reduce((a, d) =>
 function Dias_uteis_ate_hoje(ms) { return (ms || mesesAtivos()).reduce((a, d) => a + d[3], 0); }
 
 function inspetoresValidos() {
-  return INSPETORES.filter(i => bate("area", i[2]) && bate("inspetor", i[0]) && bate("funcao", i[4]));
+  return INSPETORES.filter(i => bate("polo", i[1]) && bate("inspetor", i[0]) && bate("funcao", i[2]));
 }
 function Qtd_Inspetor(ms) {
   const meses = (ms || mesesAtivos()).map(d => d[0]).filter(m => META_MESES.includes(m));
@@ -692,7 +695,7 @@ function Qtd_Inspetor(ms) {
 // Meta_Insp = SUMX('Meta Inspetores'; [META INSPEÇÃO DINAMICA]) — metas versionadas por mês
 function Meta_Insp(ms) {
   const meses = (ms || mesesAtivos()).map(d => d[0]).filter(m => META_MESES.includes(m));
-  const porMes = inspetoresValidos().reduce((a, i) => a + i[5], 0);
+  const porMes = inspetoresValidos().reduce((a, i) => a + i[3], 0);
   return porMes * meses.length;
 }
 // Meta_insp_dia = Meta_Insp / Dias_uteis * Dias_uteis_até_hoje
@@ -744,7 +747,7 @@ function agrupar(f, campo, ms) {
       const i = IDX_INSPETOR[k];
       const meses = ms.map(d => d[0]).filter(m => META_MESES.includes(m)).length;
       const du = Dias_uteis(ms);
-      meta = i ? i[5] * meses : 0;
+      meta = i ? i[3] * meses : 0;
       metaDia = du ? meta / du * Dias_uteis_ate_hoje(ms) : 0;
     }
     const nc = Qtd_Inspecao_NC(rows);
@@ -766,7 +769,7 @@ function porInspetor(f, ms, comVazio) {
   const du = Dias_uteis(ms), duh = Dias_uteis_ate_hoje(ms);
   inspetoresValidos().forEach(i => {
     if (achados.has(i[0])) return;
-    const meta = i[5] * meses;
+    const meta = i[3] * meses;
     g.push({
       chave: i[0], fato: [], qtd: 0, nc: 0, ncLinhas: 0, icit: null,
       meta, metaDia: du ? meta / du * duh : 0, pct: 0, pctTotal: 0, pontosNC: 0
@@ -854,8 +857,8 @@ function opcoes(campo) {
   } else {
     base.forEach(f => { if (f[campo]) vals.add(f[campo]); });
     if (campo === "inspetor") INSPETORES.forEach(i => vals.add(i[0]));
-    if (campo === "area")     INSPETORES.forEach(i => vals.add(i[2]));
-    if (campo === "funcao")   INSPETORES.forEach(i => vals.add(i[4]));
+    if (campo === "polo")     INSPETORES.forEach(i => vals.add(i[1]));
+    if (campo === "funcao")   INSPETORES.forEach(i => vals.add(i[2]));
   }
   return [...vals].sort((a, b) =>
     campo === "mes" ? a - b : String(a).localeCompare(String(b), "pt-BR", { numeric: true }));
@@ -1040,7 +1043,7 @@ const Banco = {
    ============================================================ */
 const Cadastros = {
   equipes: [],       // {id, equipe, tipo, supervisor, pontos, ativa}
-  inspetores: [],    // {id, inspetor, cargo, area, regional, funcao, meta_dinamica, meta_estatica, ativo}
+  inspetores: [],    // {id, inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo}
   origem: "embutido",
 
   /* Dados de data.js, usados enquanto o banco não responde */
@@ -1049,8 +1052,8 @@ const Cadastros = {
       id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3], ativa: true
     }));
     this.inspetores = INSPETORES.map((r, i) => ({
-      id: "local-i" + i, inspetor: r[0], cargo: r[1], area: r[2], regional: r[3],
-      funcao: r[4], meta_dinamica: r[5], meta_estatica: r[6], ativo: true
+      id: "local-i" + i, inspetor: r[0], polo: r[1],
+      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4], ativo: true
     }));
     this.origem = "embutido";
   },
@@ -1060,7 +1063,7 @@ const Cadastros = {
     EQUIPES = this.equipes.filter(e => e.ativa)
       .map(e => [e.equipe, e.tipo || "", e.supervisor || "", Number(e.pontos) || 0]);
     INSPETORES = this.inspetores.filter(i => i.ativo)
-      .map(i => [i.inspetor, i.cargo || "", i.area || "", i.regional || "", i.funcao || "",
+      .map(i => [i.inspetor, i.polo || i.area || "", i.funcao || "",
                  Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0]);
     reconstruirModelo();
   },
@@ -1071,7 +1074,12 @@ const Cadastros = {
       const d = await Banco.baixarCadastros();
       if (d.equipes.length || d.inspetores.length) {
         this.equipes = d.equipes;
-        this.inspetores = d.inspetores;
+        // "Área" virou "Polo". Enquanto a migração não roda no banco, o valor
+        // antigo é aproveitado para o painel não aparecer com o campo vazio.
+        this.inspetores = d.inspetores.map(i => {
+          if (i.polo === undefined && i.area !== undefined) i.polo = i.area;
+          return i;
+        });
         this.origem = "banco";
       }
     } catch (e) {
@@ -1090,6 +1098,8 @@ const Cadastros = {
     const novo = !registro.id || String(registro.id).startsWith("local-");
     const corpo = Object.assign({}, registro);
     delete corpo.id; delete corpo.criada_em; delete corpo.atualizada_em;
+    // resquício da migração Área→Polo: não mandar a coluna antiga de volta
+    delete corpo.area;
 
     if (Banco.podeEditar()) {
       const r = novo ? await Banco.criar(tabela, corpo)
@@ -1378,12 +1388,8 @@ const CAMPOS_INSPETOR = [
   { k: "inspetor", rot: "Nome do inspetor", obrigatorio: true },
   { k: "funcao", rot: "Função", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.funcao))].filter(Boolean).sort() },
-  { k: "cargo", rot: "Cargo", tipo: "select-livre", origem: () => [...new Set(
-      Cadastros.inspetores.map(i => i.cargo))].filter(Boolean).sort() },
-  { k: "area", rot: "Área", tipo: "select-livre", origem: () => [...new Set(
-      Cadastros.inspetores.map(i => i.area))].filter(Boolean).sort() },
-  { k: "regional", rot: "Regional", tipo: "select-livre", origem: () => [...new Set(
-      Cadastros.inspetores.map(i => i.regional))].filter(Boolean).sort() },
+  { k: "polo", rot: "Polo", tipo: "select-livre", origem: () => [...new Set(
+      Cadastros.inspetores.map(i => i.polo))].filter(Boolean).sort() },
   { k: "meta_dinamica", rot: "Meta de inspeção dinâmica (por mês)", tipo: "numero", padrao: 0 },
   { k: "meta_estatica", rot: "Meta de inspeção estática (por mês)", tipo: "numero", padrao: 0 },
   { k: "ativo", rot: "Situação", tipo: "booleano", rotSim: "Ativo", rotNao: "Inativo", padrao: true }
@@ -1404,11 +1410,11 @@ const SECOES = {
   inspetores: {
     titulo: "Inspetores", desc: "Quem faz as inspeções e a meta individual de cada um.",
     novo: "Novo inspetor", chave: "inspetor", campos: CAMPOS_INSPETOR, statusK: "ativo",
-    filtros: [["funcao", "Função"], ["area", "Área"], ["ativo", "Situação"]],
+    filtros: [["funcao", "Função"], ["polo", "Polo"], ["ativo", "Situação"]],
     colunas: [
       { t: "Inspetor", v: r => r.inspetor, forte: true },
       { t: "Função", v: r => r.funcao || "—" },
-      { t: "Área", v: r => r.area || "—", etiqueta: true },
+      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
       { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true }
     ]
@@ -1848,7 +1854,7 @@ function cabecalho(pg, cards) {
   const faixa = document.createElement("div");
   faixa.className = "faixa-slicers";
   pg.appendChild(faixa);
-  [["ano", "Ano"], ["mes", "Mês"], ["area", "Área"], ["inspetor", "Inspetor"],
+  [["ano", "Ano"], ["mes", "Mês"], ["polo", "Polo"], ["inspetor", "Inspetor"],
    ["funcao", "Função"], ["supervisor", "Supervisor"], ["equipe", "Equipe"]]
     .forEach(([campo, rot]) => faixa.appendChild(montarSlicer(campo, rot)));
 
@@ -2113,8 +2119,8 @@ function render() {
     tabela(R.rkTabela, [
       { titulo: "#", valor: (l, i) => "", num: true },
       { titulo: "Inspetor", valor: l => l.chave },
-      { titulo: "Função", valor: l => (IDX_INSPETOR[l.chave] || ["","","","",""])[4] },
-      { titulo: "Área", valor: l => (IDX_INSPETOR[l.chave] || ["","",""])[2] },
+      { titulo: "Função", valor: l => (IDX_INSPETOR[l.chave] || ["","",""])[2] },
+      { titulo: "Polo", valor: l => (IDX_INSPETOR[l.chave] || ["",""])[1] },
       { titulo: "Meta inspeção", valor: l => fmtN(l.meta), num: true },
       { titulo: "Meta até hoje", valor: l => fmtD(l.metaDia, 1), num: true },
       { titulo: "Realizado", valor: l => fmtN(l.qtd), num: true },

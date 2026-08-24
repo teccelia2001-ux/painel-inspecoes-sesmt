@@ -176,7 +176,7 @@ const Banco = {
    ============================================================ */
 const Cadastros = {
   equipes: [],       // {id, equipe, tipo, supervisor, pontos, ativa}
-  inspetores: [],    // {id, inspetor, cargo, area, regional, funcao, meta_dinamica, meta_estatica, ativo}
+  inspetores: [],    // {id, inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo}
   origem: "embutido",
 
   /* Dados de data.js, usados enquanto o banco não responde */
@@ -185,8 +185,8 @@ const Cadastros = {
       id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3], ativa: true
     }));
     this.inspetores = INSPETORES.map((r, i) => ({
-      id: "local-i" + i, inspetor: r[0], cargo: r[1], area: r[2], regional: r[3],
-      funcao: r[4], meta_dinamica: r[5], meta_estatica: r[6], ativo: true
+      id: "local-i" + i, inspetor: r[0], polo: r[1],
+      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4], ativo: true
     }));
     this.origem = "embutido";
   },
@@ -196,7 +196,7 @@ const Cadastros = {
     EQUIPES = this.equipes.filter(e => e.ativa)
       .map(e => [e.equipe, e.tipo || "", e.supervisor || "", Number(e.pontos) || 0]);
     INSPETORES = this.inspetores.filter(i => i.ativo)
-      .map(i => [i.inspetor, i.cargo || "", i.area || "", i.regional || "", i.funcao || "",
+      .map(i => [i.inspetor, i.polo || i.area || "", i.funcao || "",
                  Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0]);
     reconstruirModelo();
   },
@@ -207,7 +207,12 @@ const Cadastros = {
       const d = await Banco.baixarCadastros();
       if (d.equipes.length || d.inspetores.length) {
         this.equipes = d.equipes;
-        this.inspetores = d.inspetores;
+        // "Área" virou "Polo". Enquanto a migração não roda no banco, o valor
+        // antigo é aproveitado para o painel não aparecer com o campo vazio.
+        this.inspetores = d.inspetores.map(i => {
+          if (i.polo === undefined && i.area !== undefined) i.polo = i.area;
+          return i;
+        });
         this.origem = "banco";
       }
     } catch (e) {
@@ -226,6 +231,8 @@ const Cadastros = {
     const novo = !registro.id || String(registro.id).startsWith("local-");
     const corpo = Object.assign({}, registro);
     delete corpo.id; delete corpo.criada_em; delete corpo.atualizada_em;
+    // resquício da migração Área→Polo: não mandar a coluna antiga de volta
+    delete corpo.area;
 
     if (Banco.podeEditar()) {
       const r = novo ? await Banco.criar(tabela, corpo)
