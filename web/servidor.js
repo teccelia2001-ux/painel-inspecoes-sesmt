@@ -11,6 +11,16 @@
    quem manda no que pode ser gravado é a RLS, não a chave.
    ============================================================ */
 
+/* ------------------------------------------------------------
+   PROJETO SUPABASE DO PAINEL
+
+   >>> TROCAR AQUI ao migrar para o projeto próprio do SESMT:
+       url   = Project Settings → API → Project URL
+       chave = Project Settings → API → publishable / anon key
+
+   Enquanto estas duas linhas apontarem para o projeto do
+   controle-leite, o SESMT continua hospedado junto com ele.
+   ------------------------------------------------------------ */
 const SERVIDOR = {
   url: "https://aggdmvtyfrlyipaovczq.supabase.co",
   chave: "sb_publishable_Tme_a9bZSdKvUG40TK0MZw_KR6mqfq3",
