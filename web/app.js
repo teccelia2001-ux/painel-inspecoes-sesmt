@@ -507,9 +507,13 @@ function podioHTML(linhas) {
       <div class="pts">${fmtN(campea.pontosFinal)} pontos · ICIT ${fmtP(campea.icit, 1)}
         · ${campea.qtd} inspeç${campea.qtd === 1 ? "ão" : "ões"}</div>
       ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
-      ${empatadas > 1 ? `<div class="empate"
-        title="${lugares[0].equipes.map(e => e.equipe).join(", ")}"
-        >1º entre ${empatadas} equipes com ${fmtN(campea.pontosFinal)} pontos, pelo critério de desempate</div>` : ""}
+      ${empatadas > 1 ? `
+        <div class="empate">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
+          — a ordem abaixo segue o critério de desempate</div>
+        <div class="chips">${lugares[0].equipes.map((e, i) =>
+          `<span class="chip${i === 0 ? " lider" : ""}"
+            title="${e.equipe} — ${e.qtd} inspeç${e.qtd === 1 ? "ão" : "ões"}, ${e.ncLinhas} N.C, desempate ${fmtD(e.desempate, 1)}"
+            >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
     </div>
   </div>`;
 }
