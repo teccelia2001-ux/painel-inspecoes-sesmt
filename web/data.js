@@ -202,3 +202,6 @@ const NC = [
 
 /* Carimbo de atualização do relatório original */
 const ATUALIZACAO = "24/08/2026 07:20:36";
+
+/* Versão do build — carimbada no rodapé para conferir cache do navegador */
+const VERSAO = "20260824-1656";

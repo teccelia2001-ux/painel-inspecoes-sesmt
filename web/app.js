@@ -160,7 +160,9 @@ function abas() {
   });
   const s = document.createElement("span");
   s.className = "att";
-  s.textContent = "Atualizado em " + ATUALIZACAO;
+  // A versão ajuda a saber se o navegador está mostrando o build atual
+  s.textContent = `Atualizado em ${ATUALIZACAO} · v${VERSAO}`;
+  s.title = "Versão do painel — use para conferir se a página está atualizada";
   d.appendChild(s);
   return d;
 }

@@ -138,11 +138,15 @@ const Banco = {
     if ((r.status === 401 || r.status === 403) && !semPermissao && !jaRenovou && this.refresh) {
       if (await this.renovar()) return this.pedir(caminho, opcoes, true);
     }
+    // O detalhe técnico vai junto: sem ele, "não deu certo" não diz onde olhar.
+    const detalhe = `[HTTP ${r.status}${corpo.code ? " · " + corpo.code : ""}${
+      this.refresh ? "" : " · sem refresh"}] ${msg}`;
     if (semPermissao) throw new Error(
       "O banco recusou a gravação: esta conta não tem permissão de administrador. " +
-      "Saia e entre novamente; se persistir, confira se o e-mail está em sesmt_admins.");
-    if (r.status === 401) throw new Error("Sua sessão expirou. Entre novamente para editar.");
-    throw new Error(msg);
+      "Saia e entre novamente; se persistir, confira se o e-mail está em sesmt_admins. " + detalhe);
+    if (r.status === 401) throw new Error(
+      "Sua sessão expirou e não foi possível renovar. Clique em Sair e entre de novo. " + detalhe);
+    throw new Error(detalhe);
   },
 
   /* ---------- cadastros ---------- */
