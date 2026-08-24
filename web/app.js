@@ -15,7 +15,33 @@ const PAGINAS = [
 ];
 let paginaAtual = "painel";
 
+/* Significado das siglas — aparece ao passar o cursor */
+const SIGLAS = {
+  ICIT: "Índice de Conformidade de Inspeção em Turmas",
+  "N.C": "Não Conformidade",
+  SESMT: "Serviço Especializado em Segurança e Medicina do Trabalho"
+};
+
 /* ---------- helpers de construção ---------- */
+function marcaHTML() {
+  return `<img class="logo" src="${LOGO_TECCEL}" alt="Teccel Energia">
+    <div class="divisor"></div>
+    <div><div class="nome">PAINEL DE INSPEÇÕES</div>
+    <div class="sub">SESMT · Obras RD · Regional Oeste</div></div>`;
+}
+
+/* Marca as siglas conhecidas com a descrição no title (dica ao passar o cursor) */
+function marcarSiglas(raiz) {
+  raiz.querySelectorAll(".rot, .titulo, th, .tit").forEach(elm => {
+    if (elm.dataset.sigla) return;
+    const alvo = Object.keys(SIGLAS).find(s =>
+      new RegExp(`(^|[^A-Za-zÀ-ú])${s.replace(".", "\\.")}([^A-Za-zÀ-ú]|$)`, "i").test(elm.textContent));
+    if (!alvo) return;
+    elm.dataset.sigla = alvo;
+    elm.title = `${alvo} — ${SIGLAS[alvo]}`;
+    elm.classList.add("sigla");
+  });
+}
 function box(pai, x, y, w, h, cls) {
   const d = document.createElement("div");
   d.className = "v " + (cls || "");
@@ -50,8 +76,7 @@ function cabecalho(pg, cards) {
   pg.appendChild(topo);
   const marca = document.createElement("div");
   marca.className = "marca";
-  marca.innerHTML = `<div class="logo">S</div><div><div class="nome">PAINEL DE INSPEÇÕES</div>
-    <div class="sub">SESMT · Obras RD · Regional Oeste</div></div>`;
+  marca.innerHTML = marcaHTML();
   pg.appendChild(marca);
 
   const b = document.createElement("button");
@@ -150,8 +175,7 @@ function pgPainel() {
   pg.className = "pagina"; pg.id = "pg-painel";
   const topo = document.createElement("div"); topo.className = "faixa-topo"; pg.appendChild(topo);
   const marca = document.createElement("div"); marca.className = "marca";
-  marca.innerHTML = `<div class="logo">S</div><div><div class="nome">PAINEL DE INSPEÇÕES</div>
-    <div class="sub">SESMT · Obras RD · Regional Oeste</div></div>`;
+  marca.innerHTML = marcaHTML();
   pg.appendChild(marca);
 
   R.painelAtt = cartao(pg, 1180, 8, 300, 62, "Última atualização");
@@ -235,7 +259,7 @@ function pgDia() {
   const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-dia";
   R.diCards = cabecalho(pg, [
     { k: "meta", rot: "Meta inspeção" }, { k: "metaDia", rot: "Meta até hoje" },
-    { k: "qtd", rot: "Realizado", cls: "destaque" }, { k: "media", rot: "Média/dia útil" }
+    { k: "qtd", rot: "Realizado", cls: "destaque" }, { k: "pctNC", rot: "% com N.C", cls: "alerta" }
   ]);
   R.diChart = visual(pg, 14, 165, 1482, 510, "Quantidade de inspeções por dia");
   return pg;
@@ -265,6 +289,7 @@ function irPara(id) {
   paginaAtual = id;
   canvas.querySelectorAll(".pagina").forEach(p => p.classList.toggle("ativa", p.id === "pg-" + id));
   canvas.querySelectorAll(".abas button").forEach(b => b.classList.toggle("on", b.dataset.pg === id));
+  marcarSiglas(canvas);
   if (location.hash.slice(1) !== id) history.replaceState(null, "", "#" + id);
   window.scrollTo(0, 0);
   render();
@@ -295,6 +320,7 @@ function setCards(refs, vals) {
 
 function render() {
   marcarSlicers();
+  marcarSiglas(canvas);
   const f = fatoFiltrado(), ms = mesesAtivos(), k = kpis(f, ms);
   const base = {
     meta: fmtN(k.Meta_Insp), metaDia: fmtD(k.Meta_insp_dia, 0), qtd: fmtN(k.Qtd_Insp),
@@ -388,15 +414,16 @@ function render() {
   }
 
   if (paginaAtual === "dia") {
-    const dias = porDia(f);
+    const dias = porDia(f).map(d => Object.assign(d, { pctNC: d.qtd ? d.nc / d.qtd : null }));
     setCards(R.diCards, Object.assign({}, base, {
-      media: dias.length ? fmtD(k.Qtd_Insp / dias.length, 1) : "—"
+      pctNC: fmtP(pct(k.Qtd_Inspecao_NC, k.Qtd_Insp), 1)
     }));
     comboChart(R.diChart, dias, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      maxRot: 6
+      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6
     });
-    legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" }]);
+    legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
+      { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
 
   if (paginaAtual === "jornada") {
@@ -415,16 +442,47 @@ function render() {
       { titulo: "Pts final", valor: l => fmtN(l.pontosFinal), num: true, classe: () => "ok" },
       { titulo: "Desempate", valor: l => fmtD(l.desempate, 1), num: true }
     ], j);
-    const top = j.slice(0, 3);
-    R.joPodio.innerHTML = top.length ? `
-      <div class="podio">
-        <div class="tit">🥇 Equipe destaque</div>
-        <div class="eq">${top[0].equipe}</div>
-        <div class="pts">${fmtN(top[0].pontosFinal)} pontos · ICIT ${fmtP(top[0].icit, 0)} · ${top[0].qtd} inspeções</div>
-        ${top.map((l, i) => `<div class="lugar"><span class="medalha">${["🥇","🥈","🥉"][i]}</span>
-           <span>${l.equipe}</span><b>${fmtN(l.pontosFinal)}</b></div>`).join("")}
-      </div>` : `<div class="podio"><div class="tit">sem dados</div></div>`;
+    R.joPodio.innerHTML = podioHTML(j);
   }
+}
+
+/* Pódio: agrupa por pontuação, de modo que equipes empatadas dividem o lugar */
+function podioHTML(linhas) {
+  if (!linhas.length) return `<div class="podio"><div class="tit">sem dados</div></div>`;
+
+  const lugares = [];
+  linhas.forEach(l => {
+    const ultimo = lugares[lugares.length - 1];
+    if (ultimo && ultimo.pontos === l.pontosFinal) ultimo.equipes.push(l);
+    else lugares.push({ pontos: l.pontosFinal, equipes: [l] });
+  });
+  const medalhas = ["🥇", "🥈", "🥉"];
+  const campeas = lugares[0].equipes;          // já vêm ordenadas pelo desempate
+  const empate = campeas.length > 1;
+
+  // 2º e 3º lugares, compactos — o nome completo do grupo vai no title
+  const demais = lugares.slice(1, 3).map((lug, i) => `
+    <div class="lugar" title="${lug.equipes.map(e => e.equipe).join(", ")}">
+      <span class="medalha">${medalhas[i + 1]}</span>
+      <span class="nomes">${lug.equipes.length > 1
+        ? `${lug.equipes.length} equipes empatadas`
+        : lug.equipes[0].equipe}</span>
+      <b>${fmtN(lug.pontos)}</b></div>`).join("");
+
+  return `<div class="podio">
+    <img class="marca-podio" src="${LOGO_TECCEL}" alt="Teccel Energia">
+    <div class="coroa">
+      <div class="tit">${empate ? "🏆 Liderança empatada" : "🏆 Equipe destaque"}</div>
+      <div class="eq">${empate ? `${campeas.length} equipes` : campeas[0].equipe}</div>
+      <div class="pts">${fmtN(lugares[0].pontos)} pontos${
+        empate ? " cada" : ` · ICIT ${fmtP(campeas[0].icit, 0)} · ${campeas[0].qtd} inspeções`}</div>
+      ${empate ? `<div class="chips">${campeas.map((e, i) =>
+        `<span class="chip${i === 0 ? " lider" : ""}" title="${e.qtd} inspeções · desempate ${fmtD(e.desempate, 1)}"
+          >${e.equipe}</span>`).join("")}</div>
+        <div class="empate">A ordem entre elas é decidida pelo critério de desempate</div>` : ""}
+    </div>
+    <div class="lista-lugares">${demais}</div>
+  </div>`;
 }
 
 function legendaUnica(host, itens) {
@@ -482,6 +540,16 @@ function aoRedimensionar() {
 }
 window.addEventListener("resize", aoRedimensionar);
 window.addEventListener("orientationchange", aoRedimensionar);
+
+/* ---------- marca aplicada ao documento ---------- */
+// ícone da aba / do atalho no celular
+["icon", "apple-touch-icon"].forEach(rel => {
+  const l = document.createElement("link");
+  l.rel = rel; l.href = ICONE_TECCEL; l.type = "image/png";
+  document.head.appendChild(l);
+});
+// foto de fundo do pódio, entregue ao CSS por variável
+document.documentElement.style.setProperty("--foto-podio", `url("${FOTO_PODIO}")`);
 
 escalar();
 irPara(location.hash.slice(1) || "painel");

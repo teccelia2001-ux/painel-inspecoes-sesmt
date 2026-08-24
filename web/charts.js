@@ -79,16 +79,23 @@ function comboChart(host, dados, opt) {
       dpath += (prev ? "L" : "M") + x + " " + escL(v);
       prev = true;
     });
-    g.appendChild(el("path", { d: dpath, fill: "none", stroke: opt.linha.cor || "var(--c-linha)", "stroke-width": 2.5, "stroke-linejoin": "round" }));
+    const cor = opt.linha.cor || "var(--c-linha)";
+    // halo branco por baixo: destaca a linha mesmo cruzando as colunas
+    g.appendChild(el("path", { d: dpath, fill: "none", stroke: "var(--painel)", "stroke-width": 6,
+      "stroke-linejoin": "round", "stroke-linecap": "round", opacity: .9 }));
+    g.appendChild(el("path", { d: dpath, fill: "none", stroke: cor, "stroke-width": 3.2,
+      "stroke-linejoin": "round", "stroke-linecap": "round" }));
     dados.forEach((d, i) => {
       const v = d[opt.linha.key];
       if (v === null || v === undefined) return;
       const x = i * bw + bw / 2, y = escL(v);
-      const c = el("circle", { cx: x, cy: y, r: 3.5, fill: opt.linha.cor || "var(--c-linha)" });
+      g.appendChild(el("circle", { cx: x, cy: y, r: 5, fill: "var(--painel)" }));
+      const c = el("circle", { cx: x, cy: y, r: 3.4, fill: cor });
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
       if (dados.length <= 16)
-        g.appendChild(el("text", { x, y: y - 9, class: "rotulo-linha", "text-anchor": "middle" }, opt.pctLinha ? fmtP(v, 0) : fmtD(v, 0)));
+        g.appendChild(el("text", { x, y: y - 11, class: "rotulo-linha", "text-anchor": "middle" },
+          opt.pctLinha ? fmtP(v, 0) : fmtD(v, 0)));
     });
     for (let i = 0; i <= 4; i++) {
       const y = ih - (ih / 4) * i, v = (maxL / 4) * i;
