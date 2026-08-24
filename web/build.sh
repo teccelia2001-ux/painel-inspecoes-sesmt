@@ -4,7 +4,7 @@ set -e
 out=../index.html
 {
   echo '<title>Painel de Inspeções SESMT</title>'
-  echo '<meta name="theme-color" content="#0d1b2a">'
+  echo '<meta name="theme-color" content="#ffffff">'
   echo '<link rel="preconnect" href="https://fonts.googleapis.com">'
   echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
   echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap">'
