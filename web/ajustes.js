@@ -131,7 +131,7 @@ const Ajustes = {
 
     const linhas = this.linhasVisiveis();
     const host = this.el.querySelector(".aj-tabela");
-    const podeEditar = Banco.ligado && Banco.autenticado();
+    const podeEditar = Banco.podeEditar();
 
     tabela(host, [
       { titulo: "Ações", valor: r => this.menuAcoes(r, podeEditar) },
@@ -160,16 +160,22 @@ const Ajustes = {
   },
 
   renderEstado() {
-    const podeEditar = Banco.ligado && Banco.autenticado();
-    if (podeEditar) {
+    if (Banco.podeEditar()) {
       this.estado.className = "aj-estado ok";
-      this.estado.innerHTML = `<span>✓ Conectado ao banco como <b>${Banco.usuario}</b>.
+      this.estado.innerHTML = `<span>✓ <b>${Banco.usuario}</b> — administrador.
         As alterações valem para todos.</span>
+        <button class="aj-sair">Sair</button>`;
+      this.estado.querySelector(".aj-sair").onclick = () => { Banco.sair(); this.render(); };
+    } else if (Banco.ligado && Banco.autenticado()) {
+      this.estado.className = "aj-estado aviso";
+      this.estado.innerHTML = `<span><b>${Banco.usuario}</b> entrou, mas não é administrador do painel —
+        só é possível consultar. Peça para incluírem seu e-mail na lista de administradores.</span>
         <button class="aj-sair">Sair</button>`;
       this.estado.querySelector(".aj-sair").onclick = () => { Banco.sair(); this.render(); };
     } else if (Banco.ligado) {
       this.estado.className = "aj-estado aviso";
-      this.estado.innerHTML = `<span>Você está vendo os cadastros do banco. Para alterar, entre com sua conta.</span>
+      this.estado.innerHTML = `<span>Você está vendo os cadastros do banco. Para alterar,
+        entre com uma conta de administrador.</span>
         <button class="aj-entrar">Entrar para editar</button>`;
       this.estado.querySelector(".aj-entrar").onclick = () => this.abrirLogin();
     } else {
@@ -234,7 +240,7 @@ const Ajustes = {
       if (!aberto) d.classList.add("aberto");
     };
     d.querySelectorAll(".aj-menu button").forEach(b => {
-      if (!podeEditar) { b.disabled = true; b.title = "Entre com sua conta para editar"; }
+      if (!podeEditar) { b.disabled = true; b.title = Banco.autenticado() ? "Sua conta não é administradora do painel" : "Entre com uma conta de administrador para editar"; }
       b.onclick = e => {
         e.stopPropagation();
         d.classList.remove("aberto");
@@ -248,9 +254,7 @@ const Ajustes = {
   /* ---------- diálogo de criação/edição ---------- */
   abrirDialogo(registro) {
     const s = SECOES[this.secao];
-    if (!(Banco.ligado && Banco.autenticado())) {
-      if (Banco.ligado) return this.abrirLogin();
-    }
+    if (!Banco.podeEditar() && Banco.ligado && !Banco.autenticado()) return this.abrirLogin();
     const novo = !registro;
     const dados = Object.assign({}, registro || {});
     s.campos.forEach(c => { if (dados[c.k] === undefined) dados[c.k] = c.padrao !== undefined ? c.padrao : ""; });

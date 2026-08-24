@@ -20,7 +20,13 @@ const SERVIDOR = {
 const Banco = {
   ligado: false,          // vira true quando o banco responde
   usuario: null,          // e-mail de quem está autenticado
+  admin: false,           // está na lista sesmt_admins?
   erro: null,
+
+  /* Editar exige as três coisas: banco no ar, sessão válida e ser admin.
+     Estar autenticado não basta — este projeto Supabase é compartilhado
+     com outros sistemas, e os usuários deles não administram o SESMT. */
+  podeEditar() { return this.ligado && this.autenticado() && this.admin; },
 
   /* ---------- sessão ---------- */
   carregarSessao() {
@@ -31,11 +37,16 @@ const Banco = {
     } catch (e) { /* sessão ilegível: segue deslogado */ }
     return false;
   },
+  /* Alguns contextos bloqueiam o armazenamento (navegação privada,
+     páginas abertas como data:). Nesses casos a sessão vale só enquanto
+     a aba estiver aberta, em vez de a página quebrar. */
   guardarSessao(token, email, segundos) {
     this.token = token; this.usuario = email;
-    localStorage.setItem(SERVIDOR.sessao, JSON.stringify({
-      token, email, expira_em: Date.now() + (segundos || 3600) * 1000
-    }));
+    try {
+      localStorage.setItem(SERVIDOR.sessao, JSON.stringify({
+        token, email, expira_em: Date.now() + (segundos || 3600) * 1000
+      }));
+    } catch (e) { /* sessão só em memória */ }
   },
   async entrar(email, senha) {
     const r = await fetch(`${SERVIDOR.url}/auth/v1/token?grant_type=password`, {
@@ -46,13 +57,31 @@ const Banco = {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error_description || j.msg || "Não foi possível entrar");
     this.guardarSessao(j.access_token, email, j.expires_in);
+    await this.verificarAdmin();
+    if (!this.admin) throw new Error(
+      "Esta conta entrou, mas não tem permissão de administrador do painel. " +
+      "Peça para incluírem seu e-mail na lista de administradores.");
     return j;
   },
   sair() {
-    this.token = null; this.usuario = null;
-    localStorage.removeItem(SERVIDOR.sessao);
+    this.token = null; this.usuario = null; this.admin = false;
+    try { localStorage.removeItem(SERVIDOR.sessao); } catch (e) { /* nada a limpar */ }
   },
   autenticado() { return !!this.token; },
+
+  /* Pergunta ao banco se a conta desta sessão administra o painel.
+     A resposta vem da função sesmt_e_admin(), que lê a lista de
+     administradores — a lista em si não fica exposta. */
+  async verificarAdmin() {
+    if (!this.autenticado()) { this.admin = false; return false; }
+    try {
+      const r = await this.pedir("rpc/sesmt_e_admin", { method: "POST", body: "{}" });
+      this.admin = r === true;
+    } catch (e) {
+      this.admin = false;
+    }
+    return this.admin;
+  },
 
   /* ---------- REST ---------- */
   cabecalhos(extra) {
@@ -83,6 +112,7 @@ const Banco = {
     ]);
     this.ligado = true;
     this.erro = null;
+    await this.verificarAdmin();
     return { equipes: eq, inspetores: insp };
   },
   criar(tabela, linha)      { return this.pedir(tabela, { method: "POST", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
@@ -148,7 +178,7 @@ const Cadastros = {
     const corpo = Object.assign({}, registro);
     delete corpo.id; delete corpo.criada_em; delete corpo.atualizada_em;
 
-    if (Banco.ligado && Banco.autenticado()) {
+    if (Banco.podeEditar()) {
       const r = novo ? await Banco.criar(tabela, corpo)
                      : await Banco.atualizar(tabela, registro.id, corpo);
       const salvo = Array.isArray(r) ? r[0] : r;
@@ -166,7 +196,7 @@ const Cadastros = {
   },
 
   async excluir(tipo, id) {
-    if (Banco.ligado && Banco.autenticado() && !String(id).startsWith("local-"))
+    if (Banco.podeEditar() && !String(id).startsWith("local-"))
       await Banco.excluir(this.tabela(tipo), id);
     const lista = this.lista(tipo);
     const i = lista.findIndex(x => x.id === id);

@@ -59,26 +59,63 @@ create trigger tg_sesmt_inspetores_touch before update on public.sesmt_inspetore
   for each row execute function public.sesmt_toca_atualizada_em();
 
 -- ============================================================
--- SEGURANÇA
+-- ADMINISTRADORES
+-- Este projeto Supabase é compartilhado com outros sistemas, então
+-- "estar autenticado" não basta: um produtor do controle-leite também
+-- é um usuário autenticado. Quem edita o SESMT precisa estar nesta lista.
+-- ============================================================
+create table if not exists public.sesmt_admins (
+  user_id   uuid primary key references auth.users(id) on delete cascade,
+  email     text,
+  nome      text,
+  criado_em timestamptz not null default now()
+);
+
+comment on table public.sesmt_admins is 'Quem pode editar os cadastros do painel SESMT';
+
+-- security definer: consulta a lista ignorando a RLS da própria tabela,
+-- senão a política precisaria se consultar e entraria em recursão.
+create or replace function public.sesmt_e_admin()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.sesmt_admins a where a.user_id = auth.uid());
+$$;
+
+grant execute on function public.sesmt_e_admin() to anon, authenticated;
+
+alter table public.sesmt_admins enable row level security;
+drop policy if exists "ve a propria linha" on public.sesmt_admins;
+drop policy if exists "admin gerencia"     on public.sesmt_admins;
+-- cada um só enxerga o próprio registro: a lista de administradores
+-- não fica exposta para os demais usuários do projeto
+create policy "ve a propria linha" on public.sesmt_admins
+  for select to authenticated using (user_id = auth.uid());
+create policy "admin gerencia" on public.sesmt_admins
+  for all to authenticated using (public.sesmt_e_admin()) with check (public.sesmt_e_admin());
+
+-- ============================================================
+-- SEGURANÇA DOS CADASTROS
 -- O painel é público: qualquer pessoa com o link LÊ os cadastros.
--- Só quem estiver autenticado pode criar, editar ou excluir.
+-- Só administradores criam, editam ou excluem.
 -- ============================================================
 alter table public.sesmt_equipes    enable row level security;
 alter table public.sesmt_inspetores enable row level security;
 
 drop policy if exists "leitura publica"     on public.sesmt_equipes;
 drop policy if exists "escrita autenticada" on public.sesmt_equipes;
-create policy "leitura publica"     on public.sesmt_equipes
+drop policy if exists "escrita admin"       on public.sesmt_equipes;
+create policy "leitura publica" on public.sesmt_equipes
   for select using (true);
-create policy "escrita autenticada" on public.sesmt_equipes
-  for all to authenticated using (true) with check (true);
+create policy "escrita admin"   on public.sesmt_equipes
+  for all to authenticated using (public.sesmt_e_admin()) with check (public.sesmt_e_admin());
 
 drop policy if exists "leitura publica"     on public.sesmt_inspetores;
 drop policy if exists "escrita autenticada" on public.sesmt_inspetores;
-create policy "leitura publica"     on public.sesmt_inspetores
+drop policy if exists "escrita admin"       on public.sesmt_inspetores;
+create policy "leitura publica" on public.sesmt_inspetores
   for select using (true);
-create policy "escrita autenticada" on public.sesmt_inspetores
-  for all to authenticated using (true) with check (true);
+create policy "escrita admin"   on public.sesmt_inspetores
+  for all to authenticated using (public.sesmt_e_admin()) with check (public.sesmt_e_admin());
 
 -- ============================================================
 -- CARGA INICIAL — os cadastros que hoje estão dentro do painel.
@@ -153,7 +190,16 @@ insert into public.sesmt_inspetores
 on conflict (inspetor) do nothing;
 
 -- ============================================================
--- Depois de rodar: crie quem pode editar em
--- Authentication → Users → Add user (e-mail e senha).
--- Só esses usuários conseguem gravar; o resto do mundo só lê.
+-- FALTA UM PASSO: dizer quem é administrador.
+--
+-- 1) Authentication → Users → Add user  (e-mail e senha)
+-- 2) Rode o arquivo 02-acesso-de-administrador.sql trocando o e-mail,
+--    ou a linha abaixo:
+--
+--    insert into public.sesmt_admins (user_id, email, nome)
+--    select id, email, 'Nome de quem administra' from auth.users
+--     where email = 'troque@pelo.email'
+--       on conflict (user_id) do nothing;
+--
+-- Sem estar nessa lista, a pessoa entra mas não consegue gravar nada.
 -- ============================================================
