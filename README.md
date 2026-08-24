@@ -4,7 +4,7 @@ Réplica web de um painel de inspeções de segurança feito originalmente em Po
 Um único arquivo HTML, sem servidor, sem build e sem dependências externas —
 abre em celular, tablet e computador.
 
-**Acesso:** https://teccelia2001-ux.github.io/painel-inspecoes-sesmt/
+**Acesso:** https://teccelia2001-ux.github.io/
 
 ## O que o painel mostra
 
