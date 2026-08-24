@@ -14,12 +14,9 @@
 /* ------------------------------------------------------------
    PROJETO SUPABASE DO PAINEL
 
-   >>> TROCAR AQUI ao migrar para o projeto próprio do SESMT:
+   Projeto próprio do painel (painel-sesmt, São Paulo). Para trocar:
        url   = Project Settings → API → Project URL
        chave = Project Settings → API → publishable / anon key
-
-   Enquanto estas duas linhas apontarem para o projeto do
-   controle-leite, o SESMT continua hospedado junto com ele.
    ------------------------------------------------------------ */
 const SERVIDOR = {
   url: "https://ldqegnfcjeljvywbravl.supabase.co",   // projeto painel-sesmt, São Paulo
@@ -34,15 +31,19 @@ const Banco = {
   erro: null,
 
   /* Editar exige as três coisas: banco no ar, sessão válida e ser admin.
-     Estar autenticado não basta — este projeto Supabase é compartilhado
-     com outros sistemas, e os usuários deles não administram o SESMT. */
+     Ter conta não basta: o direito de gravar vem da lista sesmt_admins,
+     o que permite ter contas que só consultam. */
   podeEditar() { return this.ligado && this.autenticado() && this.admin; },
 
   /* ---------- sessão ---------- */
   carregarSessao() {
     try {
       const s = JSON.parse(localStorage.getItem(SERVIDOR.sessao) || "null");
-      if (s && s.expira_em > Date.now()) { this.token = s.token; this.usuario = s.email; return true; }
+      if (s && s.refresh) {
+        this.token = s.token; this.usuario = s.email; this.refresh = s.refresh;
+        this.expiraEm = s.expira_em;
+        return true;
+      }
       localStorage.removeItem(SERVIDOR.sessao);
     } catch (e) { /* sessão ilegível: segue deslogado */ }
     return false;
@@ -50,13 +51,32 @@ const Banco = {
   /* Alguns contextos bloqueiam o armazenamento (navegação privada,
      páginas abertas como data:). Nesses casos a sessão vale só enquanto
      a aba estiver aberta, em vez de a página quebrar. */
-  guardarSessao(token, email, segundos) {
+  guardarSessao(token, email, segundos, refresh) {
     this.token = token; this.usuario = email;
+    if (refresh) this.refresh = refresh;
+    this.expiraEm = Date.now() + (segundos || 3600) * 1000;
     try {
       localStorage.setItem(SERVIDOR.sessao, JSON.stringify({
-        token, email, expira_em: Date.now() + (segundos || 3600) * 1000
+        token, email, refresh: this.refresh, expira_em: this.expiraEm
       }));
     } catch (e) { /* sessão só em memória */ }
+  },
+
+  /* O token de acesso do Supabase dura cerca de uma hora. Em vez de mandar
+     o usuário entrar de novo, trocamos pelo refresh token guardado. */
+  async renovar() {
+    if (!this.refresh) return false;
+    try {
+      const r = await fetch(`${SERVIDOR.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: SERVIDOR.chave, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: this.refresh })
+      });
+      const j = await r.json();
+      if (!r.ok || !j.access_token) return false;
+      this.guardarSessao(j.access_token, this.usuario, j.expires_in, j.refresh_token);
+      return true;
+    } catch (e) { return false; }
   },
   async entrar(email, senha) {
     const r = await fetch(`${SERVIDOR.url}/auth/v1/token?grant_type=password`, {
@@ -66,7 +86,7 @@ const Banco = {
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error_description || j.msg || "Não foi possível entrar");
-    this.guardarSessao(j.access_token, email, j.expires_in);
+    this.guardarSessao(j.access_token, email, j.expires_in, j.refresh_token);
     await this.verificarAdmin();
     if (!this.admin) throw new Error(
       "Esta conta entrou, mas não tem permissão de administrador do painel. " +
@@ -75,6 +95,7 @@ const Banco = {
   },
   sair() {
     this.token = null; this.usuario = null; this.admin = false;
+    this.refresh = null; this.expiraEm = 0;
     try { localStorage.removeItem(SERVIDOR.sessao); } catch (e) { /* nada a limpar */ }
   },
   autenticado() { return !!this.token; },
@@ -101,17 +122,27 @@ const Banco = {
       "Content-Type": "application/json"
     }, extra || {});
   },
-  async pedir(caminho, opcoes) {
+  async pedir(caminho, opcoes, jaRenovou) {
     const r = await fetch(`${SERVIDOR.url}/rest/v1/${caminho}`,
       Object.assign({ headers: this.cabecalhos(opcoes && opcoes.headers) }, opcoes));
     const txt = await r.text();
-    if (!r.ok) {
-      let msg = txt;
-      try { const j = JSON.parse(txt); msg = j.message || j.hint || txt; } catch (e) {}
-      if (r.status === 401 || r.status === 403) msg = "Sua sessão expirou. Entre novamente para editar.";
-      throw new Error(msg);
+    if (r.ok) return txt ? JSON.parse(txt) : null;
+
+    let corpo = {};
+    try { corpo = JSON.parse(txt); } catch (e) {}
+    const msg = corpo.message || corpo.error_description || txt || `Erro ${r.status}`;
+
+    // 42501 é violação de RLS: a sessão está boa, faltou permissão.
+    // Token vencido vem sem código do Postgres — aí vale tentar renovar.
+    const semPermissao = corpo.code === "42501" || r.status === 403;
+    if ((r.status === 401 || r.status === 403) && !semPermissao && !jaRenovou && this.refresh) {
+      if (await this.renovar()) return this.pedir(caminho, opcoes, true);
     }
-    return txt ? JSON.parse(txt) : null;
+    if (semPermissao) throw new Error(
+      "O banco recusou a gravação: esta conta não tem permissão de administrador. " +
+      "Saia e entre novamente; se persistir, confira se o e-mail está em sesmt_admins.");
+    if (r.status === 401) throw new Error("Sua sessão expirou. Entre novamente para editar.");
+    throw new Error(msg);
   },
 
   /* ---------- cadastros ---------- */
