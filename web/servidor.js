@@ -22,8 +22,8 @@
    controle-leite, o SESMT continua hospedado junto com ele.
    ------------------------------------------------------------ */
 const SERVIDOR = {
-  url: "https://aggdmvtyfrlyipaovczq.supabase.co",
-  chave: "sb_publishable_Tme_a9bZSdKvUG40TK0MZw_KR6mqfq3",
+  url: "https://ldqegnfcjeljvywbravl.supabase.co",   // projeto painel-sesmt, São Paulo
+  chave: "sb_publishable_4IcV3231DtKqDuBdoPdG8A_sgt8vbOP",
   sessao: "sesmt.sessao.v1"
 };
 
