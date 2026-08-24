@@ -16,5 +16,11 @@ out=../index.html
     echo '<script>'; cat "$f"; echo '</script>'
   done
 } > "$out"
+# A mesma página é servida em três lugares:
+#   ../index.html        -> https://teccelia2001-ux.github.io/        (endereço curto)
+#   ../sesmt/index.html  -> https://teccelia2001-ux.github.io/sesmt/  (endereço nomeado)
+#   ../dashboard.html    -> arquivo para anexar em e-mail
+mkdir -p ../sesmt
+cp "$out" ../sesmt/index.html
 cp "$out" ../dashboard.html
-echo "gerado: $out e ../dashboard.html ($(wc -c < "$out") bytes)"
+echo "gerado: index.html, sesmt/index.html e dashboard.html ($(wc -c < "$out") bytes cada)"
