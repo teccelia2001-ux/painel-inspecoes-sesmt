@@ -233,7 +233,14 @@ const Ajustes = {
       e.stopPropagation();
       const aberto = d.classList.contains("aberto");
       document.querySelectorAll(".aj-acoes.aberto").forEach(x => x.classList.remove("aberto"));
-      if (!aberto) d.classList.add("aberto");
+      if (aberto) return;
+      /* Nas últimas linhas da tabela o menu não cabe para baixo e ficava
+         cortado pelo rodapé. Mede o espaço livre e decide o lado. */
+      const r = d.querySelector(".aj-pontos").getBoundingClientRect();
+      const ALTURA = 84, LARGURA = 140;
+      d.classList.toggle("cima", window.innerHeight - r.bottom < ALTURA);
+      d.classList.toggle("direita", window.innerWidth - r.left < LARGURA);
+      d.classList.add("aberto");
     };
     d.querySelectorAll(".aj-menu button").forEach(b => {
       if (!podeEditar) { b.disabled = true; b.title = Banco.autenticado() ? "Sua conta não é administradora do painel" : "Entre com uma conta de administrador para editar"; }
@@ -336,9 +343,9 @@ const Ajustes = {
     canvas.appendChild(fundo);
     const form = fundo.querySelector("form");
 
-    /* Fechar sem querer apaga o que foi digitado. Clique fora e Esc só
-       fecham enquanto nada tiver sido alterado; havendo mudança, o
-       diálogo chama atenção e fica aberto — sai pelo Cancelar ou pelo X. */
+    /* Fechar sem querer apaga o que foi digitado. Clique fora NUNCA fecha:
+       só o X, o Cancelar ou o Salvar. O Esc fecha enquanto nada tiver sido
+       alterado; havendo mudança, o diálogo chama atenção e fica aberto. */
     const inicial = new FormData(form);
     const alterado = () => {
       const agora = new FormData(form);
@@ -360,7 +367,7 @@ const Ajustes = {
     };
     fundo.querySelector(".aj-x").onclick = fechar;
     fundo.querySelector(".aj-cancelar").onclick = fechar;
-    fundo.onclick = e => { if (e.target === fundo) (alterado() ? insistir() : fechar()); };
+    fundo.onclick = e => { if (e.target === fundo && alterado()) insistir(); };
     document.addEventListener("keydown", aoTeclar);
 
     const primeiro = fundo.querySelector("input, select");

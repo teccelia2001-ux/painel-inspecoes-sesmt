@@ -10,8 +10,19 @@
 -- e salve o resultado.
 -- ============================================================
 
--- 1. Área vira Polo, preservando o que já estava preenchido
-alter table public.sesmt_inspetores rename column area to polo;
+-- 1. Área vira Polo, preservando o que já estava preenchido.
+--    Só renomeia se a coluna antiga ainda existir, para poder rodar de novo.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public'
+       and table_name   = 'sesmt_inspetores'
+       and column_name  = 'area'
+  ) then
+    alter table public.sesmt_inspetores rename column area to polo;
+  end if;
+end $$;
 
 -- 2. Campos que saem do cadastro
 alter table public.sesmt_inspetores drop column if exists cargo;

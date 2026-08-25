@@ -14,17 +14,20 @@ const DDATA = [
 
 /* Inspetores — [INSPETOR, POLO, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
 let INSPETORES = [
-  ["Acacio","Obras RD","Supervisor",4,0],
-  ["Arisleudo","Obras RD","Supervisor",4,0],
+  ["Acacio","PATOS","Supervisor",4,0],
+  ["Aisleudo","SOUSA","Supervisor",4,0],
   ["Arlan","Obras RD","Supervisor",4,0],
   ["Edney","Obras RD","Técnico Segurança",12,2],
+  ["Eliakin","ITAPORANGA","Supervisor",4,0],
   ["Francisco","Obras RD","Técnico Segurança",12,2],
   ["Gustavo","Obras RD","Coordenador Operacional",4,2],
+  ["Halanildo","CATOLE DO ROCHA","Supervisor",4,0],
   ["Huislan","Obras RD","Técnico Segurança",12,2],
   ["Humberto","Obras RD","Supervisor",4,0],
   ["Joab","Obras RD","Engenheiro Segurança",4,0],
   ["Julierme","Obras RD","Gerente Operacional",2,2],
-  ["Rangel","Obras RD","Supervisor",4,2]
+  ["Pereira","CAJAZEIRAS","Supervisor",4,0],
+  ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
 ];
 
 /* Meses com metas cadastradas em "Meta Inspetores" (abr–jul/2026) */
@@ -37,11 +40,11 @@ let EQUIPES = [
   ["CONST 7","LM","Humberto",100],["CONST 8","LM","Humberto",100],["CONST 9","LM","Humberto",100],
   ["CONST 10","LM","Arlan",100],["CONST 11","LM","Arlan",100],["CONST 12","LM","Arlan",100],
   ["CONST 13","LM","Arlan",100],
-  ["LINHA VIVA 1","LV","Arlan",100],["LINHA VIVA 2","LV","Arisleudo",100],["LINHA VIVA 3","LV","Arisleudo",100],
-  ["MANUT 1","MAN","Arisleudo",100],["MANUT 2","MAN","Arisleudo",100],["MANUT 3","MAN","Arisleudo",100],
-  ["MANUT 4","MAN","Arisleudo",100],["MANUT 5","MAN","Rangel",100],["MANUT 6","MAN","Rangel",100],
-  ["PERDAS PTSRG02","PER","Rangel",100],["PERDAS PTSRG03","PER","Rangel",100],
-  ["PERDAS PTSRG04","PER","Rangel",100],["PERDAS PTSRG09","PER","Rangel",100],
+  ["LINHA VIVA 1","LV","Arlan",100],["LINHA VIVA 2","LV","Aisleudo",100],["LINHA VIVA 3","LV","Aisleudo",100],
+  ["MANUT 1","MAN","Aisleudo",100],["MANUT 2","MAN","Aisleudo",100],["MANUT 3","MAN","Aisleudo",100],
+  ["MANUT 4","MAN","Aisleudo",100],["MANUT 5","MAN","Samuel",100],["MANUT 6","MAN","Samuel",100],
+  ["PERDAS PTSRG02","PER","Samuel",100],["PERDAS PTSRG03","PER","Samuel",100],
+  ["PERDAS PTSRG04","PER","Samuel",100],["PERDAS PTSRG09","PER","Samuel",100],
   ["PERDAS PTSRG12","PER","Acacio",100],
   ["PLANTÃO - BTF BT30","PLA","Acacio",100],["PLANTÃO - CJZ BT30","PLA","Acacio",100],
   ["PLANTÃO - CTRBT30","PLA","Acacio",100],["PLANTÃO - CTRBT31","PLA","Acacio",100],
@@ -49,12 +52,12 @@ let EQUIPES = [
   ["PLANTÃO - PCOBT30","PLA","Humberto",100],["PLANTÃO - PRIBT31","PLA","Humberto",100],
   ["PLANTÃO - PTSBT36","PLA","Arlan",100],["PLANTÃO - PTSCX02","PLA","Arlan",100],
   ["PLANTÃO - SBTBT30","PLA","Arlan",100],["PLANTÃO - SPX BT30","PLA","Arlan",100],
-  ["PLANTÃO - SZABT30","PLA","Arlan",100],["PLANTÃO - SZACX02","PLA","Arisleudo",100],
-  ["PLANTÃO CONBT30","PLA","Arisleudo",100],
-  ["PODA 1","POD","Arisleudo",100],["PODA 2","POD","Arisleudo",100],["PODA 3","POD","Arisleudo",100],
-  ["REAVISO - CJZRI01","REA","Arisleudo",100],["REAVISO - CTRRI01","REA","Rangel",100],
-  ["REAVISO - ITORI01","REA","Rangel",100],["REAVISO PTSRI03","REA","Rangel",100],
-  ["REAVISO SSARI02","REA","Rangel",100]
+  ["PLANTÃO - SZABT30","PLA","Arlan",100],["PLANTÃO - SZACX02","PLA","Aisleudo",100],
+  ["PLANTÃO CONBT30","PLA","Aisleudo",100],
+  ["PODA 1","POD","Aisleudo",100],["PODA 2","POD","Aisleudo",100],["PODA 3","POD","Aisleudo",100],
+  ["REAVISO - CJZRI01","REA","Aisleudo",100],["REAVISO - CTRRI01","REA","Samuel",100],
+  ["REAVISO - ITORI01","REA","Samuel",100],["REAVISO PTSRI03","REA","Samuel",100],
+  ["REAVISO SSARI02","REA","Samuel",100]
 ];
 
 /* Inspeções Teccel1 (grão = inspeção) — [ID, Inspetor, Equipe, Tipo Serviço, Data dd/mm/aaaa] */
@@ -79,7 +82,7 @@ const INSPECOES = [
 ["35","Edney","CONST 7","DCMD C&M","08/06/2026"],["36","Edney","CONST 4","DCMD C&M","18/06/2026"],
 ["37","Edney","CONST 2","DCMD C&M","19/06/2026"],["38","Edney","CONST 11","DCMD C&M","22/06/2026"],
 ["39","Edney","CONST 7","DCMD C&M","25/06/2026"],["40","Edney","LINHA VIVA 1","DCMD C&M","25/06/2026"],
-["41","Arisleudo","CONST 3","DCMD C&M","26/06/2026"],["42","José Pereira","CONST 10","DCMD C&M","27/06/2026"],
+["41","Aisleudo","CONST 3","DCMD C&M","26/06/2026"],["42","José Pereira","CONST 10","DCMD C&M","27/06/2026"],
 ["43","Francisco","CONST 1","DCMD C&M","08/07/2026"],["44","Edney","CONST 7","DCMD C&M","01/07/2026"],
 ["45","Edney","CONST 10","DCMD C&M","01/07/2026"],["46","Edney","MANUT 4","DCMD C&M","01/07/2026"],
 ["47","Edney","CONST 11","DCMD C&M","07/07/2026"],["48","Francisco","CONST 3","DCMD C&M","20/07/2026"],
@@ -89,12 +92,12 @@ const INSPECOES = [
 ["55","Joab","CONST 9","DCMD C&M","27/07/2026"],["56","Francisco","CONST 3","DCMD C&M","24/07/2026"],
 ["57","Joab","CONST 6","DCMD C&M","28/07/2026"],["58","Joab","CONST 8","DCMD C&M","30/07/2026"],
 ["59","Edney","CONST 10","DCMD C&M","27/07/2026"],["60","Edney","CONST 11","DCMD C&M","31/07/2026"],
-["61","Arisleudo","CONST 3","DCMD C&M","23/07/2026"],["62","José Pereira","MANUT 4","DCMD C&M","02/08/2026"],
+["61","Aisleudo","CONST 3","DCMD C&M","23/07/2026"],["62","José Pereira","MANUT 4","DCMD C&M","02/08/2026"],
 ["63","José Pereira","MANUT 4","DCMD C&M","03/08/2026"],["64","Huislan","CONST 12","DCMD C&M","02/07/2026"],
 ["65","Huislan","CONST 8","DCMD C&M","03/07/2026"],["66","Huislan","CONST 6","DCMD C&M","07/07/2026"],
 ["67","José Pereira","CONST 7","DCMD C&M","03/08/2026"],["68","Huislan","CONST 9","DCMD C&M","28/07/2026"],
 ["69","Francisco","CONST 3","DCMD C&M","03/08/2026"],["70","José Pereira","MANUT 4","DCMD C&M","10/08/2026"],
-["71","José Pereira","MANUT 4","DCMD C&M","14/07/2026"],["72","Arisleudo","CONST 3","DCMD C&M","12/08/2026"],
+["71","José Pereira","MANUT 4","DCMD C&M","14/07/2026"],["72","Aisleudo","CONST 3","DCMD C&M","12/08/2026"],
 ["73","Joab","CONST 7","DCMD C&M","18/08/2026"],["74","Joab","CONST 13","DCMD C&M","19/08/2026"],
 ["75","Manoel Vaz","CONST 1","DCMD C&M","18/08/2026"],["76","Manoel Vaz","CONST 13","DCMD C&M","19/08/2026"],
 ["77","Manoel Vaz","CONST 3","DCMD C&M","21/08/2026"],

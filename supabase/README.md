@@ -13,6 +13,7 @@ e avisa na aba Ajustes. Ninguém fica sem o painel por causa de rede.
 | `01-esquema-sesmt.sql` | No projeto **novo**, uma vez. Cria tabelas, segurança e carga inicial. |
 | `02-acesso-de-administrador.sql` | Para incluir ou remover administradores. |
 | `03-remover-do-controle-leite.sql` | No projeto **antigo**, depois que o novo estiver no ar. |
+| `04-inspetores-polo.sql` | No projeto **novo**, uma vez: Área vira Polo, e Cargo e Regional saem do cadastro. |
 
 Todos podem ser rodados mais de uma vez sem duplicar nada.
 

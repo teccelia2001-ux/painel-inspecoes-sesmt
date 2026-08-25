@@ -290,6 +290,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   background:var(--painel);border:1px solid var(--linha-borda);border-radius:8px;
   box-shadow:0 8px 24px rgba(60,44,28,.18)}
 .aj-acoes.aberto .aj-menu{display:block}
+/* nas últimas linhas não cabe para baixo: abre para cima */
+.aj-acoes.cima .aj-menu{top:auto;bottom:30px}
+.aj-acoes.direita .aj-menu{left:auto;right:0}
 .aj-menu button{display:block;width:100%;text-align:left;padding:7px 9px;border:0;border-radius:6px;
   background:transparent;color:var(--txt);font-size:12px;cursor:pointer}
 .aj-menu button:hover:not(:disabled){background:var(--acento-suave)}
