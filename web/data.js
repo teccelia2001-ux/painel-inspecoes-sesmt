@@ -30,7 +30,9 @@ let INSPETORES = [
   ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
 ];
 
-/* Meses com metas cadastradas em "Meta Inspetores" (abr–jul/2026) */
+/* Meses com metas de inspeção cadastradas em "Meta Inspetores" (abr–jul/2026).
+   Usado só para calcular a META. O reconhecimento da equipe e do inspetor de
+   cada inspeção NÃO depende mais desta lista — ver reconstruirModelo(). */
 const META_MESES = ["4/2026","5/2026","6/2026","7/2026"];
 
 /* Equipes — [EQUIPE, TIPO, SUPERVISOR, PONTOS/mês] */

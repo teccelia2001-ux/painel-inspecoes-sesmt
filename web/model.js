@@ -17,12 +17,18 @@ function reconstruirModelo() {
   FATO = INSPECOES.map(r => {
     const [d, m, y] = r[4].split("/").map(Number);
     const mesAno = m + "/" + y;
-    // As dimensões INSPETOR e EQUIPE se ligam ao fato por chaves versionadas por mês
-    // (INSPETOR_ID / EQUIPE_ID em "Meta Inspetores" e "Equipes"). Meses sem cadastro
-    // não casam e caem no grupo "(vazio)", exatamente como no relatório original.
-    const vigente = META_MESES.includes(mesAno);
-    const insp = vigente ? IDX_INSPETOR[r[1]] : null;
-    const eq   = vigente ? IDX_EQUIPE[r[2]]   : null;
+    /* No Power BI original as dimensões INSPETOR e EQUIPE se ligavam ao fato por
+       chaves versionadas por mês (INSPETOR_ID / EQUIPE_ID em "Meta Inspetores" e
+       "Equipes"), e só existiam de abr a jul/2026. As inspeções de agosto ficavam
+       sem equipe e sem inspetor, caindo no grupo "(vazio)" — mesmo com a equipe
+       cadastrada, porque faltava a versão daquele mês.
+
+       Aqui o cadastro é único e editável na aba Ajustes, não versionado: a
+       inspeção casa pelo nome em qualquer mês. Quem continua em "(vazio)" é só
+       quem realmente não está cadastrado.
+       META_MESES segue valendo para a META, que essa sim é cadastrada por mês. */
+    const insp = IDX_INSPETOR[r[1]];
+    const eq   = IDX_EQUIPE[r[2]];
     return {
       id: r[0], inspetor: insp ? r[1] : "", inspetorBruto: r[1],
       equipe: eq ? r[2] : "", equipeBruta: r[2],
@@ -33,8 +39,15 @@ function reconstruirModelo() {
       supervisor: eq ? eq[2] : "", tipoEquipe: eq ? eq[1] : ""
     };
   });
+  /* Meses que valem pontuação na Jornada Segura: os que têm inspeção.
+     Se um mês desconta pontos por não conformidade, ele também precisa dar os
+     pontos iniciais daquele mês — senão a equipe que trabalhou no mês fica
+     atrás da que não recebeu inspeção nenhuma. Vale-se dos meses com inspeção
+     em vez de uma lista fixa para não precisar mexer aqui a cada mês novo. */
+  MESES_COM_INSPECAO = new Set(FATO.map(x => x.mesAno));
   return FATO;
 }
+let MESES_COM_INSPECAO;
 reconstruirModelo();
 
 /* ---------- Filtros ---------- */
@@ -163,7 +176,8 @@ function porInspetor(f, ms, comVazio) {
 /* Jornada Segura — pontuação por equipe */
 function jornada(f, ms) {
   ms = ms || mesesAtivos();
-  const mesesPonto = ms.map(d => d[0]).filter(m => META_MESES.includes(m)).length;
+  // pontua todo mês que teve inspeção — o mesmo conjunto que gera os descontos
+  const mesesPonto = ms.map(d => d[0]).filter(m => MESES_COM_INSPECAO.has(m)).length;
   const linhas = agrupar(f, "equipe", ms).map(g => {
     const eq = IDX_EQUIPE[g.chave];
     const ini = eq ? eq[3] * mesesPonto : null;
@@ -245,7 +259,8 @@ function resumoMensal(f, ms, campo) {
         // equipe: sem meta cadastrada; o que vale é a pontuação da Jornada Segura
         const eq = IDX_EQUIPE[k];
         extra.supervisor = eq ? eq[2] : "";
-        extra.pontosIniciais = eq && temMeta ? eq[3] : null;
+        // mesmo critério da Jornada Segura: mês com inspeção pontua
+        extra.pontosIniciais = eq && MESES_COM_INSPECAO.has(mesAno) ? eq[3] : null;
       }
       const metaDia = proporcional(meta);
       const l = Object.assign(base(rows), extra, {
