@@ -176,6 +176,11 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .rg-val{font-size:21px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
 .rg-val.bom{color:var(--bom)} .rg-val.medio{color:var(--medio)} .rg-val.ruim{color:var(--ruim)}
 .rg-rot{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);margin-top:2px}
+.rg-dica{font-size:10px;color:var(--txt3);line-height:1.25;margin-top:3px}
+.rg-nota{font-size:10.5px;color:var(--txt2);line-height:1.4;padding:0 2px}
+.rg-nota b{color:var(--txt)}
+/* o cartão inteiro explica o número ao parar o cursor em cima */
+.card.comdica{cursor:help}
 
 .rg-linha{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 0}
 .rg-linha i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
@@ -1891,6 +1896,42 @@ const SIGLAS = {
   SESMT: "Serviço Especializado em Segurança e Medicina do Trabalho"
 };
 
+/* O que cada número quer dizer, em uma frase. Vira dica nos cartões de todas
+   as páginas e texto visível no resumo geral.
+   A dúvida que mais aparece é entre "inspeções com N.C" (conta VISITAS) e
+   "N.C apontadas" (conta ITENS reprovados) — as duas frases deixam isso claro. */
+const EXPLICACAO = {
+  "Inspeções": "Visitas de inspeção realizadas no período filtrado.",
+  "Inspeções realizadas": "Visitas de inspeção realizadas no período filtrado.",
+  "Realizado": "Visitas de inspeção realizadas no período filtrado.",
+  "Meta inspeção": "Total de inspeções previstas, somando a meta de cada inspetor.",
+  "Meta de inspeções": "Total de inspeções previstas, somando a meta de cada inspetor.",
+  "Meta até hoje": "Quanto da meta já deveria estar cumprido, rateado pelos dias úteis decorridos.",
+  "% atingido": "Realizado dividido pela meta até hoje. O original limita em 100%.",
+  "Insp. c/ N.C": "Quantas VISITAS acharam pelo menos um problema — a visita conta uma vez só, "
+    + "tendo ela 1 ou 10 apontamentos.",
+  "Inspeções com N.C": "Quantas VISITAS acharam pelo menos um problema — a visita conta uma vez só, "
+    + "tendo ela 1 ou 10 apontamentos.",
+  "N.C apontadas": "Quantos ITENS do checklist foram reprovados no total. Uma mesma visita "
+    + "pode gerar vários apontamentos.",
+  "ICIT": "Inspeções sem nenhum problema dividido pelo total de inspeções. Quanto maior, melhor.",
+  "ICIT (conformidade)": "Inspeções sem nenhum problema dividido pelo total de inspeções. "
+    + "Quanto maior, melhor.",
+  "% com N.C": "Fatia das inspeções do dia que tiveram pelo menos um problema.",
+  "Gravíssimos": "Apontamentos classificados como gravíssimos.",
+  "Equipes avaliadas": "Equipes com pontuação inicial cadastrada no período."
+};
+
+/* Frase curta para acompanhar o rótulo no resumo geral */
+const RESUMO_DICA = {
+  "Inspeções realizadas": "visitas feitas",
+  "Meta de inspeções": "visitas previstas no ano",
+  "Meta até hoje": "previsto pelos dias úteis",
+  "ICIT (conformidade)": "visitas sem nenhum problema",
+  "Inspeções com N.C": "visitas com problema",
+  "N.C apontadas": "itens reprovados no total"
+};
+
 /* ---------- helpers de construção ---------- */
 function marcaHTML() {
   return `<img class="logo" src="${LOGO_TECCEL}" alt="Teccel Energia">
@@ -1907,7 +1948,11 @@ function marcarSiglas(raiz) {
       new RegExp(`(^|[^A-Za-zÀ-ú])${s.replace(".", "\\.")}([^A-Za-zÀ-ú]|$)`, "i").test(elm.textContent));
     if (!alvo) return;
     elm.dataset.sigla = alvo;
-    elm.title = `${alvo} — ${SIGLAS[alvo]}`;
+    /* Dentro de um cartão que já explica o número, a dica do rótulo repetiria
+       metade da frase: junta as duas em vez de sobrescrever uma com a outra. */
+    const dono = elm.closest(".card.comdica");
+    elm.title = dono ? `${dono.title}\n${alvo} = ${SIGLAS[alvo]}`
+                     : `${alvo} — ${SIGLAS[alvo]}`;
     elm.classList.add("sigla");
   });
 }
@@ -1929,6 +1974,7 @@ function visual(pai, x, y, w, h, titulo) {
 function cartao(pai, x, y, w, h, rotulo, classe) {
   const d = box(pai, x, y, w, h, "card " + (classe || ""));
   d.innerHTML = `<div class="valor">—</div><div class="rot">${rotulo}</div>`;
+  if (EXPLICACAO[rotulo]) { d.title = EXPLICACAO[rotulo]; d.classList.add("comdica"); }
   return d.querySelector(".valor");
 }
 function legenda(host, itens) {
@@ -2448,9 +2494,17 @@ function resumoPainel() {
       </div>
 
       <div class="rg-cartoes">
-        ${cartoes.map(([rot, val, cls]) => `<div class="rg-card">
-          <div class="rg-val ${cls}">${val}</div><div class="rg-rot">${rot}</div></div>`).join("")}
+        ${cartoes.map(([rot, val, cls]) => `<div class="rg-card"${
+            EXPLICACAO[rot] ? ` title="${EXPLICACAO[rot]}"` : ""}>
+          <div class="rg-val ${cls}">${val}</div>
+          <div class="rg-rot">${rot}</div>
+          ${RESUMO_DICA[rot] ? `<div class="rg-dica">${RESUMO_DICA[rot]}</div>` : ""}</div>`).join("")}
       </div>
+
+      <div class="rg-nota">Uma visita entra uma vez só em <b>inspeções com N.C</b>, mas pode
+        reprovar vários itens do checklist${k.Qtd_Inspecao_NC ? `: as ${fmtN(k.Qtd_Inspecao_NC)}
+        visitas com problema geraram ${fmtN(k.Qtd_NC)} apontamentos, média de
+        ${fmtD(k.Qtd_NC / k.Qtd_Inspecao_NC, 1)} por visita` : ""}.</div>
 
       <div class="rg-desvios">
         <div class="rg-cab"><span>Desvios por gravidade</span>
