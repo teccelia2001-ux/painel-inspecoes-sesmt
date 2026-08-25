@@ -154,6 +154,42 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 
 /* ============================================================
+   RESUMO GERAL — bloco de progresso + cartões + gravidade
+   (mesmo desenho do painel de obras, com as cores da Teccel)
+   ============================================================ */
+.rg{height:100%;overflow:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 4px}
+.rg-cab{display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);font-weight:700}
+.rg-progresso,.rg-desvios{background:var(--painel-alt);border:1px solid var(--linha-borda);
+  border-radius:10px;padding:10px 12px}
+.rg-pct{font-size:34px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:2px}
+.rg-pct.bom{color:var(--bom)} .rg-pct.medio{color:var(--medio)} .rg-pct.ruim{color:var(--acento-forte)}
+.rg-barra{height:9px;border-radius:20px;background:#ece5dd;overflow:hidden;margin:6px 0 5px}
+.rg-barra i{display:block;height:100%;border-radius:20px;background:var(--acento)}
+.rg-barra i.bom{background:var(--bom)} .rg-barra i.medio{background:var(--medio)}
+.rg-pe{display:flex;justify-content:space-between;font-size:11px;color:var(--txt2);
+  font-variant-numeric:tabular-nums}
+
+.rg-cartoes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.rg-card{background:var(--painel);border:1px solid var(--linha-borda);border-radius:10px;
+  padding:9px 10px;box-shadow:var(--sombra)}
+.rg-val{font-size:21px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.rg-val.bom{color:var(--bom)} .rg-val.medio{color:var(--medio)} .rg-val.ruim{color:var(--ruim)}
+.rg-rot{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);margin-top:2px}
+
+.rg-linha{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 0}
+.rg-linha i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.rg-linha>span{flex:0 0 92px}
+.rg-mini{flex:1 1 auto;height:7px;border-radius:20px;background:#ece5dd;overflow:hidden}
+.rg-mini i{display:block;height:100%;width:0;border-radius:20px}
+.rg-linha b{flex:0 0 38px;text-align:right;font-variant-numeric:tabular-nums}
+.rg-linha em{flex:0 0 44px;text-align:right;font-style:normal;color:var(--txt2);font-size:10.5px}
+
+.rg-pedaco{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  font-size:11px;color:var(--txt2);padding:0 2px}
+.rg-pedaco b{color:var(--txt)}
+
+/* ============================================================
    MODO FLUIDO — telas estreitas (celular / tablet retrato)
    Os mesmos visuais, reempilhados numa grade de 2 colunas.
    ============================================================ */
@@ -207,6 +243,10 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .abas button{white-space:nowrap;flex:0 0 auto}
   .abas .att{display:none}
 
+  /* resumo geral: rola junto com a página, sem caixa de rolagem interna */
+  .rg{height:auto;overflow:visible}
+  .rg-pct{font-size:30px}
+
   /* no fluido o painel cresce, então o pódio precisa de altura mínima própria */
   .podio{min-height:250px}
   .podio.piores{min-height:170px}
@@ -227,12 +267,17 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .painel{min-height:300px}
   .marca .nome{font-size:14px}
   .voltar{height:36px}
+  /* três cartões não cabem lado a lado num celular: passam a dois */
+  .rg-cartoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rg-linha>span{flex:0 0 76px}
+  .rg-pedaco{flex-direction:column;gap:3px}
 }
 
 /* ============================================================
    AJUSTES — tela de cadastro
    ============================================================ */
-.aj{position:absolute;left:16px;right:16px;top:88px;bottom:38px;display:flex;flex-direction:column;gap:10px}
+/* começa depois do botão ← (16px + 44px + folga), senão as abas ficam por baixo dele */
+.aj{position:absolute;left:74px;right:16px;top:88px;bottom:38px;display:flex;flex-direction:column;gap:10px}
 .aj-estado{position:absolute;left:70px;right:16px;top:88px;height:0;display:flex;align-items:center;
   gap:10px;font-size:11.5px;overflow:visible;z-index:5}
 .aj-estado span{padding:6px 10px;border-radius:7px;line-height:1.35}
@@ -619,7 +664,7 @@ const NC = [
 const ATUALIZACAO = "24/08/2026 07:20:36";
 
 /* Versão do build — carimbada no rodapé para conferir cache do navegador */
-const VERSAO = "20260824-1715";
+const VERSAO = "20260825-1430";
 </script>
 <script>
 /* ============================================================
@@ -1160,11 +1205,20 @@ function comboChart(host, dados, opt) {
   opt = Object.assign({
     series: [{ key: "qtd", label: "Realizado", cor: "var(--c1)" }],
     linha: null, rotulo: "chave", pctLinha: true, rotacionar: true,
-    metaLinha: null, maxRot: 14
+    metaLinha: null, maxRot: 14, minColuna: 0
   }, opt);
 
-  const W = host.clientWidth, H = host.clientHeight;
-  const m = { t: 16, r: opt.linha ? 44 : 14, b: opt.rotacionar ? 62 : 30, l: 40 };
+  const H = host.clientHeight;
+  // com linha de % o rótulo do ponto sobe 11px: sem folga no topo ele sai cortado
+  const m = { t: opt.linha ? 26 : 16, r: opt.linha ? 44 : 14, b: opt.rotacionar ? 62 : 30, l: 40 };
+
+  /* No celular caberiam 68 dias em 500px — as barras viram fios e os rótulos
+     somem. Havendo largura mínima por coluna, o gráfico cresce e rola na
+     horizontal em vez de espremer (e perder) a informação. */
+  const preciso = opt.minColuna ? dados.length * opt.minColuna + m.l + m.r : 0;
+  const W = Math.max(host.clientWidth, preciso);
+  host.style.overflowX = W > host.clientWidth ? "auto" : "";
+  host.style.overflowY = "hidden";
   const iw = Math.max(10, W - m.l - m.r), ih = Math.max(10, H - m.t - m.b);
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = "";
@@ -1186,7 +1240,15 @@ function comboChart(host, dados, opt) {
     g.appendChild(el("text", { x: -8, y: y + 4, class: "eixo", "text-anchor": "end" }, fmtN(v)));
   }
 
-  /* colunas */
+  /* Mantém o texto dentro da área desenhada: sem isso os rótulos da primeira e
+     da última coluna saem pela borda do SVG e aparecem cortados. */
+  const dentroX = x => Math.max(-m.l + 4, Math.min(iw + m.r - 4, x));
+  const dentroY = y => Math.max(-m.t + 9, y);
+
+  /* colunas — rotulos[i] guarda onde cada quantidade foi escrita, para a
+     porcentagem depois não ser escrita por cima de nenhuma delas */
+  const rotulos = [];
+  const anotar = (i, x, y) => { (rotulos[i] = rotulos[i] || []).push({ x, y }); };
   dados.forEach((d, i) => {
     const x0 = i * bw + (bw - sw * opt.series.length) / 2;
     opt.series.forEach((s, j) => {
@@ -1194,9 +1256,24 @@ function comboChart(host, dados, opt) {
       const r = el("rect", { x: x0 + j * sw, y, width: sw - 2, height: Math.max(0, ih - y), fill: s.cor, rx: 2, class: "barra" });
       r.appendChild(el("title", {}, `${d[opt.rotulo]}\n${s.label}: ${fmtN(v)}`));
       g.appendChild(r);
-      if (v > 0 && dados.length <= 20)
-        g.appendChild(el("text", { x: x0 + j * sw + (sw - 2) / 2, y: y - 4, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
+      // a quantidade aparece sempre que a coluna for larga o bastante para ela caber
+      if (v > 0 && sw >= 11) {
+        const xr = dentroX(x0 + j * sw + (sw - 2) / 2), yr = dentroY(y - 4);
+        g.appendChild(el("text", { x: xr, y: yr, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
+        anotar(i, xr, yr);
+      }
     });
+    /* Colunas estreitas (o gráfico por dia, com o ano inteiro) não têm espaço
+       para um número por barra. Em vez de ficar sem informação nenhuma, escreve
+       só o valor da primeira série — a quantidade — acima do grupo. */
+    if (!rotulos[i] && bw >= 15) {
+      const v = d[opt.series[0].key] || 0;
+      if (v > 0) {
+        const xr = dentroX(i * bw + bw / 2), yr = dentroY(esc(v) - 4);
+        g.appendChild(el("text", { x: xr, y: yr, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
+        anotar(i, xr, yr);
+      }
+    }
   });
 
   /* meta como linha de referência */
@@ -1233,9 +1310,21 @@ function comboChart(host, dados, opt) {
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
       // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
-      if (bw >= 34)
-        g.appendChild(el("text", { x, y: y - 11, class: "rotulo-linha", "text-anchor": "middle" },
+      if (bw >= 34) {
+        const xl = dentroX(x);
+        let yl = y - 11;
+        /* Enquanto cair em cima de alguma quantidade da mesma coluna, sobe
+           para logo acima dela. São no máximo três rótulos por coluna. */
+        const perto = () => (rotulos[i] || []).filter(r =>
+          Math.abs(r.x - xl) < 16 && Math.abs(r.y - yl) < 11);
+        for (let n = 0; n < 4; n++) {
+          const c = perto();
+          if (!c.length) break;
+          yl = Math.min(...c.map(r => r.y)) - 11;
+        }
+        g.appendChild(el("text", { x: xl, y: dentroY(yl), class: "rotulo-linha", "text-anchor": "middle" },
           opt.pctLinha ? fmtP(v, 1) : fmtD(v, 1)));
+      }
     });
     for (let i = 0; i <= 4; i++) {
       const y = ih - (ih / 4) * i, v = (maxL / 4) * i;
@@ -1429,6 +1518,18 @@ const SECOES = {
 const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
   PER: "Perdas", PLA: "Plantão", POD: "Poda", REA: "Reaviso" };
 
+/* Ordem de exibição dos inspetores: hierarquia de campo, não alfabeto.
+   Quem não estiver na lista vai para o fim. */
+const ORDEM_FUNCAO = ["Supervisor", "Técnico Segurança", "Engenheiro Segurança",
+  "Coordenador Operacional", "Gerente Operacional"];
+const postoFuncao = f => {
+  const i = ORDEM_FUNCAO.findIndex(o => o.toLowerCase() === String(f || "").trim().toLowerCase());
+  return i < 0 ? ORDEM_FUNCAO.length : i;
+};
+/* CONST 2 antes de CONST 10: comparação numérica, não alfabética */
+const ordemNatural = (a, b) =>
+  String(a || "").localeCompare(String(b || ""), "pt-BR", { numeric: true, sensitivity: "base" });
+
 const Ajustes = {
   secao: "equipes",
   busca: "",
@@ -1485,7 +1586,10 @@ const Ajustes = {
       }
       if (!busca) return true;
       return Object.values(r).some(v => String(v).toLowerCase().includes(busca));
-    });
+    }).sort(this.secao === "equipes"
+      ? (a, b) => ordemNatural(a.equipe, b.equipe)
+      // inspetores: primeiro pela função, depois pelo nome
+      : (a, b) => (postoFuncao(a.funcao) - postoFuncao(b.funcao)) || ordemNatural(a.inspetor, b.inspetor));
   },
 
   render() {
@@ -2129,7 +2233,8 @@ function render() {
 
   if (paginaAtual === "ranking") {
     setCards(R.rkCards, base);
-    const linhas = porInspetor(f, ms, true).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+    // sem a linha "(vazio)": inspeções sem inspetor cadastrado não entram no ranking
+    const linhas = porInspetor(f, ms).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
     tabela(R.rkTabela, [
       { titulo: "#", valor: (l, i) => "", num: true },
       { titulo: "Inspetor", valor: l => l.chave },
@@ -2176,7 +2281,7 @@ function render() {
     const porEq = agrupar(f, "equipe", ms).filter(x => x.qtd > 0).sort((a, b) => b.qtd - a.qtd).slice(0, 22);
     comboChart(R.icEquipe, porEq, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "icit", label: "ICIT" }, maxRot: 12
+      linha: { key: "icit", label: "ICIT" }, maxRot: 12, minColuna: 30
     });
     comboChart(R.icTipo, agrupar(f, "tipo", ms).sort((a, b) => b.qtd - a.qtd), {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
@@ -2195,7 +2300,7 @@ function render() {
     }));
     comboChart(R.diChart, dias, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6
+      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22
     });
     legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
       { cor: "var(--c-linha)", txt: "% com N.C" }]);
@@ -2301,25 +2406,63 @@ function legendaUnica(host, itens) {
   legenda(host, itens);
 }
 
+/* Resumo geral — mesmo desenho do painel de obras: um bloco de progresso em
+   destaque, os números em cartões e a gravidade dos desvios em barras.
+   As cores continuam as da Teccel. */
 function resumoPainel() {
   const f = FATO, ms = DDATA, k = kpis(f, ms);
   const g = gravidades(f);
-  const linhas = [
-    ["Inspeções realizadas", fmtN(k.Qtd_Insp)],
-    ["Meta de inspeções", fmtN(k.Meta_Insp)],
-    ["Meta proporcional aos dias úteis", fmtD(k.Meta_insp_dia, 1)],
-    ["% da meta atingida", fmtP(k.pctInspecao)],
-    ["Inspeções com não conformidade", fmtN(k.Qtd_Inspecao_NC)],
-    ["Não conformidades apontadas", fmtN(k.Qtd_NC)],
-    ["ICIT (conformidade)", fmtP(k.ICIT)],
-    ["Desvios gravíssimos / graves / leves", `${g["Gravíssimo"]} / ${g["Grave"]} / ${g["Leve"]}`],
-    ["Inspetores × meses com meta", fmtN(k.Qtd_Inspetor)],
-    ["Dias úteis no ano / até hoje", `${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}`]
+  const faixa = v => v === null || v === undefined ? "" : v >= 1 ? "bom" : v >= 0.8 ? "medio" : "ruim";
+  // mesmas faixas do velocímetro do ICIT
+  const faixaIcit = v => v === null || v === undefined ? "" : v >= 0.85 ? "bom" : v >= 0.6 ? "medio" : "ruim";
+
+  const cartoes = [
+    ["Inspeções realizadas", fmtN(k.Qtd_Insp), ""],
+    ["Meta de inspeções", fmtN(k.Meta_Insp), ""],
+    ["Meta até hoje", fmtD(k.Meta_insp_dia, 1), ""],
+    ["ICIT (conformidade)", fmtP(k.ICIT), faixaIcit(k.ICIT)],
+    ["Inspeções com N.C", fmtN(k.Qtd_Inspecao_NC), "ruim"],
+    ["N.C apontadas", fmtN(k.Qtd_NC), "ruim"]
   ];
-  tabela(R.painelResumo, [
-    { titulo: "Indicador", valor: l => l[0] },
-    { titulo: "Valor", valor: l => l[1], num: true }
-  ], linhas);
+
+  const desvios = [
+    ["Gravíssimo", g["Gravíssimo"], "var(--ruim)"],
+    ["Grave", g["Grave"], "var(--medio)"],
+    ["Leve", g["Leve"], "var(--c2)"]
+  ];
+  const totalDesvios = desvios.reduce((a, d) => a + (d[1] || 0), 0);
+
+  R.painelResumo.innerHTML = `
+    <div class="rg">
+      <div class="rg-progresso">
+        <div class="rg-cab"><span>Progresso geral</span><span class="rg-alvo">🎯</span></div>
+        <div class="rg-pct ${faixa(k.pctInspecao)}">${fmtP(k.pctInspecao)}</div>
+        <div class="rg-barra"><i class="${faixa(k.pctInspecao)}"
+          style="width:${Math.min(100, (k.pctInspecao || 0) * 100).toFixed(1)}%"></i></div>
+        <div class="rg-pe"><span>Meta: ${fmtN(k.Meta_Insp)}</span>
+          <span>Realizado: ${fmtN(k.Qtd_Insp)}</span></div>
+      </div>
+
+      <div class="rg-cartoes">
+        ${cartoes.map(([rot, val, cls]) => `<div class="rg-card">
+          <div class="rg-val ${cls}">${val}</div><div class="rg-rot">${rot}</div></div>`).join("")}
+      </div>
+
+      <div class="rg-desvios">
+        <div class="rg-cab"><span>Desvios por gravidade</span><b>${fmtN(totalDesvios)}</b></div>
+        ${desvios.map(([nome, qtd, cor]) => `<div class="rg-linha">
+          <i style="background:${cor}"></i><span>${nome}</span>
+          <div class="rg-mini"><i style="background:${cor};width:${
+            totalDesvios ? ((qtd || 0) / totalDesvios * 100).toFixed(1) : 0}%"></i></div>
+          <b>${fmtN(qtd)}</b>
+          <em>${totalDesvios ? fmtP((qtd || 0) / totalDesvios, 0) : "—"}</em></div>`).join("")}
+      </div>
+
+      <div class="rg-pedaco">
+        <span>Inspetores × meses com meta <b>${fmtN(k.Qtd_Inspetor)}</b></span>
+        <span>Dias úteis no ano / até hoje <b>${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}</b></span>
+      </div>
+    </div>`;
 }
 
 /* ---------- dois modos de layout ----------

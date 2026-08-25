@@ -365,7 +365,8 @@ function render() {
 
   if (paginaAtual === "ranking") {
     setCards(R.rkCards, base);
-    const linhas = porInspetor(f, ms, true).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+    // sem a linha "(vazio)": inspeções sem inspetor cadastrado não entram no ranking
+    const linhas = porInspetor(f, ms).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
     tabela(R.rkTabela, [
       { titulo: "#", valor: (l, i) => "", num: true },
       { titulo: "Inspetor", valor: l => l.chave },
@@ -412,7 +413,7 @@ function render() {
     const porEq = agrupar(f, "equipe", ms).filter(x => x.qtd > 0).sort((a, b) => b.qtd - a.qtd).slice(0, 22);
     comboChart(R.icEquipe, porEq, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "icit", label: "ICIT" }, maxRot: 12
+      linha: { key: "icit", label: "ICIT" }, maxRot: 12, minColuna: 30
     });
     comboChart(R.icTipo, agrupar(f, "tipo", ms).sort((a, b) => b.qtd - a.qtd), {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
@@ -431,7 +432,7 @@ function render() {
     }));
     comboChart(R.diChart, dias, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6
+      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22
     });
     legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
       { cor: "var(--c-linha)", txt: "% com N.C" }]);
@@ -537,25 +538,63 @@ function legendaUnica(host, itens) {
   legenda(host, itens);
 }
 
+/* Resumo geral — mesmo desenho do painel de obras: um bloco de progresso em
+   destaque, os números em cartões e a gravidade dos desvios em barras.
+   As cores continuam as da Teccel. */
 function resumoPainel() {
   const f = FATO, ms = DDATA, k = kpis(f, ms);
   const g = gravidades(f);
-  const linhas = [
-    ["Inspeções realizadas", fmtN(k.Qtd_Insp)],
-    ["Meta de inspeções", fmtN(k.Meta_Insp)],
-    ["Meta proporcional aos dias úteis", fmtD(k.Meta_insp_dia, 1)],
-    ["% da meta atingida", fmtP(k.pctInspecao)],
-    ["Inspeções com não conformidade", fmtN(k.Qtd_Inspecao_NC)],
-    ["Não conformidades apontadas", fmtN(k.Qtd_NC)],
-    ["ICIT (conformidade)", fmtP(k.ICIT)],
-    ["Desvios gravíssimos / graves / leves", `${g["Gravíssimo"]} / ${g["Grave"]} / ${g["Leve"]}`],
-    ["Inspetores × meses com meta", fmtN(k.Qtd_Inspetor)],
-    ["Dias úteis no ano / até hoje", `${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}`]
+  const faixa = v => v === null || v === undefined ? "" : v >= 1 ? "bom" : v >= 0.8 ? "medio" : "ruim";
+  // mesmas faixas do velocímetro do ICIT
+  const faixaIcit = v => v === null || v === undefined ? "" : v >= 0.85 ? "bom" : v >= 0.6 ? "medio" : "ruim";
+
+  const cartoes = [
+    ["Inspeções realizadas", fmtN(k.Qtd_Insp), ""],
+    ["Meta de inspeções", fmtN(k.Meta_Insp), ""],
+    ["Meta até hoje", fmtD(k.Meta_insp_dia, 1), ""],
+    ["ICIT (conformidade)", fmtP(k.ICIT), faixaIcit(k.ICIT)],
+    ["Inspeções com N.C", fmtN(k.Qtd_Inspecao_NC), "ruim"],
+    ["N.C apontadas", fmtN(k.Qtd_NC), "ruim"]
   ];
-  tabela(R.painelResumo, [
-    { titulo: "Indicador", valor: l => l[0] },
-    { titulo: "Valor", valor: l => l[1], num: true }
-  ], linhas);
+
+  const desvios = [
+    ["Gravíssimo", g["Gravíssimo"], "var(--ruim)"],
+    ["Grave", g["Grave"], "var(--medio)"],
+    ["Leve", g["Leve"], "var(--c2)"]
+  ];
+  const totalDesvios = desvios.reduce((a, d) => a + (d[1] || 0), 0);
+
+  R.painelResumo.innerHTML = `
+    <div class="rg">
+      <div class="rg-progresso">
+        <div class="rg-cab"><span>Progresso geral</span><span class="rg-alvo">🎯</span></div>
+        <div class="rg-pct ${faixa(k.pctInspecao)}">${fmtP(k.pctInspecao)}</div>
+        <div class="rg-barra"><i class="${faixa(k.pctInspecao)}"
+          style="width:${Math.min(100, (k.pctInspecao || 0) * 100).toFixed(1)}%"></i></div>
+        <div class="rg-pe"><span>Meta: ${fmtN(k.Meta_Insp)}</span>
+          <span>Realizado: ${fmtN(k.Qtd_Insp)}</span></div>
+      </div>
+
+      <div class="rg-cartoes">
+        ${cartoes.map(([rot, val, cls]) => `<div class="rg-card">
+          <div class="rg-val ${cls}">${val}</div><div class="rg-rot">${rot}</div></div>`).join("")}
+      </div>
+
+      <div class="rg-desvios">
+        <div class="rg-cab"><span>Desvios por gravidade</span><b>${fmtN(totalDesvios)}</b></div>
+        ${desvios.map(([nome, qtd, cor]) => `<div class="rg-linha">
+          <i style="background:${cor}"></i><span>${nome}</span>
+          <div class="rg-mini"><i style="background:${cor};width:${
+            totalDesvios ? ((qtd || 0) / totalDesvios * 100).toFixed(1) : 0}%"></i></div>
+          <b>${fmtN(qtd)}</b>
+          <em>${totalDesvios ? fmtP((qtd || 0) / totalDesvios, 0) : "—"}</em></div>`).join("")}
+      </div>
+
+      <div class="rg-pedaco">
+        <span>Inspetores × meses com meta <b>${fmtN(k.Qtd_Inspetor)}</b></span>
+        <span>Dias úteis no ano / até hoje <b>${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}</b></span>
+      </div>
+    </div>`;
 }
 
 /* ---------- dois modos de layout ----------

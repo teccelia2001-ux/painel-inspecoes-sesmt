@@ -54,6 +54,18 @@ const SECOES = {
 const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
   PER: "Perdas", PLA: "Plantão", POD: "Poda", REA: "Reaviso" };
 
+/* Ordem de exibição dos inspetores: hierarquia de campo, não alfabeto.
+   Quem não estiver na lista vai para o fim. */
+const ORDEM_FUNCAO = ["Supervisor", "Técnico Segurança", "Engenheiro Segurança",
+  "Coordenador Operacional", "Gerente Operacional"];
+const postoFuncao = f => {
+  const i = ORDEM_FUNCAO.findIndex(o => o.toLowerCase() === String(f || "").trim().toLowerCase());
+  return i < 0 ? ORDEM_FUNCAO.length : i;
+};
+/* CONST 2 antes de CONST 10: comparação numérica, não alfabética */
+const ordemNatural = (a, b) =>
+  String(a || "").localeCompare(String(b || ""), "pt-BR", { numeric: true, sensitivity: "base" });
+
 const Ajustes = {
   secao: "equipes",
   busca: "",
@@ -110,7 +122,10 @@ const Ajustes = {
       }
       if (!busca) return true;
       return Object.values(r).some(v => String(v).toLowerCase().includes(busca));
-    });
+    }).sort(this.secao === "equipes"
+      ? (a, b) => ordemNatural(a.equipe, b.equipe)
+      // inspetores: primeiro pela função, depois pelo nome
+      : (a, b) => (postoFuncao(a.funcao) - postoFuncao(b.funcao)) || ordemNatural(a.inspetor, b.inspetor));
   },
 
   render() {

@@ -156,6 +156,42 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 
 /* ============================================================
+   RESUMO GERAL — bloco de progresso + cartões + gravidade
+   (mesmo desenho do painel de obras, com as cores da Teccel)
+   ============================================================ */
+.rg{height:100%;overflow:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 4px}
+.rg-cab{display:flex;align-items:center;justify-content:space-between;
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);font-weight:700}
+.rg-progresso,.rg-desvios{background:var(--painel-alt);border:1px solid var(--linha-borda);
+  border-radius:10px;padding:10px 12px}
+.rg-pct{font-size:34px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:2px}
+.rg-pct.bom{color:var(--bom)} .rg-pct.medio{color:var(--medio)} .rg-pct.ruim{color:var(--acento-forte)}
+.rg-barra{height:9px;border-radius:20px;background:#ece5dd;overflow:hidden;margin:6px 0 5px}
+.rg-barra i{display:block;height:100%;border-radius:20px;background:var(--acento)}
+.rg-barra i.bom{background:var(--bom)} .rg-barra i.medio{background:var(--medio)}
+.rg-pe{display:flex;justify-content:space-between;font-size:11px;color:var(--txt2);
+  font-variant-numeric:tabular-nums}
+
+.rg-cartoes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.rg-card{background:var(--painel);border:1px solid var(--linha-borda);border-radius:10px;
+  padding:9px 10px;box-shadow:var(--sombra)}
+.rg-val{font-size:21px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.rg-val.bom{color:var(--bom)} .rg-val.medio{color:var(--medio)} .rg-val.ruim{color:var(--ruim)}
+.rg-rot{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2);margin-top:2px}
+
+.rg-linha{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 0}
+.rg-linha i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.rg-linha>span{flex:0 0 92px}
+.rg-mini{flex:1 1 auto;height:7px;border-radius:20px;background:#ece5dd;overflow:hidden}
+.rg-mini i{display:block;height:100%;width:0;border-radius:20px}
+.rg-linha b{flex:0 0 38px;text-align:right;font-variant-numeric:tabular-nums}
+.rg-linha em{flex:0 0 44px;text-align:right;font-style:normal;color:var(--txt2);font-size:10.5px}
+
+.rg-pedaco{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  font-size:11px;color:var(--txt2);padding:0 2px}
+.rg-pedaco b{color:var(--txt)}
+
+/* ============================================================
    MODO FLUIDO — telas estreitas (celular / tablet retrato)
    Os mesmos visuais, reempilhados numa grade de 2 colunas.
    ============================================================ */
@@ -209,6 +245,10 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .abas button{white-space:nowrap;flex:0 0 auto}
   .abas .att{display:none}
 
+  /* resumo geral: rola junto com a página, sem caixa de rolagem interna */
+  .rg{height:auto;overflow:visible}
+  .rg-pct{font-size:30px}
+
   /* no fluido o painel cresce, então o pódio precisa de altura mínima própria */
   .podio{min-height:250px}
   .podio.piores{min-height:170px}
@@ -229,12 +269,17 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .painel{min-height:300px}
   .marca .nome{font-size:14px}
   .voltar{height:36px}
+  /* três cartões não cabem lado a lado num celular: passam a dois */
+  .rg-cartoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rg-linha>span{flex:0 0 76px}
+  .rg-pedaco{flex-direction:column;gap:3px}
 }
 
 /* ============================================================
    AJUSTES — tela de cadastro
    ============================================================ */
-.aj{position:absolute;left:16px;right:16px;top:88px;bottom:38px;display:flex;flex-direction:column;gap:10px}
+/* começa depois do botão ← (16px + 44px + folga), senão as abas ficam por baixo dele */
+.aj{position:absolute;left:74px;right:16px;top:88px;bottom:38px;display:flex;flex-direction:column;gap:10px}
 .aj-estado{position:absolute;left:70px;right:16px;top:88px;height:0;display:flex;align-items:center;
   gap:10px;font-size:11.5px;overflow:visible;z-index:5}
 .aj-estado span{padding:6px 10px;border-radius:7px;line-height:1.35}

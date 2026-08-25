@@ -21,11 +21,20 @@ function comboChart(host, dados, opt) {
   opt = Object.assign({
     series: [{ key: "qtd", label: "Realizado", cor: "var(--c1)" }],
     linha: null, rotulo: "chave", pctLinha: true, rotacionar: true,
-    metaLinha: null, maxRot: 14
+    metaLinha: null, maxRot: 14, minColuna: 0
   }, opt);
 
-  const W = host.clientWidth, H = host.clientHeight;
-  const m = { t: 16, r: opt.linha ? 44 : 14, b: opt.rotacionar ? 62 : 30, l: 40 };
+  const H = host.clientHeight;
+  // com linha de % o rótulo do ponto sobe 11px: sem folga no topo ele sai cortado
+  const m = { t: opt.linha ? 26 : 16, r: opt.linha ? 44 : 14, b: opt.rotacionar ? 62 : 30, l: 40 };
+
+  /* No celular caberiam 68 dias em 500px — as barras viram fios e os rótulos
+     somem. Havendo largura mínima por coluna, o gráfico cresce e rola na
+     horizontal em vez de espremer (e perder) a informação. */
+  const preciso = opt.minColuna ? dados.length * opt.minColuna + m.l + m.r : 0;
+  const W = Math.max(host.clientWidth, preciso);
+  host.style.overflowX = W > host.clientWidth ? "auto" : "";
+  host.style.overflowY = "hidden";
   const iw = Math.max(10, W - m.l - m.r), ih = Math.max(10, H - m.t - m.b);
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = "";
@@ -47,7 +56,15 @@ function comboChart(host, dados, opt) {
     g.appendChild(el("text", { x: -8, y: y + 4, class: "eixo", "text-anchor": "end" }, fmtN(v)));
   }
 
-  /* colunas */
+  /* Mantém o texto dentro da área desenhada: sem isso os rótulos da primeira e
+     da última coluna saem pela borda do SVG e aparecem cortados. */
+  const dentroX = x => Math.max(-m.l + 4, Math.min(iw + m.r - 4, x));
+  const dentroY = y => Math.max(-m.t + 9, y);
+
+  /* colunas — rotulos[i] guarda onde cada quantidade foi escrita, para a
+     porcentagem depois não ser escrita por cima de nenhuma delas */
+  const rotulos = [];
+  const anotar = (i, x, y) => { (rotulos[i] = rotulos[i] || []).push({ x, y }); };
   dados.forEach((d, i) => {
     const x0 = i * bw + (bw - sw * opt.series.length) / 2;
     opt.series.forEach((s, j) => {
@@ -55,9 +72,24 @@ function comboChart(host, dados, opt) {
       const r = el("rect", { x: x0 + j * sw, y, width: sw - 2, height: Math.max(0, ih - y), fill: s.cor, rx: 2, class: "barra" });
       r.appendChild(el("title", {}, `${d[opt.rotulo]}\n${s.label}: ${fmtN(v)}`));
       g.appendChild(r);
-      if (v > 0 && dados.length <= 20)
-        g.appendChild(el("text", { x: x0 + j * sw + (sw - 2) / 2, y: y - 4, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
+      // a quantidade aparece sempre que a coluna for larga o bastante para ela caber
+      if (v > 0 && sw >= 11) {
+        const xr = dentroX(x0 + j * sw + (sw - 2) / 2), yr = dentroY(y - 4);
+        g.appendChild(el("text", { x: xr, y: yr, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
+        anotar(i, xr, yr);
+      }
     });
+    /* Colunas estreitas (o gráfico por dia, com o ano inteiro) não têm espaço
+       para um número por barra. Em vez de ficar sem informação nenhuma, escreve
+       só o valor da primeira série — a quantidade — acima do grupo. */
+    if (!rotulos[i] && bw >= 15) {
+      const v = d[opt.series[0].key] || 0;
+      if (v > 0) {
+        const xr = dentroX(i * bw + bw / 2), yr = dentroY(esc(v) - 4);
+        g.appendChild(el("text", { x: xr, y: yr, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
+        anotar(i, xr, yr);
+      }
+    }
   });
 
   /* meta como linha de referência */
@@ -94,9 +126,21 @@ function comboChart(host, dados, opt) {
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
       // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
-      if (bw >= 34)
-        g.appendChild(el("text", { x, y: y - 11, class: "rotulo-linha", "text-anchor": "middle" },
+      if (bw >= 34) {
+        const xl = dentroX(x);
+        let yl = y - 11;
+        /* Enquanto cair em cima de alguma quantidade da mesma coluna, sobe
+           para logo acima dela. São no máximo três rótulos por coluna. */
+        const perto = () => (rotulos[i] || []).filter(r =>
+          Math.abs(r.x - xl) < 16 && Math.abs(r.y - yl) < 11);
+        for (let n = 0; n < 4; n++) {
+          const c = perto();
+          if (!c.length) break;
+          yl = Math.min(...c.map(r => r.y)) - 11;
+        }
+        g.appendChild(el("text", { x: xl, y: dentroY(yl), class: "rotulo-linha", "text-anchor": "middle" },
           opt.pctLinha ? fmtP(v, 1) : fmtD(v, 1)));
+      }
     });
     for (let i = 0; i <= 4; i++) {
       const y = ih - (ih / 4) * i, v = (maxL / 4) * i;
