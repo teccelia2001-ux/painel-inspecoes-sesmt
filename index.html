@@ -179,7 +179,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
 .rg-linha{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 0}
 .rg-linha i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
-.rg-linha>span{flex:0 0 92px}
+.rg-linha>span{flex:0 0 118px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rg-mini{flex:1 1 auto;height:7px;border-radius:20px;background:#ece5dd;overflow:hidden}
 .rg-mini i{display:block;height:100%;width:0;border-radius:20px}
 .rg-linha b{flex:0 0 38px;text-align:right;font-variant-numeric:tabular-nums}
@@ -269,7 +269,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .voltar{height:36px}
   /* três cartões não cabem lado a lado num celular: passam a dois */
   .rg-cartoes{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .rg-linha>span{flex:0 0 76px}
+  .rg-linha>span{flex:0 0 100px;font-size:11px}
   .rg-pedaco{flex-direction:column;gap:3px}
 }
 
@@ -2425,11 +2425,15 @@ function resumoPainel() {
     ["N.C apontadas", fmtN(k.Qtd_NC), "ruim"]
   ];
 
+  /* Parte das N.C vem da origem sem gravidade preenchida. Sem esta quarta
+     linha a soma das barras fica menor que o total de N.C apontadas. */
   const desvios = [
-    ["Gravíssimo", g["Gravíssimo"], "var(--ruim)"],
-    ["Grave", g["Grave"], "var(--medio)"],
-    ["Leve", g["Leve"], "var(--c2)"]
-  ];
+    ["Gravíssimo", g["Gravíssimo"], "var(--ruim)", ""],
+    ["Grave", g["Grave"], "var(--medio)", ""],
+    ["Leve", g["Leve"], "var(--c2)", ""],
+    ["Sem classificação", g[""], "var(--txt3)",
+      "Não conformidades que vieram sem gravidade preenchida na origem"]
+  ].filter(d => d[1] > 0);
   const totalDesvios = desvios.reduce((a, d) => a + (d[1] || 0), 0);
 
   R.painelResumo.innerHTML = `
@@ -2449,8 +2453,9 @@ function resumoPainel() {
       </div>
 
       <div class="rg-desvios">
-        <div class="rg-cab"><span>Desvios por gravidade</span><b>${fmtN(totalDesvios)}</b></div>
-        ${desvios.map(([nome, qtd, cor]) => `<div class="rg-linha">
+        <div class="rg-cab"><span>Desvios por gravidade</span>
+          <b title="Soma igual ao total de N.C apontadas">${fmtN(totalDesvios)}</b></div>
+        ${desvios.map(([nome, qtd, cor, dica]) => `<div class="rg-linha"${dica ? ` title="${dica}"` : ""}>
           <i style="background:${cor}"></i><span>${nome}</span>
           <div class="rg-mini"><i style="background:${cor};width:${
             totalDesvios ? ((qtd || 0) / totalDesvios * 100).toFixed(1) : 0}%"></i></div>

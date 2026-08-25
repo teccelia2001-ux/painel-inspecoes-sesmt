@@ -557,11 +557,15 @@ function resumoPainel() {
     ["N.C apontadas", fmtN(k.Qtd_NC), "ruim"]
   ];
 
+  /* Parte das N.C vem da origem sem gravidade preenchida. Sem esta quarta
+     linha a soma das barras fica menor que o total de N.C apontadas. */
   const desvios = [
-    ["Gravíssimo", g["Gravíssimo"], "var(--ruim)"],
-    ["Grave", g["Grave"], "var(--medio)"],
-    ["Leve", g["Leve"], "var(--c2)"]
-  ];
+    ["Gravíssimo", g["Gravíssimo"], "var(--ruim)", ""],
+    ["Grave", g["Grave"], "var(--medio)", ""],
+    ["Leve", g["Leve"], "var(--c2)", ""],
+    ["Sem classificação", g[""], "var(--txt3)",
+      "Não conformidades que vieram sem gravidade preenchida na origem"]
+  ].filter(d => d[1] > 0);
   const totalDesvios = desvios.reduce((a, d) => a + (d[1] || 0), 0);
 
   R.painelResumo.innerHTML = `
@@ -581,8 +585,9 @@ function resumoPainel() {
       </div>
 
       <div class="rg-desvios">
-        <div class="rg-cab"><span>Desvios por gravidade</span><b>${fmtN(totalDesvios)}</b></div>
-        ${desvios.map(([nome, qtd, cor]) => `<div class="rg-linha">
+        <div class="rg-cab"><span>Desvios por gravidade</span>
+          <b title="Soma igual ao total de N.C apontadas">${fmtN(totalDesvios)}</b></div>
+        ${desvios.map(([nome, qtd, cor, dica]) => `<div class="rg-linha"${dica ? ` title="${dica}"` : ""}>
           <i style="background:${cor}"></i><span>${nome}</span>
           <div class="rg-mini"><i style="background:${cor};width:${
             totalDesvios ? ((qtd || 0) / totalDesvios * 100).toFixed(1) : 0}%"></i></div>
