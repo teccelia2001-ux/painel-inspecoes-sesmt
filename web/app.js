@@ -60,6 +60,16 @@ const RESUMO_DICA = {
   "N.C apontadas": "itens reprovados no total"
 };
 
+/* O que o resumo do PAINEL mostra. A visão fica guardada entre as trocas de
+   página, mas não na URL: é escolha de leitura, não um link a compartilhar. */
+const VISOES_RESUMO = [
+  { k: "geral",  rot: "Geral",     desc: "Os números do ano inteiro, somados." },
+  { k: "mes",    rot: "Mês a mês", campo: null,     desc: "Um bloco por mês, com o quanto da meta foi atingido." },
+  { k: "polo",   rot: "Por polo",  campo: "polo",   desc: "Cada polo no período todo, com a meta de quem é do polo." },
+  { k: "equipe", rot: "Por equipe", campo: "equipe", desc: "Cada equipe de campo pelo ICIT — equipe não tem meta de inspeção." }
+];
+let visaoResumo = "geral";
+
 /* ---------- helpers de construção ---------- */
 function marcaHTML() {
   return `<img class="logo" src="${LOGO_TECCEL}" alt="Teccel Energia">
@@ -240,10 +250,27 @@ function pgPainel() {
     d.appendChild(b);
   });
 
-  const res = box(pg, 680, 130, 770, 476, "painel");
+  const res = box(pg, 680, 122, 770, 552, "painel");
   res.innerHTML = `<div class="titulo">Resumo geral (sem filtros)</div>`;
+  R.painelTitulo = res.querySelector(".titulo");
   const c = document.createElement("div"); c.className = "corpo"; res.appendChild(c);
-  R.painelResumo = c;
+
+  /* Seletor do que aparece no resumo — mesmas pílulas do resto do painel */
+  const sel = document.createElement("div");
+  sel.className = "pilulas rp-sel";
+  VISOES_RESUMO.forEach(v => {
+    const b = document.createElement("button");
+    b.textContent = v.rot; b.dataset.visao = v.k; b.title = v.desc;
+    b.onclick = () => { visaoResumo = v.k; resumoPainel(); };
+    sel.appendChild(b);
+  });
+  c.appendChild(sel);
+  R.painelSel = sel;
+
+  const conteudo = document.createElement("div");
+  conteudo.className = "rp-conteudo";
+  c.appendChild(conteudo);
+  R.painelResumo = conteudo;
   return pg;
 }
 
@@ -705,6 +732,81 @@ function legendaUnica(host, itens) {
    destaque, os números em cartões e a gravidade dos desvios em barras.
    As cores continuam as da Teccel. */
 function resumoPainel() {
+  const v = VISOES_RESUMO.find(x => x.k === visaoResumo) || VISOES_RESUMO[0];
+  R.painelSel.querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", b.dataset.visao === v.k));
+  R.painelTitulo.textContent = v.k === "geral"
+    ? "Resumo geral (sem filtros)" : `Resumo ${v.rot.toLowerCase()} (sem filtros)`;
+  R.painelTitulo.title = v.desc;
+  if (v.k !== "geral") return resumoPainelLista(v);
+  resumoPainelGeral();
+}
+
+/* Soma as linhas mês a mês do resumo mensal numa linha por chave — o painel
+   mostra o período inteiro, não cada mês de cada polo. */
+function consolidar(linhas) {
+  const mapa = new Map();
+  linhas.forEach(l => {
+    const k = l.chave;
+    if (!mapa.has(k)) mapa.set(k, { chave: k, qtd: 0, nc: 0, ncLinhas: 0, meta: 0,
+      metaDia: 0, pontosNC: 0, supervisor: l.supervisor || "" });
+    const a = mapa.get(k);
+    a.qtd += l.qtd; a.nc += l.nc; a.ncLinhas += l.ncLinhas;
+    a.meta += l.meta; a.metaDia += l.metaDia; a.pontosNC += l.pontosNC;
+  });
+  return [...mapa.values()].map(a => Object.assign(a, {
+    icit: a.qtd ? (a.qtd - a.nc) / a.qtd : null,
+    pct: a.metaDia ? pctAtingida(a.qtd, a.metaDia) : null
+  }));
+}
+
+/* Lista de progresso: um bloco por mês, polo ou equipe, na mesma linguagem
+   do resumo geral — barra, porcentagem grande e os números embaixo. */
+function resumoPainelLista(v) {
+  const faixa = x => x === null || x === undefined ? "" : x >= 1 ? "bom" : x >= 0.8 ? "medio" : "ruim";
+  const faixaIcit = x => x === null || x === undefined ? "" : x >= 0.85 ? "bom" : x >= 0.6 ? "medio" : "ruim";
+  const bruto = resumoMensal(FATO, DDATA, v.campo);
+
+  // por mês a ordem é o calendário; nas outras, quem mais inspecionou primeiro
+  const itens = v.k === "mes"
+    ? bruto.map(l => Object.assign({}, l, { chave: l.mes }))
+    : consolidar(bruto).sort((a, b) => b.qtd - a.qtd);
+
+  if (!itens.length) {
+    R.painelResumo.innerHTML = `<div class="rp-vazio">sem dados</div>`;
+    return;
+  }
+
+  /* Equipe não tem meta de inspeção: a barra mostra o ICIT, que é o que
+     realmente mede equipe. Nas demais visões a barra é a meta atingida. */
+  const porIcit = v.k === "equipe";
+
+  R.painelResumo.innerHTML = `<div class="rp-lista">${itens.map(l => {
+    const valor = porIcit ? l.icit : l.pct;
+    const cls = porIcit ? faixaIcit(valor) : faixa(valor);
+    const larg = valor === null || valor === undefined ? 0 : Math.min(100, valor * 100);
+    const pe = porIcit
+      ? [`${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"}`,
+         `${fmtN(l.nc)} com problema`, `${fmtN(l.ncLinhas)} N.C`]
+      // sem meta cadastrada não há "de quantas": mostra só o realizado
+      : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, 0)} previstas`
+                : `${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"} · sem meta cadastrada`,
+         `ICIT ${fmtP(l.icit, 0)}`, `${fmtN(l.ncLinhas)} N.C`];
+    return `<div class="rp-item"${l.supervisor ? ` title="Supervisor: ${l.supervisor}"` : ""}>
+      <div class="rp-cab"><b>${l.chave || "(vazio)"}</b>
+        <span class="rp-pct ${cls}">${fmtP(valor, 1)}</span></div>
+      <div class="rg-barra"><i class="${cls}" style="width:${larg.toFixed(1)}%"></i></div>
+      <div class="rp-pe">${pe.map(t => `<span>${t}</span>`).join("")}</div>
+    </div>`;
+  }).join("")}</div>
+  <div class="rg-nota">${porIcit
+    ? "A barra é o <b>ICIT</b>: fatia das visitas da equipe que não acharam nenhum problema. "
+      + "Equipe não tem meta de inspeção — a meta é cadastrada por inspetor."
+    : "A barra é o <b>quanto da meta foi atingido</b>, comparando o realizado com a parte "
+      + "da meta que já deveria estar cumprida pelos dias úteis."}</div>`;
+}
+
+function resumoPainelGeral() {
   const f = FATO, ms = DDATA, k = kpis(f, ms);
   const g = gravidades(f);
   const faixa = v => v === null || v === undefined ? "" : v >= 1 ? "bom" : v >= 0.8 ? "medio" : "ruim";

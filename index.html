@@ -157,7 +157,26 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
    RESUMO GERAL — bloco de progresso + cartões + gravidade
    (mesmo desenho do painel de obras, com as cores da Teccel)
    ============================================================ */
-.rg{height:100%;overflow:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 4px}
+/* o corpo do painel segura as pílulas no topo; quem rola é o conteúdo */
+#pg-painel .corpo{display:flex;flex-direction:column;gap:9px}
+.rp-sel{flex:0 0 auto;align-self:flex-start}
+.rp-sel button{font-size:12px;padding:7px 15px}
+.rp-conteudo{flex:1 1 auto;min-height:0;overflow:auto}
+.rp-vazio{color:var(--txt3);font-size:12px;padding:10px 2px}
+
+/* lista de progresso: mês a mês, por polo ou por equipe */
+.rp-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 2px 8px}
+.rp-item{background:var(--painel-alt);border:1px solid var(--linha-borda);
+  border-radius:10px;padding:8px 10px}
+.rp-cab{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.rp-cab b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-pct{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rp-pct.bom{color:var(--bom)} .rp-pct.medio{color:var(--medio)} .rp-pct.ruim{color:var(--acento-forte)}
+.rp-item .rg-barra{height:7px;margin:5px 0 4px}
+.rp-pe{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10px;color:var(--txt2);
+  font-variant-numeric:tabular-nums}
+
+.rg{display:flex;flex-direction:column;gap:9px;padding:0 2px 4px}
 .rg-cab{display:flex;align-items:center;justify-content:space-between;
   font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt2);font-weight:700}
 .rg-progresso,.rg-desvios{background:var(--painel-alt);border:1px solid var(--linha-borda);
@@ -251,6 +270,11 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   /* resumo geral: rola junto com a página, sem caixa de rolagem interna */
   .rg{height:auto;overflow:visible}
   .rg-pct{font-size:30px}
+  #pg-painel .corpo{display:block}
+  .rp-conteudo{overflow:visible;min-height:0}
+  .rp-sel{margin-bottom:9px;display:flex;overflow-x:auto;scrollbar-width:none}
+  .rp-sel::-webkit-scrollbar{display:none}
+  .rp-sel button{flex:1 0 auto;white-space:nowrap}
 
   /* no fluido o painel cresce, então o pódio precisa de altura mínima própria */
   .podio{min-height:250px}
@@ -274,6 +298,8 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .voltar{height:36px}
   /* três cartões não cabem lado a lado num celular: passam a dois */
   .rg-cartoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* num celular estreito os blocos de progresso ficam um por linha */
+  .rp-lista{grid-template-columns:1fr}
   .rg-linha>span{flex:0 0 100px;font-size:11px}
   .rg-pedaco{flex-direction:column;gap:3px}
 }
@@ -2030,6 +2056,16 @@ const RESUMO_DICA = {
   "N.C apontadas": "itens reprovados no total"
 };
 
+/* O que o resumo do PAINEL mostra. A visão fica guardada entre as trocas de
+   página, mas não na URL: é escolha de leitura, não um link a compartilhar. */
+const VISOES_RESUMO = [
+  { k: "geral",  rot: "Geral",     desc: "Os números do ano inteiro, somados." },
+  { k: "mes",    rot: "Mês a mês", campo: null,     desc: "Um bloco por mês, com o quanto da meta foi atingido." },
+  { k: "polo",   rot: "Por polo",  campo: "polo",   desc: "Cada polo no período todo, com a meta de quem é do polo." },
+  { k: "equipe", rot: "Por equipe", campo: "equipe", desc: "Cada equipe de campo pelo ICIT — equipe não tem meta de inspeção." }
+];
+let visaoResumo = "geral";
+
 /* ---------- helpers de construção ---------- */
 function marcaHTML() {
   return `<img class="logo" src="${LOGO_TECCEL}" alt="Teccel Energia">
@@ -2210,10 +2246,27 @@ function pgPainel() {
     d.appendChild(b);
   });
 
-  const res = box(pg, 680, 130, 770, 476, "painel");
+  const res = box(pg, 680, 122, 770, 552, "painel");
   res.innerHTML = `<div class="titulo">Resumo geral (sem filtros)</div>`;
+  R.painelTitulo = res.querySelector(".titulo");
   const c = document.createElement("div"); c.className = "corpo"; res.appendChild(c);
-  R.painelResumo = c;
+
+  /* Seletor do que aparece no resumo — mesmas pílulas do resto do painel */
+  const sel = document.createElement("div");
+  sel.className = "pilulas rp-sel";
+  VISOES_RESUMO.forEach(v => {
+    const b = document.createElement("button");
+    b.textContent = v.rot; b.dataset.visao = v.k; b.title = v.desc;
+    b.onclick = () => { visaoResumo = v.k; resumoPainel(); };
+    sel.appendChild(b);
+  });
+  c.appendChild(sel);
+  R.painelSel = sel;
+
+  const conteudo = document.createElement("div");
+  conteudo.className = "rp-conteudo";
+  c.appendChild(conteudo);
+  R.painelResumo = conteudo;
   return pg;
 }
 
@@ -2675,6 +2728,81 @@ function legendaUnica(host, itens) {
    destaque, os números em cartões e a gravidade dos desvios em barras.
    As cores continuam as da Teccel. */
 function resumoPainel() {
+  const v = VISOES_RESUMO.find(x => x.k === visaoResumo) || VISOES_RESUMO[0];
+  R.painelSel.querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", b.dataset.visao === v.k));
+  R.painelTitulo.textContent = v.k === "geral"
+    ? "Resumo geral (sem filtros)" : `Resumo ${v.rot.toLowerCase()} (sem filtros)`;
+  R.painelTitulo.title = v.desc;
+  if (v.k !== "geral") return resumoPainelLista(v);
+  resumoPainelGeral();
+}
+
+/* Soma as linhas mês a mês do resumo mensal numa linha por chave — o painel
+   mostra o período inteiro, não cada mês de cada polo. */
+function consolidar(linhas) {
+  const mapa = new Map();
+  linhas.forEach(l => {
+    const k = l.chave;
+    if (!mapa.has(k)) mapa.set(k, { chave: k, qtd: 0, nc: 0, ncLinhas: 0, meta: 0,
+      metaDia: 0, pontosNC: 0, supervisor: l.supervisor || "" });
+    const a = mapa.get(k);
+    a.qtd += l.qtd; a.nc += l.nc; a.ncLinhas += l.ncLinhas;
+    a.meta += l.meta; a.metaDia += l.metaDia; a.pontosNC += l.pontosNC;
+  });
+  return [...mapa.values()].map(a => Object.assign(a, {
+    icit: a.qtd ? (a.qtd - a.nc) / a.qtd : null,
+    pct: a.metaDia ? pctAtingida(a.qtd, a.metaDia) : null
+  }));
+}
+
+/* Lista de progresso: um bloco por mês, polo ou equipe, na mesma linguagem
+   do resumo geral — barra, porcentagem grande e os números embaixo. */
+function resumoPainelLista(v) {
+  const faixa = x => x === null || x === undefined ? "" : x >= 1 ? "bom" : x >= 0.8 ? "medio" : "ruim";
+  const faixaIcit = x => x === null || x === undefined ? "" : x >= 0.85 ? "bom" : x >= 0.6 ? "medio" : "ruim";
+  const bruto = resumoMensal(FATO, DDATA, v.campo);
+
+  // por mês a ordem é o calendário; nas outras, quem mais inspecionou primeiro
+  const itens = v.k === "mes"
+    ? bruto.map(l => Object.assign({}, l, { chave: l.mes }))
+    : consolidar(bruto).sort((a, b) => b.qtd - a.qtd);
+
+  if (!itens.length) {
+    R.painelResumo.innerHTML = `<div class="rp-vazio">sem dados</div>`;
+    return;
+  }
+
+  /* Equipe não tem meta de inspeção: a barra mostra o ICIT, que é o que
+     realmente mede equipe. Nas demais visões a barra é a meta atingida. */
+  const porIcit = v.k === "equipe";
+
+  R.painelResumo.innerHTML = `<div class="rp-lista">${itens.map(l => {
+    const valor = porIcit ? l.icit : l.pct;
+    const cls = porIcit ? faixaIcit(valor) : faixa(valor);
+    const larg = valor === null || valor === undefined ? 0 : Math.min(100, valor * 100);
+    const pe = porIcit
+      ? [`${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"}`,
+         `${fmtN(l.nc)} com problema`, `${fmtN(l.ncLinhas)} N.C`]
+      // sem meta cadastrada não há "de quantas": mostra só o realizado
+      : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, 0)} previstas`
+                : `${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"} · sem meta cadastrada`,
+         `ICIT ${fmtP(l.icit, 0)}`, `${fmtN(l.ncLinhas)} N.C`];
+    return `<div class="rp-item"${l.supervisor ? ` title="Supervisor: ${l.supervisor}"` : ""}>
+      <div class="rp-cab"><b>${l.chave || "(vazio)"}</b>
+        <span class="rp-pct ${cls}">${fmtP(valor, 1)}</span></div>
+      <div class="rg-barra"><i class="${cls}" style="width:${larg.toFixed(1)}%"></i></div>
+      <div class="rp-pe">${pe.map(t => `<span>${t}</span>`).join("")}</div>
+    </div>`;
+  }).join("")}</div>
+  <div class="rg-nota">${porIcit
+    ? "A barra é o <b>ICIT</b>: fatia das visitas da equipe que não acharam nenhum problema. "
+      + "Equipe não tem meta de inspeção — a meta é cadastrada por inspetor."
+    : "A barra é o <b>quanto da meta foi atingido</b>, comparando o realizado com a parte "
+      + "da meta que já deveria estar cumprida pelos dias úteis."}</div>`;
+}
+
+function resumoPainelGeral() {
   const f = FATO, ms = DDATA, k = kpis(f, ms);
   const g = gravidades(f);
   const faixa = v => v === null || v === undefined ? "" : v >= 1 ? "bom" : v >= 0.8 ? "medio" : "ruim";
