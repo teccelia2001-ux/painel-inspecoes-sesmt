@@ -259,8 +259,8 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .lista label{padding:9px 8px}
   .slicer>button{height:46px}
 
-  /* (as regras da aba Ajustes no modo fluido ficam no fim da folha,
-      depois das regras base, para não serem sobrescritas por elas) */
+  /* (as regras da aba Ajustes e do Resumo Mensal no modo fluido ficam no fim
+      da folha, depois das regras base, para não serem sobrescritas por elas) */
 }
 
 /* celular estreito: 2 cards por linha, visuais mais altos */
@@ -294,14 +294,25 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 
-/* seletor de seção: botões de verdade, não texto sublinhado */
-.aj-abas{display:inline-flex;gap:4px;margin-top:26px;padding:4px;border-radius:10px;
+/* seletor de seção: botões de verdade, não texto sublinhado.
+   Mesmo desenho nos cadastros (.aj-abas) e no Resumo Mensal (.pilulas). */
+.pilulas,.aj-abas{display:inline-flex;gap:4px;padding:4px;border-radius:10px;
   background:var(--painel-alt);border:1px solid var(--linha-borda);align-self:flex-start}
-.aj-abas button{background:transparent;border:1px solid transparent;border-radius:7px;
+.aj-abas{margin-top:26px}
+.pilulas button,.aj-abas button{background:transparent;border:1px solid transparent;border-radius:7px;
   color:var(--txt2);font-size:13px;font-weight:700;padding:9px 22px;cursor:pointer;transition:.12s}
-.aj-abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
-.aj-abas button.on{background:var(--acento);color:#fff;box-shadow:0 1px 4px rgba(251,69,19,.4)}
-.aj-abas button.on:hover{background:var(--acento-forte);color:#fff}
+.pilulas button:hover,.aj-abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
+.pilulas button.on,.aj-abas button.on{background:var(--acento);color:#fff;
+  box-shadow:0 1px 4px rgba(251,69,19,.4)}
+.pilulas button.on:hover,.aj-abas button.on:hover{background:var(--acento-forte);color:#fff}
+
+/* ---- Resumo Mensal ---- */
+.mn-sel{position:absolute;left:14px;top:140px;z-index:6}
+/* o mês só é escrito na primeira linha do bloco; a borda marca onde ele começa */
+.tbl .mn-mes{font-weight:800;white-space:nowrap}
+.tbl tr:has(.mn-mes:not(:empty)) td{border-top:1px solid var(--linha-borda)}
+.tbl .mn-total td{position:sticky;bottom:0;background:var(--painel-alt);font-weight:800;
+  border-top:2px solid var(--acento);border-bottom:0}
 
 .aj-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .aj-tit{margin:0;font-size:20px;font-weight:800;border-left:4px solid var(--acento);padding-left:10px}
@@ -436,6 +447,12 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .aj-cont{margin-left:0;width:100%}
   .aj-tabela{max-height:60vh;min-height:220px}
   .aj-fundo{position:fixed}
+
+  /* seletor de visão do Resumo Mensal: linha inteira, rolando se não couber */
+  .mn-sel{position:static;grid-column:1/-1;inset:auto;display:flex;overflow-x:auto;
+    scrollbar-width:none;justify-content:flex-start}
+  .mn-sel::-webkit-scrollbar{display:none}
+  .mn-sel button{flex:1 0 auto;padding:10px 16px;white-space:nowrap}
 }
 .podio .lugar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .podio .lugar .detalhe + b{margin-left:0}
@@ -853,6 +870,86 @@ function jornada(f, ms) {
   linhas.sort((a, b) => (b.desempate ?? -1e9) - (a.desempate ?? -1e9));
   linhas.forEach((l, i) => l.ranking = l.desempate === null ? null : i + 1);
   return linhas;
+}
+
+/* ---------- Resumo mensal ----------
+   Uma linha por mês, opcionalmente desdobrada por polo ou por equipe.
+
+   A meta é cadastrada por inspetor, então ela existe por mês e por polo (soma
+   das metas de quem é daquele polo) mas NÃO por equipe — na visão por equipe
+   entram no lugar os pontos da Jornada Segura.
+   Meses fora de META_MESES não têm meta cadastrada: entram com meta zero,
+   como no relatório original. */
+function nomeMes(mesAno) {
+  const [m, y] = mesAno.split("/");
+  return MESES_NOME[+m] + "/" + y.slice(2);
+}
+
+function resumoMensal(f, ms, campo) {
+  ms = ms || mesesAtivos();
+  const linhas = [];
+
+  ms.forEach(d => {
+    const mesAno = d[0];
+    const doMes = f.filter(x => x.mesAno === mesAno);
+    const temMeta = META_MESES.includes(mesAno);
+    const du = Dias_uteis([d]), duh = Dias_uteis_ate_hoje([d]);
+    const proporcional = meta => (du ? meta / du * duh : 0);
+
+    const base = rows => {
+      const metaDia = 0;
+      return { mes: nomeMes(mesAno), mesAno, qtd: rows.length,
+        nc: Qtd_Inspecao_NC(rows), ncLinhas: Qtd_NC(rows), icit: ICIT(rows),
+        pontosNC: PontosNC(rows), metaDia };
+    };
+
+    if (!campo) {
+      const meta = temMeta ? Meta_Insp([d]) : 0, metaDia = proporcional(meta);
+      linhas.push(Object.assign(base(doMes), {
+        chave: "", meta, metaDia, pct: pctAtingida(doMes.length, metaDia),
+        inspetores: temMeta ? inspetoresValidos().length : 0
+      }));
+      return;
+    }
+
+    /* Chaves do mês: as que aparecem nas inspeções mais as cadastradas, para
+       quem não fez nenhuma inspeção aparecer com zero em vez de sumir. */
+    const chaves = new Map();
+    doMes.forEach(x => {
+      const k = x[campo] || "(vazio)";
+      if (!chaves.has(k)) chaves.set(k, []);
+      chaves.get(k).push(x);
+    });
+    if (campo === "polo" && temMeta)
+      inspetoresValidos().forEach(i => { if (!chaves.has(i[1])) chaves.set(i[1], []); });
+
+    // dentro do mês, quem mais inspecionou primeiro; empate resolve pelo nome
+    [...chaves].sort((a, b) => b[1].length - a[1].length ||
+      String(a[0]).localeCompare(String(b[0]), "pt-BR", { numeric: true }))
+    .forEach(([k, rows]) => {
+      let meta = 0, extra = {};
+      if (campo === "polo") {
+        meta = temMeta ? inspetoresValidos().filter(i => i[1] === k)
+          .reduce((a, i) => a + i[3], 0) : 0;
+        extra.inspetores = temMeta ? inspetoresValidos().filter(i => i[1] === k).length : 0;
+      } else {
+        // equipe: sem meta cadastrada; o que vale é a pontuação da Jornada Segura
+        const eq = IDX_EQUIPE[k];
+        extra.supervisor = eq ? eq[2] : "";
+        extra.pontosIniciais = eq && temMeta ? eq[3] : null;
+      }
+      const metaDia = proporcional(meta);
+      const l = Object.assign(base(rows), extra, {
+        chave: k, meta, metaDia, pct: meta ? pctAtingida(rows.length, metaDia) : null
+      });
+      if (campo === "equipe")
+        l.pontosFinal = l.pontosIniciais === null ? null : l.pontosIniciais + l.pontosNC;
+      linhas.push(l);
+    });
+  });
+
+  /* Linhas sem inspeção e sem meta só poluiriam a tabela */
+  return linhas.filter(l => l.qtd > 0 || l.meta > 0 || l.pontosIniciais);
 }
 
 /* Séries temporais */
@@ -1885,6 +1982,7 @@ const PAGINAS = [
   { id: "icit",    nome: "ICIT",              icone: "🛡️", desc: "Conformidade e inconformidades" },
   { id: "dia",     nome: "Inspeções por dia", icone: "📅", desc: "Volume diário de inspeções" },
   { id: "jornada", nome: "Jornada Segura",    icone: "🏆", desc: "Ranking de pontuação das equipes" },
+  { id: "mensal",  nome: "Resumo Mensal",     icone: "🗓️", desc: "Mês a mês, por polo e por equipe" },
   { id: "ajustes", nome: "Ajustes",           icone: "⚙️", desc: "Cadastro de equipes e inspetores" }
 ];
 let paginaAtual = "painel";
@@ -2097,8 +2195,14 @@ function pgPainel() {
 
   R.painelAtt = cartao(pg, 1180, 8, 300, 62, "Última atualização");
 
-  PAGINAS.slice(1).forEach((p, i) => {
-    const d = box(pg, 60, 130 + i * 82, 560, 66);
+  /* O passo se ajusta à quantidade de páginas: com 8 itens o espaçamento
+     antigo (82px) passava do rodapé do canvas. */
+  const itens = PAGINAS.slice(1);
+  const topo0 = 122, fundo = 684;
+  const passo = Math.min(82, (fundo - topo0) / itens.length);
+  const altura = Math.min(66, passo - 10);
+  itens.forEach((p, i) => {
+    const d = box(pg, 60, topo0 + i * passo, 560, altura);
     const b = document.createElement("button");
     b.className = "menu-btn";
     b.innerHTML = `<span class="ic">${p.icone}</span><span>${p.nome}<span class="desc">${p.desc}</span></span>`;
@@ -2197,14 +2301,48 @@ function pgJornada() {
   return pg;
 }
 
-/* --- 8. Ajustes (cadastros) --- */
+/* --- 8. Resumo Mensal --- */
+const VISOES_MENSAL = [
+  { k: "geral",  rot: "Mês a mês", campo: null,     desc: "Um total por mês, somando todos os inspetores." },
+  { k: "polo",   rot: "Por polo",  campo: "polo",   desc: "Cada mês desdobrado por polo, com a meta de quem é do polo." },
+  { k: "equipe", rot: "Por equipe", campo: "equipe", desc: "Cada mês desdobrado por equipe de campo, com os pontos da Jornada Segura." }
+];
+let visaoMensal = "geral";
+
+function pgMensal() {
+  const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-mensal";
+  R.mnCards = cabecalho(pg, [
+    { k: "meta", rot: "Meta inspeção" }, { k: "metaDia", rot: "Meta até hoje" },
+    { k: "qtd", rot: "Realizado", cls: "destaque" }, { k: "icit", rot: "ICIT", cls: "ok" }
+  ]);
+
+  // mesmo seletor de pílulas dos cadastros (Equipes / Inspetores)
+  const sel = document.createElement("div");
+  sel.className = "pilulas mn-sel";
+  VISOES_MENSAL.forEach(v => {
+    const b = document.createElement("button");
+    b.textContent = v.rot; b.dataset.visao = v.k; b.title = v.desc;
+    b.onclick = () => { visaoMensal = v.k; render(); };
+    sel.appendChild(b);
+  });
+  pg.appendChild(sel);
+  R.mnSel = sel;
+
+  const c = visual(pg, 14, 190, 1482, 486, "Resumo mensal");
+  c.classList.add("rolagem");
+  R.mnTabela = c;
+  R.mnTitulo = c.parentElement.querySelector(".titulo");
+  return pg;
+}
+
+/* --- 9. Ajustes (cadastros) --- */
 function pgAjustes() {
   const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-ajustes";
   return Ajustes.montar(pg);
 }
 
 /* ---------- montagem ---------- */
-[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgAjustes()]
+[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgMensal(), pgAjustes()]
   .forEach(p => canvas.appendChild(p));
 canvas.appendChild(abas());
 
@@ -2352,6 +2490,11 @@ function render() {
       { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
 
+  if (paginaAtual === "mensal") {
+    setCards(R.mnCards, base);
+    resumoMensalRender(f, ms);
+  }
+
   if (paginaAtual === "ajustes") { Ajustes.render(); return; }
 
   if (paginaAtual === "jornada") {
@@ -2373,6 +2516,82 @@ function render() {
     R.joPodio.innerHTML  = podioHTML(j);
     R.joPiores.innerHTML = podioPioresHTML(j);
   }
+}
+
+/* ---------- Resumo Mensal ----------
+   As três visões usam a mesma tabela; muda o que vem antes dos números.
+   A primeira linha de cada mês leva o nome do mês; as seguintes ficam em
+   branco, para a leitura não repetir "jul/26" doze vezes seguidas. */
+function resumoMensalRender(f, ms) {
+  const v = VISOES_MENSAL.find(x => x.k === visaoMensal) || VISOES_MENSAL[0];
+  R.mnSel.querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", b.dataset.visao === v.k));
+  R.mnTitulo.textContent = `Resumo mensal — ${v.rot.toLowerCase()}`;
+  R.mnTitulo.title = v.desc;
+
+  const linhas = resumoMensal(f, ms, v.campo);
+  // marca a primeira linha de cada mês: só nela o mês é escrito
+  let ultimo = null;
+  linhas.forEach(l => { l.primeira = l.mesAno !== ultimo; ultimo = l.mesAno; });
+
+  const colMes = { titulo: "Mês", valor: l => l.primeira ? l.mes : "",
+    classe: l => l.primeira ? "mn-mes" : "" };
+  const comuns = [
+    { titulo: "Inspeções", valor: l => fmtN(l.qtd), num: true },
+    { titulo: "Visitas c/ N.C", valor: l => fmtN(l.nc), num: true },
+    { titulo: "N.C apontadas", valor: l => fmtN(l.ncLinhas), num: true },
+    { titulo: "ICIT", valor: l => fmtP(l.icit, 1), num: true,
+      classe: l => l.icit === null ? "" : l.icit >= 0.85 ? "ok" : l.icit < 0.6 ? "nok" : "" }
+  ];
+  const comMeta = [
+    { titulo: "Meta", valor: l => l.meta ? fmtN(l.meta) : "—", num: true },
+    { titulo: "Meta até hoje", valor: l => l.meta ? fmtD(l.metaDia, 1) : "—", num: true },
+    { titulo: "% atingida", valor: l => l.pct === null ? "—" : fmtP(l.pct), num: true,
+      classe: l => l.pct === null ? "" : l.pct >= 1 ? "ok" : "nok" }
+  ];
+
+  let colunas;
+  if (v.campo === null) {
+    colunas = [colMes, { titulo: "Inspetores com meta", valor: l => fmtN(l.inspetores), num: true },
+      ...comMeta, ...comuns];
+  } else if (v.campo === "polo") {
+    colunas = [colMes, { titulo: "Polo", valor: l => l.chave || "(vazio)", classe: () => "forte" },
+      { titulo: "Inspetores", valor: l => fmtN(l.inspetores), num: true }, ...comMeta, ...comuns];
+  } else {
+    colunas = [colMes, { titulo: "Equipe", valor: l => l.chave || "(vazio)", classe: () => "forte" },
+      { titulo: "Supervisor", valor: l => l.supervisor || "—" }, ...comuns,
+      { titulo: "Pts iniciais", valor: l => l.pontosIniciais === null ? "—" : fmtN(l.pontosIniciais), num: true },
+      { titulo: "Pts N.C", valor: l => fmtN(l.pontosNC), num: true, classe: () => "nok" },
+      { titulo: "Pts final", valor: l => l.pontosFinal === null ? "—" : fmtN(l.pontosFinal), num: true,
+        classe: () => "ok" }];
+  }
+
+  tabela(R.mnTabela, colunas, linhas);
+  if (!linhas.length) return;
+
+  /* Rodapé com o total do período filtrado — evita somar a tabela na mão */
+  const k = kpis(f, ms);
+  const tot = { qtd: k.Qtd_Insp, nc: k.Qtd_Inspecao_NC, ncLinhas: k.Qtd_NC, icit: k.ICIT,
+    meta: k.Meta_Insp, metaDia: k.Meta_insp_dia, pct: k.pctInspecao,
+    inspetores: k.Qtd_Inspetor, mes: "Total", primeira: true, chave: "", supervisor: "",
+    pontosNC: linhas.reduce((a, l) => a + (l.pontosNC || 0), 0),
+    pontosIniciais: null, pontosFinal: null };
+  const tr = document.createElement("tr");
+  tr.className = "mn-total";
+  colunas.forEach((c, i) => {
+    const td = document.createElement("td");
+    // só "Total" e os números; nome de polo/equipe/supervisor fica em branco
+    if (i > 0 && !c.num) td.textContent = "";
+    else {
+      const val = c.valor(tot);
+      td.textContent = val instanceof Node ? val.textContent : val;
+    }
+    if (c.num) td.classList.add("num");
+    tr.appendChild(td);
+  });
+  // na visão por equipe os pontos não somam entre equipes: melhor não inventar total
+  if (v.campo === "equipe") [...tr.cells].slice(-3).forEach(td => td.textContent = "—");
+  R.mnTabela.querySelector("tbody").appendChild(tr);
 }
 
 /* Agrupa por pontuação: equipes com a mesma pontuação dividem o lugar.

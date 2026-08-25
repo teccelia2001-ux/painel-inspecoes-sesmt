@@ -181,6 +181,86 @@ function jornada(f, ms) {
   return linhas;
 }
 
+/* ---------- Resumo mensal ----------
+   Uma linha por mês, opcionalmente desdobrada por polo ou por equipe.
+
+   A meta é cadastrada por inspetor, então ela existe por mês e por polo (soma
+   das metas de quem é daquele polo) mas NÃO por equipe — na visão por equipe
+   entram no lugar os pontos da Jornada Segura.
+   Meses fora de META_MESES não têm meta cadastrada: entram com meta zero,
+   como no relatório original. */
+function nomeMes(mesAno) {
+  const [m, y] = mesAno.split("/");
+  return MESES_NOME[+m] + "/" + y.slice(2);
+}
+
+function resumoMensal(f, ms, campo) {
+  ms = ms || mesesAtivos();
+  const linhas = [];
+
+  ms.forEach(d => {
+    const mesAno = d[0];
+    const doMes = f.filter(x => x.mesAno === mesAno);
+    const temMeta = META_MESES.includes(mesAno);
+    const du = Dias_uteis([d]), duh = Dias_uteis_ate_hoje([d]);
+    const proporcional = meta => (du ? meta / du * duh : 0);
+
+    const base = rows => {
+      const metaDia = 0;
+      return { mes: nomeMes(mesAno), mesAno, qtd: rows.length,
+        nc: Qtd_Inspecao_NC(rows), ncLinhas: Qtd_NC(rows), icit: ICIT(rows),
+        pontosNC: PontosNC(rows), metaDia };
+    };
+
+    if (!campo) {
+      const meta = temMeta ? Meta_Insp([d]) : 0, metaDia = proporcional(meta);
+      linhas.push(Object.assign(base(doMes), {
+        chave: "", meta, metaDia, pct: pctAtingida(doMes.length, metaDia),
+        inspetores: temMeta ? inspetoresValidos().length : 0
+      }));
+      return;
+    }
+
+    /* Chaves do mês: as que aparecem nas inspeções mais as cadastradas, para
+       quem não fez nenhuma inspeção aparecer com zero em vez de sumir. */
+    const chaves = new Map();
+    doMes.forEach(x => {
+      const k = x[campo] || "(vazio)";
+      if (!chaves.has(k)) chaves.set(k, []);
+      chaves.get(k).push(x);
+    });
+    if (campo === "polo" && temMeta)
+      inspetoresValidos().forEach(i => { if (!chaves.has(i[1])) chaves.set(i[1], []); });
+
+    // dentro do mês, quem mais inspecionou primeiro; empate resolve pelo nome
+    [...chaves].sort((a, b) => b[1].length - a[1].length ||
+      String(a[0]).localeCompare(String(b[0]), "pt-BR", { numeric: true }))
+    .forEach(([k, rows]) => {
+      let meta = 0, extra = {};
+      if (campo === "polo") {
+        meta = temMeta ? inspetoresValidos().filter(i => i[1] === k)
+          .reduce((a, i) => a + i[3], 0) : 0;
+        extra.inspetores = temMeta ? inspetoresValidos().filter(i => i[1] === k).length : 0;
+      } else {
+        // equipe: sem meta cadastrada; o que vale é a pontuação da Jornada Segura
+        const eq = IDX_EQUIPE[k];
+        extra.supervisor = eq ? eq[2] : "";
+        extra.pontosIniciais = eq && temMeta ? eq[3] : null;
+      }
+      const metaDia = proporcional(meta);
+      const l = Object.assign(base(rows), extra, {
+        chave: k, meta, metaDia, pct: meta ? pctAtingida(rows.length, metaDia) : null
+      });
+      if (campo === "equipe")
+        l.pontosFinal = l.pontosIniciais === null ? null : l.pontosIniciais + l.pontosNC;
+      linhas.push(l);
+    });
+  });
+
+  /* Linhas sem inspeção e sem meta só poluiriam a tabela */
+  return linhas.filter(l => l.qtd > 0 || l.meta > 0 || l.pontosIniciais);
+}
+
 /* Séries temporais */
 function porMes(f, ms) {
   ms = ms || mesesAtivos();

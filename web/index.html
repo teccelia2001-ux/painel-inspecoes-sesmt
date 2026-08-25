@@ -261,8 +261,8 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .lista label{padding:9px 8px}
   .slicer>button{height:46px}
 
-  /* (as regras da aba Ajustes no modo fluido ficam no fim da folha,
-      depois das regras base, para não serem sobrescritas por elas) */
+  /* (as regras da aba Ajustes e do Resumo Mensal no modo fluido ficam no fim
+      da folha, depois das regras base, para não serem sobrescritas por elas) */
 }
 
 /* celular estreito: 2 cards por linha, visuais mais altos */
@@ -296,14 +296,25 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 
-/* seletor de seção: botões de verdade, não texto sublinhado */
-.aj-abas{display:inline-flex;gap:4px;margin-top:26px;padding:4px;border-radius:10px;
+/* seletor de seção: botões de verdade, não texto sublinhado.
+   Mesmo desenho nos cadastros (.aj-abas) e no Resumo Mensal (.pilulas). */
+.pilulas,.aj-abas{display:inline-flex;gap:4px;padding:4px;border-radius:10px;
   background:var(--painel-alt);border:1px solid var(--linha-borda);align-self:flex-start}
-.aj-abas button{background:transparent;border:1px solid transparent;border-radius:7px;
+.aj-abas{margin-top:26px}
+.pilulas button,.aj-abas button{background:transparent;border:1px solid transparent;border-radius:7px;
   color:var(--txt2);font-size:13px;font-weight:700;padding:9px 22px;cursor:pointer;transition:.12s}
-.aj-abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
-.aj-abas button.on{background:var(--acento);color:#fff;box-shadow:0 1px 4px rgba(251,69,19,.4)}
-.aj-abas button.on:hover{background:var(--acento-forte);color:#fff}
+.pilulas button:hover,.aj-abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
+.pilulas button.on,.aj-abas button.on{background:var(--acento);color:#fff;
+  box-shadow:0 1px 4px rgba(251,69,19,.4)}
+.pilulas button.on:hover,.aj-abas button.on:hover{background:var(--acento-forte);color:#fff}
+
+/* ---- Resumo Mensal ---- */
+.mn-sel{position:absolute;left:14px;top:140px;z-index:6}
+/* o mês só é escrito na primeira linha do bloco; a borda marca onde ele começa */
+.tbl .mn-mes{font-weight:800;white-space:nowrap}
+.tbl tr:has(.mn-mes:not(:empty)) td{border-top:1px solid var(--linha-borda)}
+.tbl .mn-total td{position:sticky;bottom:0;background:var(--painel-alt);font-weight:800;
+  border-top:2px solid var(--acento);border-bottom:0}
 
 .aj-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .aj-tit{margin:0;font-size:20px;font-weight:800;border-left:4px solid var(--acento);padding-left:10px}
@@ -438,6 +449,12 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .aj-cont{margin-left:0;width:100%}
   .aj-tabela{max-height:60vh;min-height:220px}
   .aj-fundo{position:fixed}
+
+  /* seletor de visão do Resumo Mensal: linha inteira, rolando se não couber */
+  .mn-sel{position:static;grid-column:1/-1;inset:auto;display:flex;overflow-x:auto;
+    scrollbar-width:none;justify-content:flex-start}
+  .mn-sel::-webkit-scrollbar{display:none}
+  .mn-sel button{flex:1 0 auto;padding:10px 16px;white-space:nowrap}
 }
 .podio .lugar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .podio .lugar .detalhe + b{margin-left:0}
