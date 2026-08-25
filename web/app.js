@@ -53,7 +53,7 @@ const EXPLICACAO = {
 /* Frase curta para acompanhar o rótulo no resumo geral */
 const RESUMO_DICA = {
   "Inspeções realizadas": "visitas feitas",
-  "Meta de inspeções": "visitas previstas no ano",
+  "Meta de inspeções": "visitas previstas no período",
   "Meta até hoje": "previsto pelos dias úteis",
   "ICIT (conformidade)": "visitas sem nenhum problema",
   "Inspeções com N.C": "visitas com problema",
@@ -69,6 +69,8 @@ const VISOES_RESUMO = [
   { k: "equipe", rot: "Por equipe", campo: "equipe", desc: "Cada equipe de campo pelo ICIT — equipe não tem meta de inspeção." }
 ];
 let visaoResumo = "geral";
+/* Item aberto em relatório completo: {visao, chave, mesAno} ou null */
+let detalheResumo = null;
 
 /* ---------- helpers de construção ---------- */
 function marcaHTML() {
@@ -261,7 +263,7 @@ function pgPainel() {
   VISOES_RESUMO.forEach(v => {
     const b = document.createElement("button");
     b.textContent = v.rot; b.dataset.visao = v.k; b.title = v.desc;
-    b.onclick = () => { visaoResumo = v.k; resumoPainel(); };
+    b.onclick = () => { visaoResumo = v.k; detalheResumo = null; resumoPainel(); };
     sel.appendChild(b);
   });
   c.appendChild(sel);
@@ -738,6 +740,9 @@ function resumoPainel() {
   R.painelTitulo.textContent = v.k === "geral"
     ? "Resumo geral (sem filtros)" : `Resumo ${v.rot.toLowerCase()} (sem filtros)`;
   R.painelTitulo.title = v.desc;
+  // o detalhe só vale para a visão em que foi aberto
+  if (detalheResumo && detalheResumo.visao !== v.k) detalheResumo = null;
+  if (detalheResumo) return resumoPainelDetalhe();
   if (v.k !== "geral") return resumoPainelLista(v);
   resumoPainelGeral();
 }
@@ -792,31 +797,96 @@ function resumoPainelLista(v) {
       : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, 0)} previstas`
                 : `${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"} · sem meta cadastrada`,
          `ICIT ${fmtP(l.icit, 0)}`, `${fmtN(l.ncLinhas)} N.C`];
-    return `<div class="rp-item"${l.supervisor ? ` title="Supervisor: ${l.supervisor}"` : ""}>
+    return `<button class="rp-item" data-chave="${l.chave || ""}"${
+        l.mesAno ? ` data-mes="${l.mesAno}"` : ""} title="${
+        l.supervisor ? `Supervisor: ${l.supervisor} · ` : ""}Ver o relatório completo">
       <div class="rp-cab"><b>${l.chave || "(vazio)"}</b>
         <span class="rp-pct ${cls}">${fmtP(valor, 1)}</span></div>
       <div class="rg-barra"><i class="${cls}" style="width:${larg.toFixed(1)}%"></i></div>
       <div class="rp-pe">${pe.map(t => `<span>${t}</span>`).join("")}</div>
-    </div>`;
+      <span class="rp-abrir">ver relatório →</span>
+    </button>`;
   }).join("")}</div>
   <div class="rg-nota">${porIcit
     ? "A barra é o <b>ICIT</b>: fatia das visitas da equipe que não acharam nenhum problema. "
       + "Equipe não tem meta de inspeção — a meta é cadastrada por inspetor."
     : "A barra é o <b>quanto da meta foi atingido</b>, comparando o realizado com a parte "
-      + "da meta que já deveria estar cumprida pelos dias úteis."}</div>`;
+      + "da meta que já deveria estar cumprida pelos dias úteis."}
+    Clique em um bloco para abrir o relatório completo dele.</div>`;
+
+  R.painelResumo.querySelectorAll(".rp-item").forEach(b =>
+    b.onclick = () => {
+      detalheResumo = { visao: v.k, chave: b.dataset.chave, mesAno: b.dataset.mes || null };
+      resumoPainel();
+    });
+}
+
+/* ---------- relatório completo de um mês, polo ou equipe ----------
+   Reaproveita os blocos do resumo geral, recortando o fato para o item e
+   trocando a meta pela do escopo — a medida Meta_Insp soma todos os inspetores
+   filtrados, então por polo ela precisa ser recalculada aqui. */
+function resumoPainelDetalhe() {
+  const d = detalheResumo;
+  const v = VISOES_RESUMO.find(x => x.k === d.visao);
+  const campo = v.campo;
+  const igual = x => (x[campo] || "(vazio)") === (d.chave || "(vazio)");
+
+  let f, ms, k, opt = {};
+  if (d.visao === "mes") {
+    const linha = DDATA.find(x => x[0] === d.mesAno);
+    ms = linha ? [linha] : DDATA;
+    f = FATO.filter(x => x.mesAno === d.mesAno);
+    k = kpis(f, ms);
+    opt.rotuloDias = "no mês";
+  } else {
+    ms = DDATA;
+    f = FATO.filter(igual);
+    k = Object.assign({}, kpis(f, ms));
+    const escopo = consolidar(resumoMensal(FATO, DDATA, campo))
+      .find(l => (l.chave || "(vazio)") === (d.chave || "(vazio)"));
+    if (campo === "polo") {
+      k.Meta_Insp = escopo ? escopo.meta : 0;
+      k.Meta_insp_dia = escopo ? escopo.metaDia : 0;
+      k.pctInspecao = escopo ? escopo.pct : null;
+      const mesesMeta = ms.map(x => x[0]).filter(m => META_MESES.includes(m)).length;
+      k.Qtd_Inspetor = inspetoresValidos().filter(i => i[1] === d.chave).length * mesesMeta;
+      opt.semMeta = !k.Meta_Insp;
+    } else {
+      opt.semMeta = true;   // equipe não tem meta de inspeção
+    }
+  }
+
+  const nome = d.visao === "mes" ? nomeMes(d.mesAno) : (d.chave || "(vazio)");
+  R.painelTitulo.textContent = `Relatório de ${nome} (sem filtros)`;
+  R.painelTitulo.title = `Os mesmos números do resumo geral, recortados para ${nome}.`;
+
+  R.painelResumo.innerHTML =
+    `<button class="rp-voltar">← ${v.rot.toLowerCase()}</button>` + blocosResumo(k, gravidades(f), opt);
+  R.painelResumo.querySelector(".rp-voltar").onclick = () => {
+    detalheResumo = null; resumoPainel();
+  };
 }
 
 function resumoPainelGeral() {
-  const f = FATO, ms = DDATA, k = kpis(f, ms);
-  const g = gravidades(f);
+  const f = FATO, ms = DDATA;
+  R.painelResumo.innerHTML = blocosResumo(kpis(f, ms), gravidades(f), {});
+}
+
+/* Os mesmos blocos do resumo geral, mas alimentados por fora: servem tanto ao
+   ano inteiro quanto ao relatório de um mês, polo ou equipe.
+   opt.semMeta — o escopo não tem meta cadastrada (equipe): o progresso passa a
+   ser o ICIT e os cartões de meta saem. */
+function blocosResumo(k, g, opt) {
+  opt = opt || {};
   const faixa = v => v === null || v === undefined ? "" : v >= 1 ? "bom" : v >= 0.8 ? "medio" : "ruim";
   // mesmas faixas do velocímetro do ICIT
   const faixaIcit = v => v === null || v === undefined ? "" : v >= 0.85 ? "bom" : v >= 0.6 ? "medio" : "ruim";
 
   const cartoes = [
     ["Inspeções realizadas", fmtN(k.Qtd_Insp), ""],
-    ["Meta de inspeções", fmtN(k.Meta_Insp), ""],
-    ["Meta até hoje", fmtD(k.Meta_insp_dia, 1), ""],
+    ...(opt.semMeta ? [] : [
+      ["Meta de inspeções", fmtN(k.Meta_Insp), ""],
+      ["Meta até hoje", fmtD(k.Meta_insp_dia, 1), ""]]),
     ["ICIT (conformidade)", fmtP(k.ICIT), faixaIcit(k.ICIT)],
     ["Inspeções com N.C", fmtN(k.Qtd_Inspecao_NC), "ruim"],
     ["N.C apontadas", fmtN(k.Qtd_NC), "ruim"]
@@ -833,15 +903,22 @@ function resumoPainelGeral() {
   ].filter(d => d[1] > 0);
   const totalDesvios = desvios.reduce((a, d) => a + (d[1] || 0), 0);
 
-  R.painelResumo.innerHTML = `
+  // sem meta cadastrada, o indicador de topo passa a ser o ICIT
+  const topo = opt.semMeta
+    ? { rot: "Conformidade (ICIT)", v: k.ICIT, cls: faixaIcit(k.ICIT), icone: "🛡️",
+        pe: [`Visitas sem problema: ${fmtN(k.Qtd_Insp - k.Qtd_Inspecao_NC)}`,
+             `Inspeções: ${fmtN(k.Qtd_Insp)}`] }
+    : { rot: "Progresso geral", v: k.pctInspecao, cls: faixa(k.pctInspecao), icone: "🎯",
+        pe: [`Meta: ${fmtN(k.Meta_Insp)}`, `Realizado: ${fmtN(k.Qtd_Insp)}`] };
+
+  return `
     <div class="rg">
       <div class="rg-progresso">
-        <div class="rg-cab"><span>Progresso geral</span><span class="rg-alvo">🎯</span></div>
-        <div class="rg-pct ${faixa(k.pctInspecao)}">${fmtP(k.pctInspecao)}</div>
-        <div class="rg-barra"><i class="${faixa(k.pctInspecao)}"
-          style="width:${Math.min(100, (k.pctInspecao || 0) * 100).toFixed(1)}%"></i></div>
-        <div class="rg-pe"><span>Meta: ${fmtN(k.Meta_Insp)}</span>
-          <span>Realizado: ${fmtN(k.Qtd_Insp)}</span></div>
+        <div class="rg-cab"><span>${topo.rot}</span><span class="rg-alvo">${topo.icone}</span></div>
+        <div class="rg-pct ${topo.cls}">${fmtP(topo.v)}</div>
+        <div class="rg-barra"><i class="${topo.cls}"
+          style="width:${Math.min(100, (topo.v || 0) * 100).toFixed(1)}%"></i></div>
+        <div class="rg-pe">${topo.pe.map(t => `<span>${t}</span>`).join("")}</div>
       </div>
 
       <div class="rg-cartoes">
@@ -869,8 +946,9 @@ function resumoPainelGeral() {
       </div>
 
       <div class="rg-pedaco">
-        <span>Inspetores × meses com meta <b>${fmtN(k.Qtd_Inspetor)}</b></span>
-        <span>Dias úteis no ano / até hoje <b>${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}</b></span>
+        ${opt.semMeta ? "" : `<span>Inspetores × meses com meta <b>${fmtN(k.Qtd_Inspetor)}</b></span>`}
+        <span>Dias úteis ${opt.rotuloDias || "no ano"} / até hoje
+          <b>${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}</b></span>
       </div>
     </div>`;
 }
