@@ -201,7 +201,7 @@ const Ajustes = {
      entrou: a decisão de 26/08/2026 foi que inspeção não é pública. */
   botaoSincronizar() {
     const r = Sincronia.resumo();
-    const quando = r ? ` (${r.inspecoes} do app)` : "";
+    const quando = r ? ` (${r.doApp} do app)` : "";
     return `<button class="aj-sincronizar">⟳ Sincronizar${quando}</button>`;
   },
 
@@ -219,10 +219,11 @@ const Ajustes = {
       if (ok) {
         const r = Sincronia.resumo();
         this.avisar(r.inspecoes
-          ? `${r.inspecoes} ${r.inspecoes === 1 ? "inspeção veio" : "inspeções vieram"} do app, `
-            + `com ${r.nc} ${r.nc === 1 ? "não conformidade" : "não conformidades"}. `
-            + "Os números do painel já contam com elas."
-          : "Nenhuma inspeção enviada pelo app ainda. Os números seguem só com o histórico.");
+          ? `${r.inspecoes} ${r.inspecoes === 1 ? "inspeção" : "inspeções"} no banco, `
+            + `sendo ${r.doApp} ${r.doApp === 1 ? "feita" : "feitas"} pelo app, `
+            + `com ${r.nc} ${r.nc === 1 ? "não conformidade" : "não conformidades"}.`
+            + (r.fonteUnica ? "" : " O histórico ainda vem do arquivo — falta rodar a migração 09.")
+          : "Nenhuma inspeção no banco ainda. Os números seguem só com o histórico do arquivo.");
       } else {
         this.avisar("Não deu para sincronizar: " + (Sincronia.erro || "erro desconhecido"), true);
       }

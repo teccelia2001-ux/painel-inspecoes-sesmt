@@ -86,6 +86,7 @@ const Sincronia = {
   doBanco: null,
   em: null,
   erro: null,
+  bancoTemHistorico: false,
 
   /* O código do departamento no banco x o nome usado no histórico */
   DEPARTAMENTO: { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LV", DCMD_PODA: "DCMD PODA",
@@ -138,16 +139,22 @@ const Sincronia = {
       });
     });
 
-    /* Repõe do zero em vez de acumular: sincronizar duas vezes seguidas
-       não pode dobrar inspeção. */
-    INSPECOES = HISTORICO.inspecoes.concat(inspecoes);
-    NC = HISTORICO.nc.concat(nc);
+    /* O banco já tem o histórico? Então ele é a única fonte, e juntar
+       com o data.js dobraria tudo. Enquanto a migração 09 não roda, o
+       banco só tem o que o app gravou, e aí o histórico do arquivo
+       ainda faz falta. A pergunta é respondida pelo campo origem, não
+       por contagem: contagem erra quando o app grava e o histórico
+       ainda não foi migrado. */
+    this.bancoTemHistorico = d.inspecoes.some(x => x.origem === "historico");
+    INSPECOES = this.bancoTemHistorico ? inspecoes : HISTORICO.inspecoes.concat(inspecoes);
+    NC = this.bancoTemHistorico ? nc : HISTORICO.nc.concat(nc);
     reconstruirModelo();
   },
 
   /* Volta a mostrar só o histórico — usado ao sair da conta. */
   esquecer() {
     this.doBanco = null; this.em = null; this.erro = null;
+    this.bancoTemHistorico = false;
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();
@@ -155,9 +162,12 @@ const Sincronia = {
 
   resumo() {
     if (!this.doBanco) return null;
+    const doApp = this.doBanco.inspecoes.filter(x => x.origem !== "historico").length;
     return {
       inspecoes: this.doBanco.inspecoes.length,
+      doApp: doApp,
       nc: this.doBanco.respostas.length,
+      fonteUnica: this.bancoTemHistorico,
       em: this.em
     };
   }

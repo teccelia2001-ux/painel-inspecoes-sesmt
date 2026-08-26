@@ -883,6 +883,7 @@ const Sincronia = {
   doBanco: null,
   em: null,
   erro: null,
+  bancoTemHistorico: false,
 
   /* O código do departamento no banco x o nome usado no histórico */
   DEPARTAMENTO: { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LV", DCMD_PODA: "DCMD PODA",
@@ -935,16 +936,22 @@ const Sincronia = {
       });
     });
 
-    /* Repõe do zero em vez de acumular: sincronizar duas vezes seguidas
-       não pode dobrar inspeção. */
-    INSPECOES = HISTORICO.inspecoes.concat(inspecoes);
-    NC = HISTORICO.nc.concat(nc);
+    /* O banco já tem o histórico? Então ele é a única fonte, e juntar
+       com o data.js dobraria tudo. Enquanto a migração 09 não roda, o
+       banco só tem o que o app gravou, e aí o histórico do arquivo
+       ainda faz falta. A pergunta é respondida pelo campo origem, não
+       por contagem: contagem erra quando o app grava e o histórico
+       ainda não foi migrado. */
+    this.bancoTemHistorico = d.inspecoes.some(x => x.origem === "historico");
+    INSPECOES = this.bancoTemHistorico ? inspecoes : HISTORICO.inspecoes.concat(inspecoes);
+    NC = this.bancoTemHistorico ? nc : HISTORICO.nc.concat(nc);
     reconstruirModelo();
   },
 
   /* Volta a mostrar só o histórico — usado ao sair da conta. */
   esquecer() {
     this.doBanco = null; this.em = null; this.erro = null;
+    this.bancoTemHistorico = false;
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();
@@ -952,9 +959,12 @@ const Sincronia = {
 
   resumo() {
     if (!this.doBanco) return null;
+    const doApp = this.doBanco.inspecoes.filter(x => x.origem !== "historico").length;
     return {
       inspecoes: this.doBanco.inspecoes.length,
+      doApp: doApp,
       nc: this.doBanco.respostas.length,
+      fonteUnica: this.bancoTemHistorico,
       em: this.em
     };
   }
@@ -1468,7 +1478,7 @@ const Banco = {
   async baixarInspecoes() {
     if (!this.autenticado()) return { inspecoes: [], nc: [], motivo: "sem-login" };
     const [insp, respostas, perguntas] = await Promise.all([
-      this.pedir("sesmt_inspecoes?select=id,departamento,inspetor,equipe,data,desvios"
+      this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios"
                  + "&enviada_em=not.is.null&order=data"),
       /* Só as não conformes: é o que vira linha de N.C no painel. As
          conformes e as N/A não entram em conta nenhuma. */
@@ -2070,7 +2080,7 @@ const Ajustes = {
      entrou: a decisão de 26/08/2026 foi que inspeção não é pública. */
   botaoSincronizar() {
     const r = Sincronia.resumo();
-    const quando = r ? ` (${r.inspecoes} do app)` : "";
+    const quando = r ? ` (${r.doApp} do app)` : "";
     return `<button class="aj-sincronizar">⟳ Sincronizar${quando}</button>`;
   },
 
@@ -2088,10 +2098,11 @@ const Ajustes = {
       if (ok) {
         const r = Sincronia.resumo();
         this.avisar(r.inspecoes
-          ? `${r.inspecoes} ${r.inspecoes === 1 ? "inspeção veio" : "inspeções vieram"} do app, `
-            + `com ${r.nc} ${r.nc === 1 ? "não conformidade" : "não conformidades"}. `
-            + "Os números do painel já contam com elas."
-          : "Nenhuma inspeção enviada pelo app ainda. Os números seguem só com o histórico.");
+          ? `${r.inspecoes} ${r.inspecoes === 1 ? "inspeção" : "inspeções"} no banco, `
+            + `sendo ${r.doApp} ${r.doApp === 1 ? "feita" : "feitas"} pelo app, `
+            + `com ${r.nc} ${r.nc === 1 ? "não conformidade" : "não conformidades"}.`
+            + (r.fonteUnica ? "" : " O histórico ainda vem do arquivo — falta rodar a migração 09.")
+          : "Nenhuma inspeção no banco ainda. Os números seguem só com o histórico do arquivo.");
       } else {
         this.avisar("Não deu para sincronizar: " + (Sincronia.erro || "erro desconhecido"), true);
       }
