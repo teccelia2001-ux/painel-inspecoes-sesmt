@@ -11,8 +11,19 @@ const NC_BY_ID   = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {
 let IDX_INSPETOR, IDX_EQUIPE, FATO;
 
 function reconstruirModelo() {
-  IDX_INSPETOR = Object.fromEntries(INSPETORES.map(r => [r[0], r]));
-  IDX_EQUIPE   = Object.fromEntries(EQUIPES.map(r => [r[0], r]));
+  /* Os índices aceitam o nome de hoje E os que a linha já teve. Renomear
+     uma equipe no cadastro deixava órfã toda inspeção feita com o nome
+     velho — ela caía em "(vazio)" e sumia da Jornada Segura, sem aviso.
+     Aconteceu três vezes; a última derrubou 14 inspeções de uma vez.
+     O nome atual sempre vence, caso um nome antigo colida com ele. */
+  const indexar = (linhas, apelidos) => {
+    const ix = {};
+    linhas.forEach(r => (r[apelidos] || []).forEach(antigo => { ix[antigo] = r; }));
+    linhas.forEach(r => { ix[r[0]] = r; });
+    return ix;
+  };
+  IDX_INSPETOR = indexar(INSPETORES, 5);
+  IDX_EQUIPE   = indexar(EQUIPES, 4);
 
   FATO = INSPECOES.map(r => {
     const [d, m, y] = r[4].split("/").map(Number);
@@ -30,8 +41,11 @@ function reconstruirModelo() {
     const insp = IDX_INSPETOR[r[1]];
     const eq   = IDX_EQUIPE[r[2]];
     return {
-      id: r[0], inspetor: insp ? r[1] : "", inspetorBruto: r[1],
-      equipe: eq ? r[2] : "", equipeBruta: r[2],
+      /* Guarda o nome de HOJE, não o que veio na inspeção: assim o que
+         foi feito antes do rename aparece junto com o que veio depois,
+         num grupo só. O nome original fica em inspetorBruto/equipeBruta. */
+      id: r[0], inspetor: insp ? insp[0] : "", inspetorBruto: r[1],
+      equipe: eq ? eq[0] : "", equipeBruta: r[2],
       tipo: r[3], data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
       ano: "" + y, mes: "" + m,

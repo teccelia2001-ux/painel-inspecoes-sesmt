@@ -222,22 +222,30 @@ const Cadastros = {
   /* Dados de data.js, usados enquanto o banco não responde */
   doArquivo() {
     this.equipes = EQUIPES.map((r, i) => ({
-      id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3], ativa: true
+      id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3],
+      nomes_anteriores: r[4] || [], ativa: true
     }));
     this.inspetores = INSPETORES.map((r, i) => ({
       id: "local-i" + i, inspetor: r[0], polo: r[1],
-      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4], ativo: true
+      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4],
+      nomes_anteriores: r[5] || [], ativo: true
     }));
     this.origem = "embutido";
   },
 
   /* Reescreve os arrays que o modelo consome e recalcula tudo */
   aplicarNoModelo() {
+    /* A última posição leva os nomes que a linha já teve. É o que
+       permite ao modelo achar uma inspeção feita antes do rename —
+       ver reconstruirModelo(). Banco antigo, sem a coluna, entra
+       como lista vazia e nada muda. */
     EQUIPES = this.equipes.filter(e => e.ativa)
-      .map(e => [e.equipe, e.tipo || "", e.supervisor || "", Number(e.pontos) || 0]);
+      .map(e => [e.equipe, e.tipo || "", e.supervisor || "", Number(e.pontos) || 0,
+                 e.nomes_anteriores || []]);
     INSPETORES = this.inspetores.filter(i => i.ativo)
       .map(i => [i.inspetor, i.polo || i.area || "", i.funcao || "",
-                 Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0]);
+                 Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0,
+                 i.nomes_anteriores || []]);
     reconstruirModelo();
   },
 

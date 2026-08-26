@@ -557,31 +557,60 @@ let INSPETORES = [
    cada inspeção NÃO depende mais desta lista — ver reconstruirModelo(). */
 const META_MESES = ["4/2026","5/2026","6/2026","7/2026"];
 
-/* Equipes — [EQUIPE, TIPO, SUPERVISOR, PONTOS/mês] */
+/* Equipes — [EQUIPE, TIPO, SUPERVISOR, PONTOS/mês, NOMES ANTERIORES?]
+   A última posição só aparece em quem já foi renomeada. É o que permite
+   achar uma inspeção feita com o nome antigo — ver reconstruirModelo(). */
 let EQUIPES = [
-  ["CONST 1","LM","José Pereira",100],["CONST 2","LM","Acacio",100],["CONST 3","LM","Acacio",100],
-  ["CONST 4","LM","Acacio",100],["CONST 5","LM","Acacio",100],["CONST 6","LM","Humberto",100],
-  ["CONST 7","LM","Humberto",100],["CONST 8","LM","Humberto",100],["CONST 9","LM","Humberto",100],
-  ["CONST 10","LM","José Pereira",100],["CONST 11","LM","Arlan",100],["CONST 12","LM","Arlan",100],
-  ["CONST 13","LM","Arlan",100],
-  ["LINHA VIVA 1","LV","Arlan",100],["LINHA VIVA 2","LV","Aisleudo",100],["LINHA VIVA 3","LV","Aisleudo",100],
-  ["MANUT 1","MAN","Aisleudo",100],["MANUT 2","MAN","Aisleudo",100],["MANUT 3","MAN","Aisleudo",100],
-  ["MANUT 4","MAN","Aisleudo",100],["MANUT 5","MAN","Samuel",100],["MANUT 6","MAN","Samuel",100],
-  ["PERDAS PTSRG02","PER","Samuel",100],["PERDAS PTSRG03","PER","Samuel",100],
-  ["PERDAS PTSRG04","PER","Samuel",100],["PERDAS PTSRG09","PER","Samuel",100],
-  ["PERDAS PTSRG12","PER","Acacio",100],
-  ["PLANTÃO - BTF BT30","PLA","Acacio",100],["PLANTÃO - CJZ BT30","PLA","Acacio",100],
-  ["PLANTÃO - CTRBT30","PLA","Acacio",100],["PLANTÃO - CTRBT31","PLA","Acacio",100],
-  ["PLANTÃO - ITOBT31","PLA","Humberto",100],["PLANTÃO - PBLBT30","PLA","Humberto",100],
-  ["PLANTÃO - PCOBT30","PLA","Humberto",100],["PLANTÃO - PRIBT31","PLA","Humberto",100],
-  ["PLANTÃO - PTSBT36","PLA","Arlan",100],["PLANTÃO - PTSCX02","PLA","Arlan",100],
-  ["PLANTÃO - SBTBT30","PLA","Arlan",100],["PLANTÃO - SPX BT30","PLA","Arlan",100],
-  ["PLANTÃO - SZABT30","PLA","Arlan",100],["PLANTÃO - SZACX02","PLA","Aisleudo",100],
-  ["PLANTÃO CONBT30","PLA","Aisleudo",100],
-  ["PODA 1","POD","Aisleudo",100],["PODA 2","POD","Aisleudo",100],["PODA 3","POD","Aisleudo",100],
-  ["REAVISO - CJZRI01","REA","Aisleudo",100],["REAVISO - CTRRI01","REA","Samuel",100],
-  ["REAVISO - ITORI01","REA","Samuel",100],["REAVISO PTSRI03","REA","Samuel",100],
-  ["REAVISO SSARI02","REA","Samuel",100]
+  ["CONST 1","LM","José Pereira",100],
+  ["CONST 10","LM","José Pereira",100],
+  ["CONST 11","LM","Eliakin",100],
+  ["CONST 12","LM","Samuel",100],
+  ["CONST 13","LM","Halanildo",100],
+  ["CONST 2","LM","Eliakin",100],
+  ["CONST 3","LM","Aisleudo",100],
+  ["CONST 4","LM","Eliakin",100],
+  ["CONST 6","LM","Acacio",100],
+  ["CONST 7","LM","José Pereira",100],
+  ["CONST 8","LM","Acacio",100],
+  ["CONST 9","LM","Acacio",100],
+  ["LINHA VIVA 1 CJZ","LV","José Pereira",100,["LINHA VIVA 1"]],
+  ["LINHA VIVA 2 PTS","LV","Acacio",100,["LINHA VIVA 2"]],
+  ["LINHA VIVA 3 JR PTS","LV","Acacio",100,["LINHA VIVA 3"]],
+  ["MANUT 1","MAN","Acacio",100],
+  ["MANUT 2","MAN","Halanildo",100],
+  ["MANUT 3","MAN","Aisleudo",100],
+  ["MANUT 4","MAN","José Pereira",100],
+  ["MANUT 5","MAN","Eliakin",100],
+  ["MANUT 6","MAN","Samuel",100],
+  ["PERDAS PTSRG01","PER","Junielly",100],
+  ["PERDAS PTSRG02","PER","Junielly",100],
+  ["PERDAS PTSRG03","PER","Junielly",100],
+  ["PERDAS PTSRG04","PER","Junielly",100],
+  ["PERDAS PTSRG09","PER","Junielly",100],
+  ["PERDAS PTSRG12","PER","Junielly",100],
+  ["PLANTÃO - BTF BT30","PLA","Junielly",100],
+  ["PLANTÃO - CJZ BT30","PLA","Junielly",100],
+  ["PLANTÃO - CONBT30","PLA","Junielly",100,["PLANTÃO CONBT30"]],
+  ["PLANTÃO - CTRBT30","PLA","Junielly",100],
+  ["PLANTÃO - CTRBT31","PLA","Junielly",100],
+  ["PLANTÃO - ITOBT31","PLA","Junielly",100],
+  ["PLANTÃO - PBLBT30","PLA","Junielly",100],
+  ["PLANTÃO - PCOBT30","PLA","Junielly",100],
+  ["PLANTÃO - PRIBT31","PLA","Junielly",100],
+  ["PLANTÃO - PTSBT36","PLA","Junielly",100],
+  ["PLANTÃO - PTSCX02","PLA","Junielly",100],
+  ["PLANTÃO - SBTBT30","PLA","Junielly",100],
+  ["PLANTÃO - SPX BT30","PLA","Junielly",100],
+  ["PLANTÃO - SZABT30","PLA","Junielly",100],
+  ["PLANTÃO - SZACX02","PLA","Junielly",100],
+  ["PODA 1 CTR","POD","Halanildo",100,["PODA 1"]],
+  ["PODA 2 CJZ","POD","José Pereira",100,["PODA 2"]],
+  ["PODA 3 PTS","POD","Acacio",100,["PODA 3"]],
+  ["REAVISO - CJZRI01","REA","Junielly",100],
+  ["REAVISO - CTRRI01","REA","Junielly",100],
+  ["REAVISO - ITORI01","REA","Junielly",100],
+  ["REAVISO - PTSRI03","REA","Junielly",100],
+  ["REAVISO - SSARI02","REA","Junielly",100]
 ];
 
 /* Inspeções Teccel1 (grão = inspeção) — [ID, Inspetor, Equipe, Tipo Serviço, Data dd/mm/aaaa] */
@@ -767,8 +796,19 @@ const NC_BY_ID   = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {
 let IDX_INSPETOR, IDX_EQUIPE, FATO;
 
 function reconstruirModelo() {
-  IDX_INSPETOR = Object.fromEntries(INSPETORES.map(r => [r[0], r]));
-  IDX_EQUIPE   = Object.fromEntries(EQUIPES.map(r => [r[0], r]));
+  /* Os índices aceitam o nome de hoje E os que a linha já teve. Renomear
+     uma equipe no cadastro deixava órfã toda inspeção feita com o nome
+     velho — ela caía em "(vazio)" e sumia da Jornada Segura, sem aviso.
+     Aconteceu três vezes; a última derrubou 14 inspeções de uma vez.
+     O nome atual sempre vence, caso um nome antigo colida com ele. */
+  const indexar = (linhas, apelidos) => {
+    const ix = {};
+    linhas.forEach(r => (r[apelidos] || []).forEach(antigo => { ix[antigo] = r; }));
+    linhas.forEach(r => { ix[r[0]] = r; });
+    return ix;
+  };
+  IDX_INSPETOR = indexar(INSPETORES, 5);
+  IDX_EQUIPE   = indexar(EQUIPES, 4);
 
   FATO = INSPECOES.map(r => {
     const [d, m, y] = r[4].split("/").map(Number);
@@ -786,8 +826,11 @@ function reconstruirModelo() {
     const insp = IDX_INSPETOR[r[1]];
     const eq   = IDX_EQUIPE[r[2]];
     return {
-      id: r[0], inspetor: insp ? r[1] : "", inspetorBruto: r[1],
-      equipe: eq ? r[2] : "", equipeBruta: r[2],
+      /* Guarda o nome de HOJE, não o que veio na inspeção: assim o que
+         foi feito antes do rename aparece junto com o que veio depois,
+         num grupo só. O nome original fica em inspetorBruto/equipeBruta. */
+      id: r[0], inspetor: insp ? insp[0] : "", inspetorBruto: r[1],
+      equipe: eq ? eq[0] : "", equipeBruta: r[2],
       tipo: r[3], data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
       ano: "" + y, mes: "" + m,
@@ -1322,22 +1365,30 @@ const Cadastros = {
   /* Dados de data.js, usados enquanto o banco não responde */
   doArquivo() {
     this.equipes = EQUIPES.map((r, i) => ({
-      id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3], ativa: true
+      id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3],
+      nomes_anteriores: r[4] || [], ativa: true
     }));
     this.inspetores = INSPETORES.map((r, i) => ({
       id: "local-i" + i, inspetor: r[0], polo: r[1],
-      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4], ativo: true
+      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4],
+      nomes_anteriores: r[5] || [], ativo: true
     }));
     this.origem = "embutido";
   },
 
   /* Reescreve os arrays que o modelo consome e recalcula tudo */
   aplicarNoModelo() {
+    /* A última posição leva os nomes que a linha já teve. É o que
+       permite ao modelo achar uma inspeção feita antes do rename —
+       ver reconstruirModelo(). Banco antigo, sem a coluna, entra
+       como lista vazia e nada muda. */
     EQUIPES = this.equipes.filter(e => e.ativa)
-      .map(e => [e.equipe, e.tipo || "", e.supervisor || "", Number(e.pontos) || 0]);
+      .map(e => [e.equipe, e.tipo || "", e.supervisor || "", Number(e.pontos) || 0,
+                 e.nomes_anteriores || []]);
     INSPETORES = this.inspetores.filter(i => i.ativo)
       .map(i => [i.inspetor, i.polo || i.area || "", i.funcao || "",
-                 Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0]);
+                 Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0,
+                 i.nomes_anteriores || []]);
     reconstruirModelo();
   },
 
