@@ -293,39 +293,42 @@ const Ajustes = {
 
   /* ---------- acesso do inspetor ao app de inspeções ----------
      O painel nunca vê a chave de serviço: quem cria a conta é a função
-     criar-acesso, no servidor. Aqui é só a tela.
+     no servidor. Aqui é só a tela.
 
-     A senha aparece UMA vez. Não fica guardada em lugar nenhum em texto,
-     nem aqui nem no banco — se o admin perder, o caminho é redefinir. */
+     A senha é escolhida pelo administrador, que vai combiná-la com o
+     inspetor. Ela não fica guardada em lugar nenhum: vai para a função,
+     que manda para o Supabase, e lá só o hash é gravado. */
   criarAcesso(registro) {
     const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".") + "@teccel.com.br";
     this.dialogo(`Criar acesso para ${registro.inspetor}`,
       `<p class="aj-dtexto">Cria o login do app de inspeções e já liga a este
-         cadastro. A senha provisória aparece uma vez só — anote e passe para
-         ${registro.inspetor}.</p>
+         cadastro. Combine a senha com ${registro.inspetor} — ela não fica
+         guardada e depois só dá para trocar, não para consultar.</p>
        <label class="aj-campo"><span>E-mail do inspetor</span>
          <input name="email" type="email" required value="${sugestao}"
-                autocapitalize="none" spellcheck="false"></label>`,
+                autocapitalize="none" spellcheck="false"></label>
+       ${this.camposSenha()}`,
       "Criar acesso",
       async form => {
         const email = form.email.value.trim();
         if (!email) throw new Error("Informe o e-mail.");
-        const r = await Banco.acessoInspetor("criar", registro.inspetor, email);
+        const senha = this.senhaConferida(form);
+        await Banco.acessoInspetor("criar", registro.inspetor, email, senha);
         await Cadastros.carregar();
         Cadastros.aplicarNoModelo();
         this.render();
-        this.mostrarSenha(r, "Acesso criado");
       });
   },
 
   redefinirSenha(registro) {
-    this.dialogo(`Redefinir a senha de ${registro.inspetor}?`,
-      `<p class="aj-dtexto">Gera uma senha provisória nova. A anterior deixa de
-         valer na hora, então ${registro.inspetor} vai precisar da nova para entrar.</p>`,
+    this.dialogo(`Redefinir a senha de ${registro.inspetor}`,
+      `<p class="aj-dtexto">A senha anterior deixa de valer na hora, então
+         ${registro.inspetor} vai precisar da nova para entrar.</p>
+       ${this.camposSenha()}`,
       "Redefinir",
-      async () => {
-        const r = await Banco.acessoInspetor("redefinir", registro.inspetor);
-        this.mostrarSenha(r, "Senha redefinida");
+      async form => {
+        const senha = this.senhaConferida(form);
+        await Banco.acessoInspetor("redefinir", registro.inspetor, null, senha);
       });
   },
 
@@ -344,23 +347,25 @@ const Ajustes = {
       }, true);
   },
 
-  /* A senha só existe neste instante: mostra grande, com botão de copiar,
-     e avisa que não dá para ver de novo. */
-  mostrarSenha(r, titulo) {
-    this.dialogo(titulo,
-      `<p class="aj-dtexto"><b>${r.inspetor}</b> já pode entrar no app de inspeções.</p>
-       <label class="aj-campo"><span>E-mail</span>
-         <input value="${r.email || ""}" readonly></label>
-       <label class="aj-campo"><span>Senha provisória</span>
-         <input class="aj-senha" value="${r.senha}" readonly></label>
-       <p class="aj-dtexto aj-alerta">Anote agora. Esta senha não fica guardada
-         em lugar nenhum e não dá para vê-la de novo — só redefinir.</p>`,
-      "Copiar e fechar",
-      async form => {
-        const txt = `App de inspeções SESMT\nE-mail: ${r.email}\nSenha: ${r.senha}`;
-        try { await navigator.clipboard.writeText(txt); }
-        catch (e) { form.querySelector(".aj-senha").select(); }
-      });
+  /* Senha digitada duas vezes: é o admin quem digita, e quem vai usar é
+     outra pessoa — um erro de digitação só apareceria quando o inspetor
+     tentasse entrar, longe daqui e sem saber o que houve. */
+  camposSenha() {
+    return `<label class="aj-campo"><span>Senha</span>
+        <input name="senha" type="password" required minlength="6"
+               autocomplete="new-password" placeholder="ao menos 6 caracteres"></label>
+      <label class="aj-campo"><span>Repita a senha</span>
+        <input name="senha2" type="password" required minlength="6"
+               autocomplete="new-password"></label>
+      <label class="aj-vermostrar"><input type="checkbox" name="ver"> Mostrar a senha</label>`;
+  },
+
+  senhaConferida(form) {
+    const a = form.senha.value, b = form.senha2.value;
+    if (!a) throw new Error("Informe a senha.");
+    if (a.length < 6) throw new Error("A senha precisa de pelo menos 6 caracteres.");
+    if (a !== b) throw new Error("As duas senhas não são iguais.");
+    return a;
   },
 
   /* ---------- diálogo de criação/edição ---------- */
@@ -478,6 +483,12 @@ const Ajustes = {
     fundo.querySelector(".aj-cancelar").onclick = fechar;
     fundo.onclick = e => { if (e.target === fundo && alterado()) insistir(); };
     document.addEventListener("keydown", aoTeclar);
+
+    /* "Mostrar a senha" existe porque o admin está digitando para outra
+       pessoa e não tem como conferir de outro jeito. */
+    const ver = fundo.querySelector("input[name=ver]");
+    if (ver) ver.onchange = () => fundo.querySelectorAll("input[name^=senha]")
+      .forEach(i => i.type = ver.checked ? "text" : "password");
 
     const primeiro = fundo.querySelector("input, select");
     if (primeiro) primeiro.focus();

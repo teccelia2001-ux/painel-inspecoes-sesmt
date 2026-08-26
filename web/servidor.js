@@ -171,7 +171,7 @@ const Banco = {
      que guarda a chave como segredo e confere se quem pediu é mesmo
      administrador — com o token de quem pediu, contra a mesma lista
      sesmt_admins que este painel usa. */
-  async acessoInspetor(acao, inspetor, email) {
+  async acessoInspetor(acao, inspetor, email, senha) {
     if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
     /* "swift-responder" é o slug que o editor do Supabase gerou sozinho ao
        criar a função. O campo Name lá vira rótulo e pode ser renomeado à
@@ -184,7 +184,7 @@ const Banco = {
         Authorization: "Bearer " + this.token,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ acao, inspetor, email })
+      body: JSON.stringify({ acao, inspetor, email, senha })
     });
     let j = null;
     try { j = await r.json(); } catch (e) {}
