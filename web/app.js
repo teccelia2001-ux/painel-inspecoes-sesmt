@@ -12,7 +12,6 @@ const PAGINAS = [
   { id: "icit",    nome: "ICIT",              icone: "🛡️", desc: "Conformidade e inconformidades" },
   { id: "dia",     nome: "Inspeções por dia", icone: "📅", desc: "Volume diário de inspeções" },
   { id: "jornada", nome: "Jornada Segura",    icone: "🏆", desc: "Ranking de pontuação das equipes" },
-  { id: "mensal",  nome: "Resumo Mensal",     icone: "🗓️", desc: "Mês a mês, por polo e por equipe" },
   { id: "ajustes", nome: "Ajustes",           icone: "⚙️", desc: "Cadastro de equipes e inspetores" }
 ];
 let paginaAtual = "painel";
@@ -360,48 +359,14 @@ function pgJornada() {
   return pg;
 }
 
-/* --- 8. Resumo Mensal --- */
-const VISOES_MENSAL = [
-  { k: "geral",  rot: "Mês a mês", campo: null,     desc: "Um total por mês, somando todos os inspetores." },
-  { k: "polo",   rot: "Por polo",  campo: "polo",   desc: "Cada mês desdobrado por polo, com a meta de quem é do polo." },
-  { k: "equipe", rot: "Por equipe", campo: "equipe", desc: "Cada mês desdobrado por equipe de campo, com os pontos da Jornada Segura." }
-];
-let visaoMensal = "geral";
-
-function pgMensal() {
-  const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-mensal";
-  R.mnCards = cabecalho(pg, [
-    { k: "meta", rot: "Meta inspeção" }, { k: "metaDia", rot: "Meta até hoje" },
-    { k: "qtd", rot: "Realizado", cls: "destaque" }, { k: "icit", rot: "ICIT", cls: "ok" }
-  ]);
-
-  // mesmo seletor de pílulas dos cadastros (Equipes / Inspetores)
-  const sel = document.createElement("div");
-  sel.className = "pilulas mn-sel";
-  VISOES_MENSAL.forEach(v => {
-    const b = document.createElement("button");
-    b.textContent = v.rot; b.dataset.visao = v.k; b.title = v.desc;
-    b.onclick = () => { visaoMensal = v.k; render(); };
-    sel.appendChild(b);
-  });
-  pg.appendChild(sel);
-  R.mnSel = sel;
-
-  const c = visual(pg, 14, 190, 1482, 486, "Resumo mensal");
-  c.classList.add("rolagem");
-  R.mnTabela = c;
-  R.mnTitulo = c.parentElement.querySelector(".titulo");
-  return pg;
-}
-
-/* --- 9. Ajustes (cadastros) --- */
+/* --- 8. Ajustes (cadastros) --- */
 function pgAjustes() {
   const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-ajustes";
   return Ajustes.montar(pg);
 }
 
 /* ---------- montagem ---------- */
-[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgMensal(), pgAjustes()]
+[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgAjustes()]
   .forEach(p => canvas.appendChild(p));
 canvas.appendChild(abas());
 
@@ -549,11 +514,6 @@ function render() {
       { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
 
-  if (paginaAtual === "mensal") {
-    setCards(R.mnCards, base);
-    resumoMensalRender(f, ms);
-  }
-
   if (paginaAtual === "ajustes") { Ajustes.render(); return; }
 
   if (paginaAtual === "jornada") {
@@ -575,82 +535,6 @@ function render() {
     R.joPodio.innerHTML  = podioHTML(j);
     R.joPiores.innerHTML = podioPioresHTML(j);
   }
-}
-
-/* ---------- Resumo Mensal ----------
-   As três visões usam a mesma tabela; muda o que vem antes dos números.
-   A primeira linha de cada mês leva o nome do mês; as seguintes ficam em
-   branco, para a leitura não repetir "jul/26" doze vezes seguidas. */
-function resumoMensalRender(f, ms) {
-  const v = VISOES_MENSAL.find(x => x.k === visaoMensal) || VISOES_MENSAL[0];
-  R.mnSel.querySelectorAll("button").forEach(b =>
-    b.classList.toggle("on", b.dataset.visao === v.k));
-  R.mnTitulo.textContent = `Resumo mensal — ${v.rot.toLowerCase()}`;
-  R.mnTitulo.title = v.desc;
-
-  const linhas = resumoMensal(f, ms, v.campo);
-  // marca a primeira linha de cada mês: só nela o mês é escrito
-  let ultimo = null;
-  linhas.forEach(l => { l.primeira = l.mesAno !== ultimo; ultimo = l.mesAno; });
-
-  const colMes = { titulo: "Mês", valor: l => l.primeira ? l.mes : "",
-    classe: l => l.primeira ? "mn-mes" : "" };
-  const comuns = [
-    { titulo: "Inspeções", valor: l => fmtN(l.qtd), num: true },
-    { titulo: "Visitas c/ N.C", valor: l => fmtN(l.nc), num: true },
-    { titulo: "N.C apontadas", valor: l => fmtN(l.ncLinhas), num: true },
-    { titulo: "ICIT", valor: l => fmtP(l.icit, 1), num: true,
-      classe: l => l.icit === null ? "" : l.icit >= 0.85 ? "ok" : l.icit < 0.6 ? "nok" : "" }
-  ];
-  const comMeta = [
-    { titulo: "Meta", valor: l => l.meta ? fmtN(l.meta) : "—", num: true },
-    { titulo: "Meta até hoje", valor: l => l.meta ? fmtD(l.metaDia, 1) : "—", num: true },
-    { titulo: "% atingida", valor: l => l.pct === null ? "—" : fmtP(l.pct), num: true,
-      classe: l => l.pct === null ? "" : l.pct >= 1 ? "ok" : "nok" }
-  ];
-
-  let colunas;
-  if (v.campo === null) {
-    colunas = [colMes, { titulo: "Inspetores com meta", valor: l => fmtN(l.inspetores), num: true },
-      ...comMeta, ...comuns];
-  } else if (v.campo === "polo") {
-    colunas = [colMes, { titulo: "Polo", valor: l => l.chave || "(vazio)", classe: () => "forte" },
-      { titulo: "Inspetores", valor: l => fmtN(l.inspetores), num: true }, ...comMeta, ...comuns];
-  } else {
-    colunas = [colMes, { titulo: "Equipe", valor: l => l.chave || "(vazio)", classe: () => "forte" },
-      { titulo: "Supervisor", valor: l => l.supervisor || "—" }, ...comuns,
-      { titulo: "Pts iniciais", valor: l => l.pontosIniciais === null ? "—" : fmtN(l.pontosIniciais), num: true },
-      { titulo: "Pts N.C", valor: l => fmtN(l.pontosNC), num: true, classe: () => "nok" },
-      { titulo: "Pts final", valor: l => l.pontosFinal === null ? "—" : fmtN(l.pontosFinal), num: true,
-        classe: () => "ok" }];
-  }
-
-  tabela(R.mnTabela, colunas, linhas);
-  if (!linhas.length) return;
-
-  /* Rodapé com o total do período filtrado — evita somar a tabela na mão */
-  const k = kpis(f, ms);
-  const tot = { qtd: k.Qtd_Insp, nc: k.Qtd_Inspecao_NC, ncLinhas: k.Qtd_NC, icit: k.ICIT,
-    meta: k.Meta_Insp, metaDia: k.Meta_insp_dia, pct: k.pctInspecao,
-    inspetores: k.Qtd_Inspetor, mes: "Total", primeira: true, chave: "", supervisor: "",
-    pontosNC: linhas.reduce((a, l) => a + (l.pontosNC || 0), 0),
-    pontosIniciais: null, pontosFinal: null };
-  const tr = document.createElement("tr");
-  tr.className = "mn-total";
-  colunas.forEach((c, i) => {
-    const td = document.createElement("td");
-    // só "Total" e os números; nome de polo/equipe/supervisor fica em branco
-    if (i > 0 && !c.num) td.textContent = "";
-    else {
-      const val = c.valor(tot);
-      td.textContent = val instanceof Node ? val.textContent : val;
-    }
-    if (c.num) td.classList.add("num");
-    tr.appendChild(td);
-  });
-  // na visão por equipe os pontos não somam entre equipes: melhor não inventar total
-  if (v.campo === "equipe") [...tr.cells].slice(-3).forEach(td => td.textContent = "—");
-  R.mnTabela.querySelector("tbody").appendChild(tr);
 }
 
 /* Agrupa por pontuação: equipes com a mesma pontuação dividem o lugar.
