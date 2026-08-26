@@ -515,6 +515,33 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio.piores .lugar{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18);padding:5px 12px;font-size:12px}
 .podio.piores .lugar.pior{background:rgba(198,40,40,.62);border-color:rgba(255,255,255,.34)}
 .podio.piores .empate{color:#e8cfc9;max-width:400px}
+/* ---- porta: o painel não abre sem login ---- */
+/* trancado esconde o painel de verdade, não só por cima: com display:none
+   nem o inspetor curioso lê os números pelo inspetor do navegador */
+body.trancado #palco{display:none}
+.porta{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;
+  justify-content:center;padding:20px;background:var(--fundo);overflow:auto}
+.porta-caixa{width:min(380px,100%);display:flex;flex-direction:column;gap:12px;
+  background:var(--painel);border:1px solid var(--linha-borda);border-radius:14px;
+  padding:28px 26px;box-shadow:0 4px 24px rgba(60,44,28,.12)}
+.porta-logo{height:30px;align-self:flex-start;margin-bottom:2px}
+.porta-caixa h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
+.porta-sub{margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--txt3)}
+.porta-txt{margin:6px 0 2px;font-size:12.5px;line-height:1.55;color:var(--txt2)}
+.porta-campo{display:flex;flex-direction:column;gap:4px}
+.porta-campo span{font-size:9.5px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--txt2)}
+.porta-campo input{height:44px;border-radius:9px;padding:0 12px;font:inherit;
+  border:1px solid var(--linha-borda);background:var(--painel-alt);color:inherit}
+.porta-campo input:focus{outline:2px solid var(--acento);outline-offset:-1px;
+  background:var(--painel)}
+.porta-erro{min-height:15px;font-size:12px;color:var(--ruim);line-height:1.4}
+.porta-ok{height:46px;border:0;border-radius:10px;background:var(--acento);color:#fff;
+  font:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:var(--sombra)}
+.porta-ok:hover:not(:disabled){background:var(--acento-forte)}
+.porta-ok:disabled{opacity:.6;cursor:progress}
+
 </style>
 </head>
 <body>

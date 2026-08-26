@@ -513,6 +513,33 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio.piores .lugar{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18);padding:5px 12px;font-size:12px}
 .podio.piores .lugar.pior{background:rgba(198,40,40,.62);border-color:rgba(255,255,255,.34)}
 .podio.piores .empate{color:#e8cfc9;max-width:400px}
+/* ---- porta: o painel não abre sem login ---- */
+/* trancado esconde o painel de verdade, não só por cima: com display:none
+   nem o inspetor curioso lê os números pelo inspetor do navegador */
+body.trancado #palco{display:none}
+.porta{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;
+  justify-content:center;padding:20px;background:var(--fundo);overflow:auto}
+.porta-caixa{width:min(380px,100%);display:flex;flex-direction:column;gap:12px;
+  background:var(--painel);border:1px solid var(--linha-borda);border-radius:14px;
+  padding:28px 26px;box-shadow:0 4px 24px rgba(60,44,28,.12)}
+.porta-logo{height:30px;align-self:flex-start;margin-bottom:2px}
+.porta-caixa h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
+.porta-sub{margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--txt3)}
+.porta-txt{margin:6px 0 2px;font-size:12.5px;line-height:1.55;color:var(--txt2)}
+.porta-campo{display:flex;flex-direction:column;gap:4px}
+.porta-campo span{font-size:9.5px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--txt2)}
+.porta-campo input{height:44px;border-radius:9px;padding:0 12px;font:inherit;
+  border:1px solid var(--linha-borda);background:var(--painel-alt);color:inherit}
+.porta-campo input:focus{outline:2px solid var(--acento);outline-offset:-1px;
+  background:var(--painel)}
+.porta-erro{min-height:15px;font-size:12px;color:var(--ruim);line-height:1.4}
+.porta-ok{height:46px;border:0;border-radius:10px;background:var(--acento);color:#fff;
+  font:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:var(--sombra)}
+.porta-ok:hover:not(:disabled){background:var(--acento-forte)}
+.porta-ok:disabled{opacity:.6;cursor:progress}
+
 </style>
 <div id="palco"><div id="canvas"></div></div>
 <script>
@@ -2111,12 +2138,9 @@ const Ajustes = {
 
   /* Sair tem de esquecer as inspeções baixadas: elas não são públicas,
      e deixá-las na tela depois do logout mostraria a quem não pode ver. */
-  sair() {
-    Banco.sair();
-    Sincronia.esquecer();
-    this.render();
-    render();
-  },
+  /* Sair tranca o painel inteiro, não só a edição: desde 26/08/2026
+     nada é visível sem login. */
+  sair() { Porta.trancar(); },
 
   avisar(texto, ruim) {
     const velho = this.el.querySelector(".aj-avisosinc");
@@ -3381,9 +3405,86 @@ document.documentElement.style.setProperty("--foto-podio", `url("${FOTO_PODIO}")
 escalar();
 irPara(location.hash.slice(1) || "painel");
 
-/* Cadastros vêm do banco; sem rede, seguem valendo os embutidos em data.js */
-Cadastros.carregar().then(() => {
-  render();
-  if (paginaAtual === "ajustes") Ajustes.render();
-});
+const esc = t => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+
+/* ============================================================
+   PORTA — o painel não abre sem login
+
+   Decidido em 26/08/2026: nem os números nem os cadastros ficam
+   visíveis para quem não entrou. Administrador e inspetor têm
+   conta; quem não tem, não vê nada.
+
+   A tela cobre o painel inteiro em vez de esvaziá-lo: painel
+   vazio parece defeito, e alguém ia tentar "consertar".
+   ============================================================ */
+const Porta = {
+  el: null,
+
+  mostrar(aviso) {
+    if (!this.el) {
+      this.el = document.createElement("div");
+      this.el.className = "porta";
+      document.body.appendChild(this.el);
+    }
+    this.el.innerHTML = `
+      <form class="porta-caixa">
+        <img class="porta-logo" src="${LOGO_TECCEL}" alt="Teccel Energia">
+        <h1>Painel de Inspeções</h1>
+        <p class="porta-sub">SESMT · Regional Oeste</p>
+        <p class="porta-txt">Entre com a sua conta. Se ainda não tem,
+          fale com o administrador do painel.</p>
+        <label class="porta-campo"><span>E-mail</span>
+          <input name="email" type="email" required autocomplete="username"
+                 inputmode="email" autocapitalize="none" spellcheck="false"></label>
+        <label class="porta-campo"><span>Senha</span>
+          <input name="senha" type="password" required autocomplete="current-password"></label>
+        <div class="porta-erro">${aviso ? esc(aviso) : ""}</div>
+        <button class="porta-ok" type="submit">Entrar</button>
+      </form>`;
+    document.body.classList.add("trancado");
+
+    const f = this.el.querySelector("form");
+    f.onsubmit = async ev => {
+      ev.preventDefault();
+      const b = f.querySelector(".porta-ok");
+      b.disabled = true; b.textContent = "Entrando…";
+      try {
+        await Banco.entrar(f.elements.email.value.trim(), f.elements.senha.value);
+        await this.abrir();
+      } catch (e) {
+        this.mostrar(e.message);
+        f.elements.email.value = f.elements.email.value;
+      }
+    };
+    f.elements.email.focus();
+  },
+
+  /* Entrou: carrega cadastro, traz as inspeções do banco e destranca. */
+  async abrir() {
+    if (this.el) this.el.innerHTML =
+      `<div class="porta-caixa"><p class="porta-txt">Carregando o painel…</p></div>`;
+    await Cadastros.carregar();
+    await Sincronia.sincronizar();
+    if (this.el) { this.el.remove(); this.el = null; }
+    document.body.classList.remove("trancado");
+    render();
+    if (paginaAtual === "ajustes") Ajustes.render();
+  },
+
+  /* Saiu: tranca de novo e apaga o que estava na tela. */
+  trancar() {
+    Banco.sair();
+    Sincronia.esquecer();
+    this.mostrar();
+  }
+};
+
+/* O painel só abre com login. Se já houver sessão guardada, entra direto;
+   senão, mostra a porta. */
+if (Banco.autenticado()) {
+  Porta.abrir().catch(() => Porta.mostrar("A sessão expirou. Entre de novo."));
+} else {
+  Porta.mostrar();
+}
 </script>

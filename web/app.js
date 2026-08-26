@@ -917,8 +917,85 @@ document.documentElement.style.setProperty("--foto-podio", `url("${FOTO_PODIO}")
 escalar();
 irPara(location.hash.slice(1) || "painel");
 
-/* Cadastros vêm do banco; sem rede, seguem valendo os embutidos em data.js */
-Cadastros.carregar().then(() => {
-  render();
-  if (paginaAtual === "ajustes") Ajustes.render();
-});
+const esc = t => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+
+/* ============================================================
+   PORTA — o painel não abre sem login
+
+   Decidido em 26/08/2026: nem os números nem os cadastros ficam
+   visíveis para quem não entrou. Administrador e inspetor têm
+   conta; quem não tem, não vê nada.
+
+   A tela cobre o painel inteiro em vez de esvaziá-lo: painel
+   vazio parece defeito, e alguém ia tentar "consertar".
+   ============================================================ */
+const Porta = {
+  el: null,
+
+  mostrar(aviso) {
+    if (!this.el) {
+      this.el = document.createElement("div");
+      this.el.className = "porta";
+      document.body.appendChild(this.el);
+    }
+    this.el.innerHTML = `
+      <form class="porta-caixa">
+        <img class="porta-logo" src="${LOGO_TECCEL}" alt="Teccel Energia">
+        <h1>Painel de Inspeções</h1>
+        <p class="porta-sub">SESMT · Regional Oeste</p>
+        <p class="porta-txt">Entre com a sua conta. Se ainda não tem,
+          fale com o administrador do painel.</p>
+        <label class="porta-campo"><span>E-mail</span>
+          <input name="email" type="email" required autocomplete="username"
+                 inputmode="email" autocapitalize="none" spellcheck="false"></label>
+        <label class="porta-campo"><span>Senha</span>
+          <input name="senha" type="password" required autocomplete="current-password"></label>
+        <div class="porta-erro">${aviso ? esc(aviso) : ""}</div>
+        <button class="porta-ok" type="submit">Entrar</button>
+      </form>`;
+    document.body.classList.add("trancado");
+
+    const f = this.el.querySelector("form");
+    f.onsubmit = async ev => {
+      ev.preventDefault();
+      const b = f.querySelector(".porta-ok");
+      b.disabled = true; b.textContent = "Entrando…";
+      try {
+        await Banco.entrar(f.elements.email.value.trim(), f.elements.senha.value);
+        await this.abrir();
+      } catch (e) {
+        this.mostrar(e.message);
+        f.elements.email.value = f.elements.email.value;
+      }
+    };
+    f.elements.email.focus();
+  },
+
+  /* Entrou: carrega cadastro, traz as inspeções do banco e destranca. */
+  async abrir() {
+    if (this.el) this.el.innerHTML =
+      `<div class="porta-caixa"><p class="porta-txt">Carregando o painel…</p></div>`;
+    await Cadastros.carregar();
+    await Sincronia.sincronizar();
+    if (this.el) { this.el.remove(); this.el = null; }
+    document.body.classList.remove("trancado");
+    render();
+    if (paginaAtual === "ajustes") Ajustes.render();
+  },
+
+  /* Saiu: tranca de novo e apaga o que estava na tela. */
+  trancar() {
+    Banco.sair();
+    Sincronia.esquecer();
+    this.mostrar();
+  }
+};
+
+/* O painel só abre com login. Se já houver sessão guardada, entra direto;
+   senão, mostra a porta. */
+if (Banco.autenticado()) {
+  Porta.abrir().catch(() => Porta.mostrar("A sessão expirou. Entre de novo."));
+} else {
+  Porta.mostrar();
+}

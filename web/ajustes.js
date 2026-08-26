@@ -232,12 +232,9 @@ const Ajustes = {
 
   /* Sair tem de esquecer as inspeções baixadas: elas não são públicas,
      e deixá-las na tela depois do logout mostraria a quem não pode ver. */
-  sair() {
-    Banco.sair();
-    Sincronia.esquecer();
-    this.render();
-    render();
-  },
+  /* Sair tranca o painel inteiro, não só a edição: desde 26/08/2026
+     nada é visível sem login. */
+  sair() { Porta.trancar(); },
 
   avisar(texto, ruim) {
     const velho = this.el.querySelector(".aj-avisosinc");
