@@ -32,8 +32,8 @@ select supervisor, count(*) as equipes
  group by supervisor
  order by supervisor;
 
--- Conferência 2: todo supervisor de equipe tem de existir como
---                inspetor. Esta consulta deve vir vazia.
+-- Conferência 2: supervisor de equipe que não existe como inspetor.
+--                Só "Arlan" deve aparecer — ver nota no fim.
 select distinct e.supervisor
   from public.sesmt_equipes e
  where e.supervisor is not null
@@ -47,4 +47,13 @@ select distinct e.supervisor
 -- Nota: CONST 1 e CONST 10 são mesmo do José Pereira (confirmado).
 -- O seed em web/data.js trazia Acacio e Arlan nessas duas e foi
 -- corrigido para bater com o banco.
+-- ------------------------------------------------------------
+
+-- ------------------------------------------------------------
+-- ATENÇÃO na conferência 2: ela retorna "Arlan", e isso é o
+-- esperado. Ele supervisiona 9 equipes mas não é inspetor — foi
+-- retirado de sesmt_inspetores de propósito, por nunca ter feito
+-- inspeção. Supervisor não precisa ser inspetor para o painel
+-- funcionar; o filtro Supervisor vem das equipes.
+-- Qualquer nome ALÉM de "Arlan" ali é problema de verdade.
 -- ------------------------------------------------------------
