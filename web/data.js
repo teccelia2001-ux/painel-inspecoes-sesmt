@@ -27,6 +27,8 @@ let INSPETORES = [
   ["Joab","Obras RD","Engenheiro Segurança",4,0],
   ["José Pereira","CAJAZEIRAS","Supervisor",4,0],
   ["Julierme","Obras RD","Gerente Operacional",2,2],
+  ["Junielly","PATOS","Supervisor",4,0],
+  ["Manoel Vaz","TECCEL","Auditor",4,0],
   ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
 ];
 
@@ -64,12 +66,12 @@ let EQUIPES = [
 
 /* Inspeções Teccel1 (grão = inspeção) — [ID, Inspetor, Equipe, Tipo Serviço, Data dd/mm/aaaa] */
 const INSPECOES = [
-["1","Juscélio","CONST 1","DCMD C&M","14/04/2026"],["2","Huislan","CONST 1","DCMD C&M","14/04/2026"],
+["2","Huislan","CONST 1","DCMD C&M","14/04/2026"],
 ["3","Francisco","MANUT 3","DCMD C&M","15/04/2026"],["4","Francisco","MANUT 2","DCMD C&M","16/04/2026"],
 ["5","Francisco","MANUT 2","DCMD C&M","17/04/2026"],["6","Edney","CONST 10","DCMD C&M","23/04/2026"],
 ["7","Joab","CONST 4","DCMD C&M","13/04/2026"],["8","Francisco","CONST 7","DCMD C&M","24/04/2026"],
 ["9","Edney","CONST 1","DCMD C&M","28/04/2026"],["10","Acacio","CONST 8","DCMD C&M","29/04/2026"],
-["11","Francisco","MANUT 2","DCMD C&M","30/04/2026"],["12","Juscélio","MANUT 4","DCMD C&M","02/05/2026"],
+["11","Francisco","MANUT 2","DCMD C&M","30/04/2026"],
 ["13","Joab","CONST 7","DCMD C&M","22/04/2026"],["14","Francisco","MANUT 4","DCMD C&M","06/05/2026"],
 ["15","Edney","CONST 1","DCMD C&M","18/05/2026"],["16","Edney","CONST 7","DCMD C&M","18/05/2026"],
 ["17","Edney","CONST 10","DCMD C&M","18/05/2026"],["18","Huislan","CONST 12","DCMD C&M","18/05/2026"],
@@ -112,7 +114,7 @@ const INSPECOES = [
 ["90","Francisco","PLANTÃO - CTRBT31","DEOP","21/07/2026"],["91","Junielly","PLANTÃO - PTSCX02","DEOP","03/08/2026"],
 ["92","Huislan","PLANTÃO - PTSBT36","DEOP","03/07/2026"],["93","Huislan","PLANTÃO - PTSCX02","DEOP","06/07/2026"],
 ["94","Huislan","PLANTÃO - PRIBT31","DEOP","17/07/2026"],["95","Huislan","PLANTÃO - PTSBT36","DEOP","03/08/2026"],
-["96","Juscélio","LINHA VIVA 1","DCMD LV","16/04/2026"],["97","Huislan","LINHA VIVA 3","DCMD LV","17/04/2026"],
+["97","Huislan","LINHA VIVA 3","DCMD LV","17/04/2026"],
 ["98","Edney","LINHA VIVA 1","DCMD LV","23/04/2026"],["99","Huislan","MANUT 3","DCMD LV","30/04/2026"],
 ["100","Joab","LINHA VIVA 2","DCMD LV","27/04/2026"],["101","Francisco","LINHA VIVA 1","DCMD LV","11/06/2026"],
 ["102","Joab","LINHA VIVA 1","DCMD LV","29/07/2026"],["103","Acacio","LINHA VIVA 3","DCMD LV","17/07/2026"],
@@ -171,7 +173,7 @@ const NC = [
 ["108",Q.P19,"","",0],["109",Q.P1,"Procedimentos","Grave",-5],
 ["11",Q.P1,"Procedimentos","Grave",-5],["11",Q.P3,"Procedimentos","Leve",-1],
 ["111",Q.E2,"EPI/EPC","Leve",-1],["111",Q.E1,"EPI/EPC","Leve",-1],
-["12",Q.E1,"EPI/EPC","Leve",-1],["13",Q.P3,"Procedimentos","Leve",-1],
+["13",Q.P3,"Procedimentos","Leve",-1],
 ["14",Q.P2,"Procedimentos","Gravíssimo",-10],["14",Q.P7,"Procedimentos","Leve",-1],
 ["19",Q.V1,"Veículos","Leve",-1],["19",Q.V6,"Procedimentos","Leve",-1],
 ["19",Q.V4,"Veículos","Leve",-1],["2",Q.V3,"Veículos","Grave",-5],

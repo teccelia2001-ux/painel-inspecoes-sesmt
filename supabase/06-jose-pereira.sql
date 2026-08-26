@@ -39,10 +39,9 @@ select inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo
  where inspetor in ('Pereira', 'José Pereira');
 
 -- ------------------------------------------------------------
--- AINDA FORA DO RANKING (não cadastrados, nome como vem nas inspeções):
+-- OUTROS QUE ESTAVAM FORA DO RANKING (nome como vem nas inspeções):
 --   Manoel Vaz — 6 inspeções (CONST 1, 2, 3, 13, LINHA VIVA 1 e 2)
---   Juscélio   — 3 inspeções (CONST 1, MANUT 4, LINHA VIVA 1)
 --   Junielly   — 2 inspeções (PLANTÃO - PTSCX02, DEOP)
--- Falta o polo, a função e a meta de cada um. Cadastre pela aba
--- Ajustes do painel ou acrescente aqui.
+-- Resolvidos na migração 07. Juscélio saiu do painel (inspeções
+-- removidas de web/data.js e cadastro apagado no 07).
 -- ------------------------------------------------------------
