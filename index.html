@@ -1746,9 +1746,17 @@ const semAcentoAj = t => String(t || "").normalize("NFD")
 
 const CAMPOS_EQUIPE = [
   { k: "equipe", rot: "Nome da equipe", obrigatorio: true },
-  { k: "tipo", rot: "Tipo de equipe", tipo: "select", opcoes: [
-      ["LM", "Linha morta (rede desligada)"], ["LV", "Linha viva"], ["MAN", "Manutenção"],
-      ["PER", "Perdas"], ["PLA", "Plantão"], ["POD", "Poda"], ["REA", "Reaviso"]] },
+  /* O tipo define o departamento, e é por ele que o app decide quais
+     equipes mostrar ao inspetor. Por isso o departamento aparece aqui,
+     no rótulo: escolher o tipo É escolher o departamento. */
+  { k: "tipo", rot: "Tipo de equipe (define o departamento)", tipo: "select", opcoes: [
+      ["LM", "Linha morta (rede desligada) — DCMD C&M"],
+      ["MAN", "Manutenção — DCMD C&M"],
+      ["LV", "Linha viva — DCMD LINHA VIVA"],
+      ["POD", "Poda — DCMD PODA"],
+      ["PER", "Perdas — DECP"],
+      ["REA", "Reaviso — DECP"],
+      ["PLA", "Plantão — DEOP"]] },
   { k: "supervisor", rot: "Supervisor", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.inspetor)
         .concat(Cadastros.equipes.map(e => e.supervisor)))].filter(Boolean).sort() },
@@ -1772,10 +1780,13 @@ const SECOES = {
     titulo: "Equipes", desc: "Equipes de campo avaliadas na Jornada Segura.",
     novo: "Nova equipe", chave: "equipe", campos: CAMPOS_EQUIPE, statusK: "ativa",
     filtros: [["supervisor", "Supervisor"], ["tipo", "Tipo"], ["ativa", "Situação"]],
+    /* "departamento" não é campo do banco: vem do tipo, pela mesma regra
+       que o app usa. Ver DEPARTAMENTO_DO_TIPO. */
     colunas: [
       { t: "Equipe", v: r => r.equipe, forte: true },
       { t: "Supervisor", v: r => r.supervisor || "—" },
       { t: "Tipo", v: r => TIPOS_EQUIPE[r.tipo] || r.tipo || "—", etiqueta: true },
+      { t: "Departamento", v: r => DEPARTAMENTO_DO_TIPO[r.tipo] || "—", etiqueta: true },
       { t: "Pontos", v: r => fmtN(r.pontos), num: true }
     ]
   },
@@ -1797,6 +1808,13 @@ const SECOES = {
 };
 const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
   PER: "Perdas", PLA: "Plantão", POD: "Poda", REA: "Reaviso" };
+
+/* De qual departamento é cada tipo de equipe. É o que o app usa para
+   mostrar ao inspetor só as equipes do departamento que ele escolheu.
+   A regra oficial mora no banco, em sesmt_tipos_equipe; esta cópia serve
+   só para rotular a tela do painel. Mudou lá, mude aqui. */
+const DEPARTAMENTO_DO_TIPO = { LM: "DCMD C&M", MAN: "DCMD C&M", LV: "DCMD LINHA VIVA",
+  POD: "DCMD PODA", PER: "DECP", REA: "DECP", PLA: "DEOP" };
 
 /* Ordem de exibição dos inspetores: hierarquia de campo, não alfabeto.
    Quem não estiver na lista vai para o fim. */
