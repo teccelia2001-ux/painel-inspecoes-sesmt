@@ -523,7 +523,7 @@ const FOTO_PODIO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAsHC
 const DDATA = [
   ["1/2026","202601",22,22,31],["2/2026","202602",20,20,28],["3/2026","202603",22,22,31],
   ["4/2026","202604",22,22,30],["5/2026","202605",21,21,31],["6/2026","202606",22,22,30],
-  ["7/2026","202607",23,23,31],["8/2026","202608",21,15,31],["9/2026","202609",22,0,30],
+  ["7/2026","202607",23,23,31],["8/2026","202608",21,17,31],["9/2026","202609",22,0,30],
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
@@ -639,7 +639,14 @@ const INSPECOES = [
 ["112","Joab","REAVISO - CJZRI01","DECP","29/05/2026"],["113","Francisco","PERDAS PTSRG04","DECP","25/06/2026"],
 ["114","Francisco","PERDAS PTSRG03","DECP","28/07/2026"],["115","Huislan","PERDAS PTSRG03","DECP","10/07/2026"],
 ["116","Huislan","PERDAS PTSRG12","DECP","28/07/2026"],["117","Francisco","PERDAS PTSRG03","DECP","27/07/2026"],
-["118","Francisco","PERDAS PTSRG03","DECP","14/08/2026"]
+["118","Francisco","PERDAS PTSRG03","DECP","14/08/2026"],
+["119","Junielly","PLANTÃO - ITOBT31","DECP","12/08/2026"],
+["120","Junielly","PLANTÃO CONBT30","DEOP","12/08/2026"],
+["121","Junielly","PLANTÃO - BTF BT30","DEOP","12/08/2026"],
+["122","Junielly","PLANTÃO - PTSCX02","DEOP","21/08/2026"],
+["123","Francisco","CONST 10","DCMD C&M","25/08/2026"],
+["124","Aisleudo","MANUT 3","DCMD C&M","25/08/2026"],
+["125","Francisco","CONST 10","DCMD C&M","25/08/2026"]
 ];
 
 /* Perguntas com resposta "Não Conforme" — [ID inspeção, Pergunta, Categoria, Gravidade, Pontos N.C] */
@@ -675,7 +682,9 @@ const Q = {
   P21:"Para o caso de substituição de medidores em caixa de medição individual que estejam ligados com condutores de bitola superior a 25 mm², foi desligado o disjuntor da Unidade Consumidora e desenergizar o ramal de ligação do cliente?",
   E1:"Os EPI's/EPC's exceto para risco elétrico e altura estavam adequados durante a execução do serviço?",
   E2:"As escadas com degraus, montantes, travas, cordas e carretilhas estão em boas condições de uso?",
-  E3:"Os EPI's e EPC's para risco elétrico foram utilizados em boas condições de uso e com teste em dia(Capacete, óculos, balaclava, fardamento, luvas, coberturas, mangas, botina, etc)?"
+  E3:"Os EPI's e EPC's para risco elétrico foram utilizados em boas condições de uso e com teste em dia(Capacete, óculos, balaclava, fardamento, luvas, coberturas, mangas, botina, etc)?",
+  P22:"Foi realizada a APR antes do início das atividades?",
+  E4:"Os EPI's e EPC's para risco de altura foram utilizados em boas condições de uso e com validade em dia?"
 };
 
 const NC = [
@@ -718,14 +727,25 @@ const NC = [
 ["92",Q.E1,"EPI/EPC","Leve",-1],["93",Q.P1,"Procedimentos","Grave",-5],
 ["93",Q.P11,"Procedimentos","Leve",-1],["97",Q.P1,"Procedimentos","Grave",-5],
 ["97",Q.P17,"","",0],["97",Q.P11,"Procedimentos","Leve",-1],
-["97",Q.P4,"Procedimentos","Grave",-5],["97",Q.P8,"Procedimentos","Grave",-5]
+["97",Q.P4,"Procedimentos","Grave",-5],["97",Q.P8,"Procedimentos","Grave",-5],
+["119",Q.P2,"Procedimentos","Gravíssimo",-10],
+["119",Q.P22,"Procedimentos","Gravíssimo",-10],
+["119",Q.P5,"Procedimentos","Gravíssimo",-10],
+["119",Q.E3,"EPI/EPC","Leve",-1],
+["120",Q.E2,"EPI/EPC","Leve",-1],
+["121",Q.V5,"Veículos","Leve",-1],
+["121",Q.V8,"","",0],
+["123",Q.E1,"EPI/EPC","Leve",-1],
+["124",Q.E4,"EPI/EPC","Leve",-1],
+["124",Q.P15,"Procedimentos","Gravíssimo",-10],
+["125",Q.E1,"EPI/EPC","Leve",-1]
 ];
 
 /* Carimbo de atualização do relatório original */
-const ATUALIZACAO = "24/08/2026 07:20:36";
+const ATUALIZACAO = "26/08/2026 08:48:46";
 
 /* Versão do build — carimbada no rodapé para conferir cache do navegador */
-const VERSAO = "20260825-1430";
+const VERSAO = "20260826-1100";
 </script>
 <script>
 /* ============================================================
