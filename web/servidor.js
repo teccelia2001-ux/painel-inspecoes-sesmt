@@ -173,7 +173,11 @@ const Banco = {
      sesmt_admins que este painel usa. */
   async acessoInspetor(acao, inspetor, email) {
     if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
-    const r = await fetch(SERVIDOR.url + "/functions/v1/criar-acesso", {
+    /* "swift-responder" é o slug que o editor do Supabase gerou sozinho ao
+       criar a função. O campo Name lá vira rótulo e pode ser renomeado à
+       vontade, mas o slug do endereço não muda depois de criado — foi o que
+       nos custou meia hora de 404 com a função publicada e funcionando. */
+    const r = await fetch(SERVIDOR.url + "/functions/v1/swift-responder", {
       method: "POST",
       headers: {
         apikey: SERVIDOR.chave,
@@ -186,7 +190,8 @@ const Banco = {
     try { j = await r.json(); } catch (e) {}
     if (!r.ok) {
       if (r.status === 404 && !j) {
-        throw new Error("A função criar-acesso ainda não foi publicada no Supabase.");
+        throw new Error("A função de criar acesso não respondeu. Confira, no Supabase, "
+          + "se o slug dela ainda é swift-responder.");
       }
       throw new Error((j && j.erro) || ("erro " + r.status));
     }
