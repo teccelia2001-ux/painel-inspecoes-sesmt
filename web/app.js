@@ -972,16 +972,41 @@ const Porta = {
     f.elements.email.focus();
   },
 
-  /* Entrou: carrega cadastro, traz as inspeções do banco e destranca. */
+  /* Entrou: carrega cadastro, traz as inspeções do banco e destranca.
+
+     Falha ao buscar as inspeções NÃO tranca de volta. Quem entrou,
+     entrou: mandá-lo para a tela de login por causa de uma consulta que
+     não respondeu faria parecer que a senha estava errada. Abre o painel
+     com o que houver e avisa — dá para tentar de novo no ⟳ Sincronizar. */
   async abrir() {
     if (this.el) this.el.innerHTML =
       `<div class="porta-caixa"><p class="porta-txt">Carregando o painel…</p></div>`;
     await Cadastros.carregar();
-    await Sincronia.sincronizar();
+    let recado = null;
+    try {
+      const ok = await Sincronia.sincronizar();
+      if (!ok) recado = Sincronia.erro;
+    } catch (e) {
+      recado = e.message;
+    }
     if (this.el) { this.el.remove(); this.el = null; }
     document.body.classList.remove("trancado");
     render();
     if (paginaAtual === "ajustes") Ajustes.render();
+    if (recado) this.avisarFalha(recado);
+  },
+
+  /* Faixa no topo: o painel abriu, mas está mostrando só o histórico
+     do arquivo. Sem isso o número apareceria menor sem explicação. */
+  avisarFalha(motivo) {
+    const d = document.createElement("div");
+    d.className = "porta-falha";
+    d.innerHTML = `<b>As inspeções não vieram do banco.</b> O painel está
+      mostrando apenas o histórico. Motivo: ${esc(motivo)}.
+      Tente de novo em Ajustes, no botão ⟳ Sincronizar.
+      <button aria-label="Fechar">✕</button>`;
+    d.querySelector("button").onclick = () => d.remove();
+    document.body.appendChild(d);
   },
 
   /* Saiu: tranca de novo e apaga o que estava na tela. */

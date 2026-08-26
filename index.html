@@ -539,6 +539,12 @@ body.trancado #palco{display:none}
   font:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:var(--sombra)}
 .porta-ok:hover:not(:disabled){background:var(--acento-forte)}
 .porta-ok:disabled{opacity:.6;cursor:progress}
+.porta-falha{position:fixed;left:12px;right:12px;top:12px;z-index:9998;padding:11px 40px 11px 14px;
+  border-radius:10px;font-size:12.5px;line-height:1.5;background:#fff6e5;color:#7a4d00;
+  border:1px solid #f0d9a8;box-shadow:var(--sombra)}
+.porta-falha button{position:absolute;right:8px;top:8px;width:26px;height:26px;border:0;
+  border-radius:6px;background:transparent;color:inherit;font-size:13px;cursor:pointer}
+.porta-falha button:hover{background:rgba(0,0,0,.07)}
 
 </style>
 <div id="palco"><div id="canvas"></div></div>
@@ -3460,16 +3466,41 @@ const Porta = {
     f.elements.email.focus();
   },
 
-  /* Entrou: carrega cadastro, traz as inspeções do banco e destranca. */
+  /* Entrou: carrega cadastro, traz as inspeções do banco e destranca.
+
+     Falha ao buscar as inspeções NÃO tranca de volta. Quem entrou,
+     entrou: mandá-lo para a tela de login por causa de uma consulta que
+     não respondeu faria parecer que a senha estava errada. Abre o painel
+     com o que houver e avisa — dá para tentar de novo no ⟳ Sincronizar. */
   async abrir() {
     if (this.el) this.el.innerHTML =
       `<div class="porta-caixa"><p class="porta-txt">Carregando o painel…</p></div>`;
     await Cadastros.carregar();
-    await Sincronia.sincronizar();
+    let recado = null;
+    try {
+      const ok = await Sincronia.sincronizar();
+      if (!ok) recado = Sincronia.erro;
+    } catch (e) {
+      recado = e.message;
+    }
     if (this.el) { this.el.remove(); this.el = null; }
     document.body.classList.remove("trancado");
     render();
     if (paginaAtual === "ajustes") Ajustes.render();
+    if (recado) this.avisarFalha(recado);
+  },
+
+  /* Faixa no topo: o painel abriu, mas está mostrando só o histórico
+     do arquivo. Sem isso o número apareceria menor sem explicação. */
+  avisarFalha(motivo) {
+    const d = document.createElement("div");
+    d.className = "porta-falha";
+    d.innerHTML = `<b>As inspeções não vieram do banco.</b> O painel está
+      mostrando apenas o histórico. Motivo: ${esc(motivo)}.
+      Tente de novo em Ajustes, no botão ⟳ Sincronizar.
+      <button aria-label="Fechar">✕</button>`;
+    d.querySelector("button").onclick = () => d.remove();
+    document.body.appendChild(d);
   },
 
   /* Saiu: tranca de novo e apaga o que estava na tela. */
