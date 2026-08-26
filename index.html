@@ -166,11 +166,24 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
 /* lista de progresso: mês a mês, por polo ou por equipe */
 .rp-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 2px 8px}
+/* busca da lista: campo discreto, colado no topo enquanto a lista rola */
+.rp-busca{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;
+  padding:2px 2px 8px;background:var(--painel)}
+.rp-busca input{flex:1 1 auto;min-width:0;height:32px;border-radius:8px;padding:0 10px;
+  border:1px solid var(--linha-borda);background:var(--painel-alt);color:inherit;
+  font:inherit;font-size:12px}
+.rp-busca input:focus{outline:2px solid var(--acento);outline-offset:-1px}
+.rp-conta{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--txt3);
+  font-variant-numeric:tabular-nums}
+.rp-lista.vazia::after{content:"Nenhuma linha bate com a busca.";grid-column:1/-1;
+  color:var(--txt3);font-size:12px;padding:10px 2px}
 /* cada bloco é um botão: abre o relatório completo do mês, polo ou equipe */
 .rp-item{position:relative;display:block;width:100%;text-align:left;font:inherit;color:inherit;
   background:var(--painel-alt);border:1px solid var(--linha-borda);
   border-radius:10px;padding:8px 10px;cursor:pointer;transition:.12s}
 .rp-item:hover{border-color:var(--acento);background:var(--acento-suave)}
+/* .rp-item declara display:block, que ganha do [hidden] do navegador */
+.rp-item[hidden]{display:none}
 .rp-item:focus-visible{outline:2px solid var(--acento);outline-offset:1px}
 .rp-abrir{position:absolute;right:10px;bottom:7px;font-size:9.5px;font-weight:700;
   color:var(--acento-forte);opacity:0;transition:.12s}
@@ -2081,6 +2094,13 @@ const VISOES_RESUMO = [
 let visaoResumo = "geral";
 /* Item aberto em relatório completo: {visao, chave, mesAno} ou null */
 let detalheResumo = null;
+/* Texto digitado na busca da lista do resumo. Some ao trocar de visão: é
+   um recorte de leitura, não um filtro do painel. */
+let buscaResumo = "";
+
+/* Compara ignorando acento e maiúscula: "plantao" acha "PLANTÃO". */
+const semAcento = s => String(s || "").normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
 /* ---------- helpers de construção ---------- */
 function marcaHTML() {
@@ -2273,7 +2293,7 @@ function pgPainel() {
   VISOES_RESUMO.forEach(v => {
     const b = document.createElement("button");
     b.textContent = v.rot; b.dataset.visao = v.k; b.title = v.desc;
-    b.onclick = () => { visaoResumo = v.k; detalheResumo = null; resumoPainel(); };
+    b.onclick = () => { visaoResumo = v.k; detalheResumo = null; buscaResumo = ""; resumoPainel(); };
     sel.appendChild(b);
   });
   c.appendChild(sel);
@@ -2681,7 +2701,16 @@ function resumoPainelLista(v) {
      realmente mede equipe. Nas demais visões a barra é a meta atingida. */
   const porIcit = v.k === "equipe";
 
-  R.painelResumo.innerHTML = `<div class="rp-lista">${itens.map(l => {
+  /* Busca: com muitos blocos, achar uma equipe rolando a lista é sofrido.
+     Só aparece quando há lista o bastante para justificar. */
+  const temBusca = itens.length > 8;
+  const rotBusca = v.k === "equipe" ? "equipe ou supervisor"
+    : v.k === "polo" ? "polo" : "mês";
+
+  R.painelResumo.innerHTML = `${temBusca ? `<label class="rp-busca">
+    <input type="search" placeholder="Buscar ${rotBusca}…" value="${buscaResumo}"
+      aria-label="Buscar na lista"><span class="rp-conta"></span></label>` : ""}
+  <div class="rp-lista">${itens.map(l => {
     const valor = porIcit ? l.icit : l.pct;
     const cls = porIcit ? faixaIcit(valor) : faixa(valor);
     const larg = valor === null || valor === undefined ? 0 : Math.min(100, valor * 100);
@@ -2692,7 +2721,8 @@ function resumoPainelLista(v) {
       : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, 0)} previstas`
                 : `${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"} · sem meta cadastrada`,
          `ICIT ${fmtP(l.icit, 0)}`, `${fmtN(l.ncLinhas)} N.C`];
-    return `<button class="rp-item" data-chave="${l.chave || ""}"${
+    return `<button class="rp-item" data-chave="${l.chave || ""}" data-busca="${
+        [l.chave, l.supervisor].filter(Boolean).join(" ")}"${
         l.mesAno ? ` data-mes="${l.mesAno}"` : ""} title="${
         l.supervisor ? `Supervisor: ${l.supervisor} · ` : ""}Ver o relatório completo">
       <div class="rp-cab"><b>${l.chave || "(vazio)"}</b>
@@ -2708,6 +2738,28 @@ function resumoPainelLista(v) {
     : "A barra é o <b>quanto da meta foi atingido</b>, comparando o realizado com a parte "
       + "da meta que já deveria estar cumprida pelos dias úteis."}
     Clique em um bloco para abrir o relatório completo dele.</div>`;
+
+  /* A busca esconde os blocos que não batem em vez de redesenhar a lista:
+     redesenhar tiraria o foco do campo a cada tecla digitada. */
+  const cxBusca = R.painelResumo.querySelector(".rp-busca input");
+  if (cxBusca) {
+    const conta = R.painelResumo.querySelector(".rp-conta");
+    const lista = R.painelResumo.querySelector(".rp-lista");
+    const aplicar = () => {
+      const q = semAcento(cxBusca.value);
+      let achou = 0;
+      R.painelResumo.querySelectorAll(".rp-item").forEach(b => {
+        const bate = !q || semAcento(b.dataset.busca).includes(q);
+        b.hidden = !bate;
+        if (bate) achou++;
+      });
+      conta.textContent = !q ? ""
+        : achou ? `${achou} de ${itens.length}` : "nada encontrado";
+      lista.classList.toggle("vazia", !!q && !achou);
+    };
+    cxBusca.oninput = () => { buscaResumo = cxBusca.value; aplicar(); };
+    if (buscaResumo) aplicar();
+  }
 
   R.painelResumo.querySelectorAll(".rp-item").forEach(b =>
     b.onclick = () => {
