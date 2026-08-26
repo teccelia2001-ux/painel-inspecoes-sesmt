@@ -3,7 +3,10 @@
    ============================================================ */
 
 const MESES_NOME = ["","jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-const NC_BY_ID   = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
+/* Refeito a cada reconstrucao, nao so na carga: sincronizar troca o NC
+   inteiro, e um indice velho faria a nao conformidade nova nao contar
+   ponto nenhum na Jornada Segura — sem erro, so numero errado. */
+let NC_BY_ID;
 
 /* Índices e tabela de fato enriquecida. Como os cadastros de equipes e
    inspetores podem ser editados na aba Ajustes, tudo isto é reconstruído
@@ -11,6 +14,8 @@ const NC_BY_ID   = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {
 let IDX_INSPETOR, IDX_EQUIPE, FATO;
 
 function reconstruirModelo() {
+  NC_BY_ID = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
+
   /* Os índices aceitam o nome de hoje E os que a linha já teve. Renomear
      uma equipe no cadastro deixava órfã toda inspeção feita com o nome
      velho — ela caía em "(vazio)" e sumia da Jornada Segura, sem aviso.
@@ -63,6 +68,100 @@ function reconstruirModelo() {
 }
 let MESES_COM_INSPECAO;
 reconstruirModelo();
+
+/* ============================================================
+   SINCRONIZAR — traz para o painel o que o app gravou
+
+   As inspeções antigas vivem embutidas no data.js; as novas, feitas
+   pelo app, vivem no banco. Aqui as duas viram uma coisa só.
+
+   O data.js NÃO é alterado: a junção acontece na memória, a cada
+   sincronização. Assim nada se perde se a rede falhar no meio, e o
+   painel continua abrindo sem login — só que, sem login, mostrando
+   apenas o histórico.
+   ============================================================ */
+const Sincronia = {
+  /* Guarda o que veio do banco, para poder refazer a junção quando o
+     cadastro mudar sem precisar baixar tudo de novo. */
+  doBanco: null,
+  em: null,
+  erro: null,
+
+  /* O código do departamento no banco x o nome usado no histórico */
+  DEPARTAMENTO: { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LV", DCMD_PODA: "DCMD PODA",
+                  DECP: "DECP", DEOP: "DEOP" },
+
+  async sincronizar() {
+    this.erro = null;
+    try {
+      const d = await Banco.baixarInspecoes();
+      if (d.motivo === "sem-login") {
+        this.erro = "Entre com sua conta para ver as inspeções feitas pelo app.";
+        return false;
+      }
+      this.doBanco = d;
+      this.em = new Date();
+      this.aplicar();
+      return true;
+    } catch (e) {
+      this.erro = e.message;
+      return false;
+    }
+  },
+
+  /* Junta o que veio do banco com o histórico e reconstrói o modelo. */
+  aplicar() {
+    const d = this.doBanco;
+    if (!d) return;
+
+    const porCodigo = Object.fromEntries(d.perguntas.map(p => [p.codigo, p]));
+    const naoConformes = {};
+    d.respostas.forEach(r => (naoConformes[r.inspecao] = naoConformes[r.inspecao] || []).push(r.pergunta));
+
+    /* Prefixo no id para nunca colidir com o histórico, que usa número. */
+    const idDe = x => "app-" + x.id.slice(0, 8);
+
+    const inspecoes = d.inspecoes.map(x => [
+      idDe(x),
+      x.inspetor,
+      x.equipe,
+      this.DEPARTAMENTO[x.departamento] || x.departamento,
+      x.data.slice(8, 10) + "/" + x.data.slice(5, 7) + "/" + x.data.slice(0, 4)
+    ]);
+
+    const nc = [];
+    d.inspecoes.forEach(x => {
+      (naoConformes[x.id] || []).forEach(cod => {
+        const p = porCodigo[cod];
+        if (!p) return;
+        nc.push([idDe(x), p.texto, p.categoria || "", p.gravidade || "", p.pontos_nc || 0]);
+      });
+    });
+
+    /* Repõe do zero em vez de acumular: sincronizar duas vezes seguidas
+       não pode dobrar inspeção. */
+    INSPECOES = HISTORICO.inspecoes.concat(inspecoes);
+    NC = HISTORICO.nc.concat(nc);
+    reconstruirModelo();
+  },
+
+  /* Volta a mostrar só o histórico — usado ao sair da conta. */
+  esquecer() {
+    this.doBanco = null; this.em = null; this.erro = null;
+    INSPECOES = HISTORICO.inspecoes;
+    NC = HISTORICO.nc;
+    reconstruirModelo();
+  },
+
+  resumo() {
+    if (!this.doBanco) return null;
+    return {
+      inspecoes: this.doBanco.inspecoes.length,
+      nc: this.doBanco.respostas.length,
+      em: this.em
+    };
+  }
+};
 
 /* ---------- Filtros ---------- */
 const CAMPOS = ["ano", "mes", "polo", "inspetor", "funcao", "supervisor", "equipe"];

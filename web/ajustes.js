@@ -195,19 +195,76 @@ const Ajustes = {
       : `${linhas.length} de ${total}`;
   },
 
+  /* ---------- sincronizar as inspeções do app ----------
+     As feitas pelo app moram no banco; o histórico mora no data.js.
+     Este botão junta as duas coisas na memória. Só aparece para quem
+     entrou: a decisão de 26/08/2026 foi que inspeção não é pública. */
+  botaoSincronizar() {
+    const r = Sincronia.resumo();
+    const quando = r ? ` (${r.inspecoes} do app)` : "";
+    return `<button class="aj-sincronizar">⟳ Sincronizar${quando}</button>`;
+  },
+
+  ligarSincronizar() {
+    const b = this.estado.querySelector(".aj-sincronizar");
+    if (!b) return;
+    b.onclick = async () => {
+      b.disabled = true;
+      b.textContent = "⟳ Buscando…";
+      const ok = await Sincronia.sincronizar();
+      this.render();
+      render();                       // os visuais do painel recalculam
+      const novo = this.estado.querySelector(".aj-sincronizar");
+      if (!ok && novo) novo.title = Sincronia.erro || "";
+      if (ok) {
+        const r = Sincronia.resumo();
+        this.avisar(r.inspecoes
+          ? `${r.inspecoes} ${r.inspecoes === 1 ? "inspeção veio" : "inspeções vieram"} do app, `
+            + `com ${r.nc} ${r.nc === 1 ? "não conformidade" : "não conformidades"}. `
+            + "Os números do painel já contam com elas."
+          : "Nenhuma inspeção enviada pelo app ainda. Os números seguem só com o histórico.");
+      } else {
+        this.avisar("Não deu para sincronizar: " + (Sincronia.erro || "erro desconhecido"), true);
+      }
+    };
+  },
+
+  /* Sair tem de esquecer as inspeções baixadas: elas não são públicas,
+     e deixá-las na tela depois do logout mostraria a quem não pode ver. */
+  sair() {
+    Banco.sair();
+    Sincronia.esquecer();
+    this.render();
+    render();
+  },
+
+  avisar(texto, ruim) {
+    const velho = this.el.querySelector(".aj-avisosinc");
+    if (velho) velho.remove();
+    const d = document.createElement("div");
+    d.className = "aj-avisosinc" + (ruim ? " ruim" : "");
+    d.textContent = texto;
+    this.estado.insertAdjacentElement("afterend", d);
+    if (!ruim) setTimeout(() => d.remove(), 6000);
+  },
+
   renderEstado() {
     if (Banco.podeEditar()) {
       this.estado.className = "aj-estado ok";
       this.estado.innerHTML = `<span>✓ <b>${Banco.usuario}</b> — administrador.
         As alterações valem para todos.</span>
+        ${this.botaoSincronizar()}
         <button class="aj-sair">Sair</button>`;
-      this.estado.querySelector(".aj-sair").onclick = () => { Banco.sair(); this.render(); };
+      this.ligarSincronizar();
+      this.estado.querySelector(".aj-sair").onclick = () => this.sair();
     } else if (Banco.ligado && Banco.autenticado()) {
       this.estado.className = "aj-estado aviso";
       this.estado.innerHTML = `<span><b>${Banco.usuario}</b> entrou, mas não é administrador do painel —
         só é possível consultar. Peça para incluírem seu e-mail na lista de administradores.</span>
+        ${this.botaoSincronizar()}
         <button class="aj-sair">Sair</button>`;
-      this.estado.querySelector(".aj-sair").onclick = () => { Banco.sair(); this.render(); };
+      this.ligarSincronizar();
+      this.estado.querySelector(".aj-sair").onclick = () => this.sair();
     } else if (Banco.ligado) {
       this.estado.className = "aj-estado aviso";
       this.estado.innerHTML = `<span>Você está vendo os cadastros do banco. Para alterar,

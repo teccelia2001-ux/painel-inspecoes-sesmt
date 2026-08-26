@@ -345,6 +345,12 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-estado button{height:28px;padding:0 12px;border-radius:7px;cursor:pointer;font-size:11.5px;
   border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt)}
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
+.aj-sincronizar{font-weight:700}
+.aj-sincronizar:disabled{opacity:.6;cursor:progress}
+/* recado da sincronização: some sozinho quando deu certo, fica quando não deu */
+.aj-avisosinc{margin:8px 0 0;padding:9px 12px;border-radius:8px;font-size:12.5px;
+  background:#e9f5ea;color:#1d5220;border:1px solid #bfdcc1}
+.aj-avisosinc.ruim{background:#fdecea;color:#8e1b0a;border-color:#f3c4bb}
 
 /* seletor de seção: botões de verdade, não texto sublinhado.
    Mesmo desenho nos cadastros (.aj-abas) e no resumo do PAINEL (.pilulas). */

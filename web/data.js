@@ -93,7 +93,7 @@ let EQUIPES = [
 ];
 
 /* Inspeções Teccel1 (grão = inspeção) — [ID, Inspetor, Equipe, Tipo Serviço, Data dd/mm/aaaa] */
-const INSPECOES = [
+let INSPECOES = [
 ["2","Huislan","CONST 1","DCMD C&M","14/04/2026"],
 ["3","Francisco","MANUT 3","DCMD C&M","15/04/2026"],["4","Francisco","MANUT 2","DCMD C&M","16/04/2026"],
 ["5","Francisco","MANUT 2","DCMD C&M","17/04/2026"],["6","Edney","CONST 10","DCMD C&M","23/04/2026"],
@@ -201,7 +201,7 @@ const Q = {
   E4:"Os EPI's e EPC's para risco de altura foram utilizados em boas condições de uso e com validade em dia?"
 };
 
-const NC = [
+let NC = [
 ["10",Q.V1,"Veículos","Leve",-1],["100",Q.P16,"Procedimentos","Gravíssimo",-10],
 ["101",Q.P4,"Procedimentos","Grave",-5],["103",Q.P8,"Procedimentos","Grave",-5],
 ["104",Q.V7,"","",0],["106",Q.P1,"Procedimentos","Grave",-5],
@@ -254,6 +254,12 @@ const NC = [
 ["124",Q.P15,"Procedimentos","Gravíssimo",-10],
 ["125",Q.E1,"EPI/EPC","Leve",-1]
 ];
+
+/* O histórico congelado, como veio do relatório original e dos formulários.
+   As inspeções feitas pelo app moram no banco e são juntadas a isto na
+   memória, a cada sincronização — ver Sincronia, em app.js. Guardar o
+   original aqui é o que permite sincronizar duas vezes sem dobrar nada. */
+const HISTORICO = { inspecoes: INSPECOES, nc: NC };
 
 /* Carimbo de atualização do relatório original */
 const ATUALIZACAO = "26/08/2026 08:48:46";

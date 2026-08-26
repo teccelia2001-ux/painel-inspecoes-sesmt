@@ -204,6 +204,27 @@ const Banco = {
     return j;
   },
 
+  /* ---------- inspeções feitas pelo app ----------
+     Ficam no banco, não no data.js. Só quem tem login enxerga: foi a
+     decisão de 26/08/2026, e o RLS é quem manda — para anônimo estas
+     consultas voltam vazias, sem erro.
+
+     Traz só o que foi ENVIADO. Rascunho é papel de rabisco do inspetor
+     e não pode entrar em número nenhum. */
+  async baixarInspecoes() {
+    if (!this.autenticado()) return { inspecoes: [], nc: [], motivo: "sem-login" };
+    const [insp, respostas, perguntas] = await Promise.all([
+      this.pedir("sesmt_inspecoes?select=id,departamento,inspetor,equipe,data,desvios"
+                 + "&enviada_em=not.is.null&order=data"),
+      /* Só as não conformes: é o que vira linha de N.C no painel. As
+         conformes e as N/A não entram em conta nenhuma. */
+      this.pedir("sesmt_respostas?select=inspecao,pergunta&resposta=eq.nao_conforme"),
+      this.pedir("sesmt_perguntas?select=codigo,texto,categoria,gravidade,pontos_nc")
+    ]);
+    return { inspecoes: insp, respostas, perguntas };
+  }
+,
+
   criar(tabela, linha)      { return this.pedir(tabela, { method: "POST", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
   atualizar(tabela, id, linha) { return this.pedir(`${tabela}?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
   excluir(tabela, id)       { return this.pedir(`${tabela}?id=eq.${id}`, { method: "DELETE" }); }
