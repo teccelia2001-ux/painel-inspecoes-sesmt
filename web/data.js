@@ -25,8 +25,8 @@ let INSPETORES = [
   ["Huislan","Obras RD","Técnico Segurança",12,2],
   ["Humberto","Obras RD","Supervisor",4,0],
   ["Joab","Obras RD","Engenheiro Segurança",4,0],
+  ["José Pereira","CAJAZEIRAS","Supervisor",4,0],
   ["Julierme","Obras RD","Gerente Operacional",2,2],
-  ["Pereira","CAJAZEIRAS","Supervisor",4,0],
   ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
 ];
 
