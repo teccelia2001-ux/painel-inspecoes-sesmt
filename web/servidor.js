@@ -21,6 +21,8 @@
 const SERVIDOR = {
   url: "https://ldqegnfcjeljvywbravl.supabase.co",   // projeto painel-sesmt, São Paulo
   chave: "sb_publishable_4IcV3231DtKqDuBdoPdG8A_sgt8vbOP",
+  // slug da Edge Function que cria o login do inspetor — ver acessoInspetor()
+  funcaoAcesso: "smart-worker",
   sessao: "sesmt.sessao.v1"
 };
 
@@ -173,11 +175,15 @@ const Banco = {
      sesmt_admins que este painel usa. */
   async acessoInspetor(acao, inspetor, email, senha) {
     if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
-    /* "swift-responder" é o slug que o editor do Supabase gerou sozinho ao
-       criar a função. O campo Name lá vira rótulo e pode ser renomeado à
-       vontade, mas o slug do endereço não muda depois de criado — foi o que
-       nos custou meia hora de 404 com a função publicada e funcionando. */
-    const r = await fetch(SERVIDOR.url + "/functions/v1/swift-responder", {
+    /* O slug é gerado pelo editor do Supabase e NÃO muda quando se renomeia
+       a função: o campo Name de lá é só rótulo. Pior, publicar de novo pelo
+       editor cria outra função, com outro slug, em vez de atualizar a que
+       existe — foi assim que apareceram três no projeto, cada uma com uma
+       versão diferente do código.
+
+       Se a função for publicada de novo, o slug novo aparece na lista de
+       Edge Functions, coluna URL, e é esta constante que muda. */
+    const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
       method: "POST",
       headers: {
         apikey: SERVIDOR.chave,
@@ -191,7 +197,7 @@ const Banco = {
     if (!r.ok) {
       if (r.status === 404 && !j) {
         throw new Error("A função de criar acesso não respondeu. Confira, no Supabase, "
-          + "se o slug dela ainda é swift-responder.");
+          + `se o slug dela ainda é ${SERVIDOR.funcaoAcesso}.`);
       }
       throw new Error((j && j.erro) || ("erro " + r.status));
     }
