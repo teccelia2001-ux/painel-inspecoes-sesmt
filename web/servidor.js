@@ -164,6 +164,35 @@ const Banco = {
     await this.verificarAdmin();
     return { equipes: eq, inspetores: insp };
   },
+  /* ---------- acesso do inspetor ao app de inspeções ----------
+     Criar conta exige a chave de serviço, que dá poder total sobre o
+     banco. Este painel é público no GitHub Pages, então essa chave não
+     pode morar aqui. Quem cria é a função criar-acesso, no servidor,
+     que guarda a chave como segredo e confere se quem pediu é mesmo
+     administrador — com o token de quem pediu, contra a mesma lista
+     sesmt_admins que este painel usa. */
+  async acessoInspetor(acao, inspetor, email) {
+    if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
+    const r = await fetch(SERVIDOR.url + "/functions/v1/criar-acesso", {
+      method: "POST",
+      headers: {
+        apikey: SERVIDOR.chave,
+        Authorization: "Bearer " + this.token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ acao, inspetor, email })
+    });
+    let j = null;
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) {
+      if (r.status === 404 && !j) {
+        throw new Error("A função criar-acesso ainda não foi publicada no Supabase.");
+      }
+      throw new Error((j && j.erro) || ("erro " + r.status));
+    }
+    return j;
+  },
+
   criar(tabela, linha)      { return this.pedir(tabela, { method: "POST", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
   atualizar(tabela, id, linha) { return this.pedir(`${tabela}?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
   excluir(tabela, id)       { return this.pedir(`${tabela}?id=eq.${id}`, { method: "DELETE" }); }

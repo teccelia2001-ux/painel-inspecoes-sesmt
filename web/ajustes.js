@@ -3,6 +3,10 @@
    Tabela com filtros, ações por linha e diálogo de criação/edição.
    ============================================================ */
 
+/* Sugestão de e-mail a partir do nome: "José Pereira" -> jose.pereira */
+const semAcentoAj = t => String(t || "").normalize("NFD")
+  .replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
 const CAMPOS_EQUIPE = [
   { k: "equipe", rot: "Nome da equipe", obrigatorio: true },
   { k: "tipo", rot: "Tipo de equipe", tipo: "select", opcoes: [
@@ -42,12 +46,15 @@ const SECOES = {
     titulo: "Inspetores", desc: "Quem faz as inspeções e a meta individual de cada um.",
     novo: "Novo inspetor", chave: "inspetor", campos: CAMPOS_INSPETOR, statusK: "ativo",
     filtros: [["funcao", "Função"], ["polo", "Polo"], ["ativo", "Situação"]],
+    /* "acesso" não é coluna do banco: é derivado do user_id, para dar
+       um filtro de "quem ainda não tem login" sem inventar campo. */
     colunas: [
       { t: "Inspetor", v: r => r.inspetor, forte: true },
       { t: "Função", v: r => r.funcao || "—" },
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
-      { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true }
+      { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true },
+      { t: "Acesso", v: r => r.user_id ? "tem login" : "—", etiqueta: true }
     ]
   }
 };
@@ -239,9 +246,16 @@ const Ajustes = {
   menuAcoes(registro, podeEditar) {
     const d = document.createElement("div");
     d.className = "aj-acoes";
+    /* Acesso ao app de inspeções é assunto de inspetor, não de equipe */
+    const temAcesso = !!registro.user_id;
+    const acesso = this.secao !== "inspetores" ? "" : (temAcesso
+      ? `<button data-a="redefinir">🔑 Redefinir senha</button>
+         <button data-a="tirar-acesso" class="perigo">⊘ Remover acesso</button>`
+      : `<button data-a="criar-acesso">🔑 Criar acesso</button>`);
     d.innerHTML = `<button class="aj-pontos" title="Ações">⋮</button>
       <div class="aj-menu">
         <button data-a="editar">✎ Editar</button>
+        ${acesso}
         <button data-a="excluir" class="perigo">🗑 Excluir</button>
       </div>`;
     d.querySelector(".aj-pontos").onclick = e => {
@@ -252,7 +266,10 @@ const Ajustes = {
       /* Nas últimas linhas da tabela o menu não cabe para baixo e ficava
          cortado pelo rodapé. Mede o espaço livre e decide o lado. */
       const r = d.querySelector(".aj-pontos").getBoundingClientRect();
-      const ALTURA = 84, LARGURA = 140;
+      /* mede o menu de verdade: com os itens de acesso ele fica bem
+         mais alto do que os 84px de quando eram só duas opções */
+      const menu = d.querySelector(".aj-menu");
+      const ALTURA = menu.scrollHeight || 84, LARGURA = 190;
       d.classList.toggle("cima", window.innerHeight - r.bottom < ALTURA);
       d.classList.toggle("direita", window.innerWidth - r.left < LARGURA);
       d.classList.add("aberto");
@@ -262,11 +279,88 @@ const Ajustes = {
       b.onclick = e => {
         e.stopPropagation();
         d.classList.remove("aberto");
-        if (b.dataset.a === "editar") this.abrirDialogo(registro);
+        const a = b.dataset.a;
+        if (a === "editar") this.abrirDialogo(registro);
+        else if (a === "criar-acesso") this.criarAcesso(registro);
+        else if (a === "redefinir") this.redefinirSenha(registro);
+        else if (a === "tirar-acesso") this.tirarAcesso(registro);
         else this.confirmarExclusao(registro);
       };
     });
     return d;
+  },
+
+
+  /* ---------- acesso do inspetor ao app de inspeções ----------
+     O painel nunca vê a chave de serviço: quem cria a conta é a função
+     criar-acesso, no servidor. Aqui é só a tela.
+
+     A senha aparece UMA vez. Não fica guardada em lugar nenhum em texto,
+     nem aqui nem no banco — se o admin perder, o caminho é redefinir. */
+  criarAcesso(registro) {
+    const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".") + "@teccel.com.br";
+    this.dialogo(`Criar acesso para ${registro.inspetor}`,
+      `<p class="aj-dtexto">Cria o login do app de inspeções e já liga a este
+         cadastro. A senha provisória aparece uma vez só — anote e passe para
+         ${registro.inspetor}.</p>
+       <label class="aj-campo"><span>E-mail do inspetor</span>
+         <input name="email" type="email" required value="${sugestao}"
+                autocapitalize="none" spellcheck="false"></label>`,
+      "Criar acesso",
+      async form => {
+        const email = form.email.value.trim();
+        if (!email) throw new Error("Informe o e-mail.");
+        const r = await Banco.acessoInspetor("criar", registro.inspetor, email);
+        await Cadastros.carregar();
+        Cadastros.aplicarNoModelo();
+        this.render();
+        this.mostrarSenha(r, "Acesso criado");
+      });
+  },
+
+  redefinirSenha(registro) {
+    this.dialogo(`Redefinir a senha de ${registro.inspetor}?`,
+      `<p class="aj-dtexto">Gera uma senha provisória nova. A anterior deixa de
+         valer na hora, então ${registro.inspetor} vai precisar da nova para entrar.</p>`,
+      "Redefinir",
+      async () => {
+        const r = await Banco.acessoInspetor("redefinir", registro.inspetor);
+        this.mostrarSenha(r, "Senha redefinida");
+      });
+  },
+
+  tirarAcesso(registro) {
+    this.dialogo(`Remover o acesso de ${registro.inspetor}?`,
+      `<p class="aj-dtexto">Ele deixa de conseguir criar inspeções pelo app.
+         As inspeções que já enviou continuam onde estão.<br><br>
+         A conta em si não é apagada — só deixa de ser deste inspetor. Apagar
+         conta é feito no painel do Supabase, de propósito.</p>`,
+      "Remover acesso",
+      async () => {
+        await Banco.acessoInspetor("remover", registro.inspetor);
+        await Cadastros.carregar();
+        Cadastros.aplicarNoModelo();
+        this.render();
+      }, true);
+  },
+
+  /* A senha só existe neste instante: mostra grande, com botão de copiar,
+     e avisa que não dá para ver de novo. */
+  mostrarSenha(r, titulo) {
+    this.dialogo(titulo,
+      `<p class="aj-dtexto"><b>${r.inspetor}</b> já pode entrar no app de inspeções.</p>
+       <label class="aj-campo"><span>E-mail</span>
+         <input value="${r.email || ""}" readonly></label>
+       <label class="aj-campo"><span>Senha provisória</span>
+         <input class="aj-senha" value="${r.senha}" readonly></label>
+       <p class="aj-dtexto aj-alerta">Anote agora. Esta senha não fica guardada
+         em lugar nenhum e não dá para vê-la de novo — só redefinir.</p>`,
+      "Copiar e fechar",
+      async form => {
+        const txt = `App de inspeções SESMT\nE-mail: ${r.email}\nSenha: ${r.senha}`;
+        try { await navigator.clipboard.writeText(txt); }
+        catch (e) { form.querySelector(".aj-senha").select(); }
+      });
   },
 
   /* ---------- diálogo de criação/edição ---------- */
