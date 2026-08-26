@@ -38,10 +38,10 @@ const META_MESES = ["4/2026","5/2026","6/2026","7/2026"];
 
 /* Equipes — [EQUIPE, TIPO, SUPERVISOR, PONTOS/mês] */
 let EQUIPES = [
-  ["CONST 1","LM","Acacio",100],["CONST 2","LM","Acacio",100],["CONST 3","LM","Acacio",100],
+  ["CONST 1","LM","José Pereira",100],["CONST 2","LM","Acacio",100],["CONST 3","LM","Acacio",100],
   ["CONST 4","LM","Acacio",100],["CONST 5","LM","Acacio",100],["CONST 6","LM","Humberto",100],
   ["CONST 7","LM","Humberto",100],["CONST 8","LM","Humberto",100],["CONST 9","LM","Humberto",100],
-  ["CONST 10","LM","Arlan",100],["CONST 11","LM","Arlan",100],["CONST 12","LM","Arlan",100],
+  ["CONST 10","LM","José Pereira",100],["CONST 11","LM","Arlan",100],["CONST 12","LM","Arlan",100],
   ["CONST 13","LM","Arlan",100],
   ["LINHA VIVA 1","LV","Arlan",100],["LINHA VIVA 2","LV","Aisleudo",100],["LINHA VIVA 3","LV","Aisleudo",100],
   ["MANUT 1","MAN","Aisleudo",100],["MANUT 2","MAN","Aisleudo",100],["MANUT 3","MAN","Aisleudo",100],
