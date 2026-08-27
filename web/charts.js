@@ -218,7 +218,15 @@ function waterfall(host, dados) {
     const alt = (d.qtd / max) * ih;
     const y = d.total ? ih - alt : y0 - alt;
     const rect = el("rect", { x, y, width: sw, height: Math.max(1, alt), rx: 2, fill: d.total ? "var(--c-total)" : "var(--ruim)" });
-    rect.appendChild(el("title", {}, `${d.chave}: ${d.qtd}`));
+    /* A dica lista QUAIS itens formam a coluna. Nasceu de "(sem categoria)":
+       uma coluna sem nome não diz o que corrigir. Vale para todas — passar o
+       cursor em "Procedimentos" mostra quais procedimentos foram reprovados. */
+    const detalhe = (d.itens || []).slice(0, 12)
+      .map(x => `• ${corta(x.texto, 70)}${x.n > 1 ? ` (${x.n}×)` : ""}`).join("\n");
+    const sobra = (d.itens || []).length - 12;
+    rect.appendChild(el("title", {},
+      `${d.chave}: ${d.qtd}` + (detalhe ? `\n\n${detalhe}` : "")
+      + (sobra > 0 ? `\n… e mais ${sobra}` : "")));
     g.appendChild(rect);
     g.appendChild(el("text", { x: x + sw / 2, y: y - 5, class: "rotulo", "text-anchor": "middle" }, fmtN(d.qtd)));
     if (!d.total) acc += d.qtd;
@@ -235,16 +243,32 @@ function barrasH(host, dados, opt) {
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
+  /* A descrição vai ACIMA da barra, não dentro dela.
+
+     Dentro, o texto era branco e começava no x=6: barra curta deixava metade
+     da frase caindo no fundo branco, ilegível — e o número da ponta ainda
+     colidia com ela. Acima, a frase tem a largura inteira do quadro e a barra
+     vira só a medida. Pedido de 27/08/2026.
+
+     O corte é calculado pela largura disponível, e não por um número fixo de
+     caracteres: o mesmo visual aparece em quadros de tamanhos diferentes. */
   const max = Math.max(...dados.map(d => d.qtd));
-  const alt = Math.min(34, (H - 12) / dados.length);
+  const alt = Math.min(52, (H - 10) / dados.length);
+  const hBarra = Math.max(8, Math.min(14, alt - 26));
+  const cabe = Math.max(20, Math.floor((W - 30) / 5.6));
   dados.forEach((d, i) => {
-    const y = 8 + i * alt;
-    const larg = (d.qtd / max) * (W - 40);
-    const r = el("rect", { x: 0, y, width: Math.max(2, larg), height: alt - 8, rx: 2, fill: opt.cor });
+    const y = 6 + i * alt;
+    const larg = (d.qtd / max) * (W - 34);
+
+    const t = el("text", { x: 0, y: y + 11, class: "rotulo-barra-fora" },
+      corta(d.chave, Math.min(cabe, opt.maxRot === 46 ? cabe : opt.maxRot)));
+    t.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
+    svg.appendChild(t);
+
+    const r = el("rect", { x: 0, y: y + 16, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
     r.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
     svg.appendChild(r);
-    svg.appendChild(el("text", { x: 6, y: y + (alt - 8) / 2 + 4, class: "rotulo-barra" }, corta(d.chave, opt.maxRot)));
-    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: y + (alt - 8) / 2 + 4, class: "rotulo" }, d.qtd));
+    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: y + 16 + hBarra - 2, class: "rotulo" }, d.qtd));
   });
 }
 

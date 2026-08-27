@@ -156,6 +156,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
    tanto sobre a barra quanto sobre o fundo, quando o texto passa dela */
 .rotulo-barra{fill:var(--txt);font-size:10px;
   paint-order:stroke fill;stroke:var(--painel);stroke-width:3px;stroke-linejoin:round}
+/* descrição acima da barra: fundo branco, então não precisa de contorno —
+   e sem contorno o texto pequeno fica bem mais nítido */
+.rotulo-barra-fora{fill:var(--txt);font-size:11px;font-weight:600}
 .vazio{fill:var(--txt3);font-size:12px}
 .meta{stroke:var(--c2);stroke-width:1.5;stroke-dasharray:5 4}
 .ponteiro{stroke:var(--txt);stroke-width:3;stroke-linecap:round}

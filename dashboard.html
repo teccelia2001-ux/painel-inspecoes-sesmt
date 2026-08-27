@@ -154,6 +154,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
    tanto sobre a barra quanto sobre o fundo, quando o texto passa dela */
 .rotulo-barra{fill:var(--txt);font-size:10px;
   paint-order:stroke fill;stroke:var(--painel);stroke-width:3px;stroke-linejoin:round}
+/* descrição acima da barra: fundo branco, então não precisa de contorno —
+   e sem contorno o texto pequeno fica bem mais nítido */
+.rotulo-barra-fora{fill:var(--txt);font-size:11px;font-weight:600}
 .vazio{fill:var(--txt3);font-size:12px}
 .meta{stroke:var(--c2);stroke-width:1.5;stroke-dasharray:5 4}
 .ponteiro{stroke:var(--txt);stroke-width:3;stroke-linecap:round}
@@ -1402,11 +1405,25 @@ function porDia(f) {
 function ncPorCampo(f, i) {
   const linhas = linhasNC(f);
   const mapa = new Map();
+  /* Guarda também QUAIS perguntas caíram em cada grupo. Serve para "(sem
+     categoria)" dizer de quais itens se trata — perguntado em 27/08/2026:
+     um balde sem nome não diz o que corrigir, e é onde o dado da origem
+     estava incompleto. */
+  const itens = new Map();
   linhas.forEach(r => {
     const k = r[i] || "(sem categoria)";
     mapa.set(k, (mapa.get(k) || 0) + 1);
+    const q = itens.get(k) || new Map();
+    q.set(r[1], (q.get(r[1]) || 0) + 1);
+    itens.set(k, q);
   });
-  return [...mapa].map(([chave, qtd]) => ({ chave, qtd })).sort((a, b) => b.qtd - a.qtd);
+  return [...mapa].map(([chave, qtd]) => ({
+    chave, qtd,
+    /* do mais frequente para o menos, que é a ordem em que se ataca */
+    itens: [...(itens.get(chave) || new Map())]
+      .sort((a, b) => b[1] - a[1])
+      .map(([texto, n]) => ({ texto, n }))
+  })).sort((a, b) => b.qtd - a.qtd);
 }
 function gravidades(f) {
   const g = { "Leve": 0, "Grave": 0, "Gravíssimo": 0, "": 0 };
@@ -2014,7 +2031,15 @@ function waterfall(host, dados) {
     const alt = (d.qtd / max) * ih;
     const y = d.total ? ih - alt : y0 - alt;
     const rect = el("rect", { x, y, width: sw, height: Math.max(1, alt), rx: 2, fill: d.total ? "var(--c-total)" : "var(--ruim)" });
-    rect.appendChild(el("title", {}, `${d.chave}: ${d.qtd}`));
+    /* A dica lista QUAIS itens formam a coluna. Nasceu de "(sem categoria)":
+       uma coluna sem nome não diz o que corrigir. Vale para todas — passar o
+       cursor em "Procedimentos" mostra quais procedimentos foram reprovados. */
+    const detalhe = (d.itens || []).slice(0, 12)
+      .map(x => `• ${corta(x.texto, 70)}${x.n > 1 ? ` (${x.n}×)` : ""}`).join("\n");
+    const sobra = (d.itens || []).length - 12;
+    rect.appendChild(el("title", {},
+      `${d.chave}: ${d.qtd}` + (detalhe ? `\n\n${detalhe}` : "")
+      + (sobra > 0 ? `\n… e mais ${sobra}` : "")));
     g.appendChild(rect);
     g.appendChild(el("text", { x: x + sw / 2, y: y - 5, class: "rotulo", "text-anchor": "middle" }, fmtN(d.qtd)));
     if (!d.total) acc += d.qtd;
@@ -2031,16 +2056,32 @@ function barrasH(host, dados, opt) {
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
+  /* A descrição vai ACIMA da barra, não dentro dela.
+
+     Dentro, o texto era branco e começava no x=6: barra curta deixava metade
+     da frase caindo no fundo branco, ilegível — e o número da ponta ainda
+     colidia com ela. Acima, a frase tem a largura inteira do quadro e a barra
+     vira só a medida. Pedido de 27/08/2026.
+
+     O corte é calculado pela largura disponível, e não por um número fixo de
+     caracteres: o mesmo visual aparece em quadros de tamanhos diferentes. */
   const max = Math.max(...dados.map(d => d.qtd));
-  const alt = Math.min(34, (H - 12) / dados.length);
+  const alt = Math.min(52, (H - 10) / dados.length);
+  const hBarra = Math.max(8, Math.min(14, alt - 26));
+  const cabe = Math.max(20, Math.floor((W - 30) / 5.6));
   dados.forEach((d, i) => {
-    const y = 8 + i * alt;
-    const larg = (d.qtd / max) * (W - 40);
-    const r = el("rect", { x: 0, y, width: Math.max(2, larg), height: alt - 8, rx: 2, fill: opt.cor });
+    const y = 6 + i * alt;
+    const larg = (d.qtd / max) * (W - 34);
+
+    const t = el("text", { x: 0, y: y + 11, class: "rotulo-barra-fora" },
+      corta(d.chave, Math.min(cabe, opt.maxRot === 46 ? cabe : opt.maxRot)));
+    t.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
+    svg.appendChild(t);
+
+    const r = el("rect", { x: 0, y: y + 16, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
     r.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
     svg.appendChild(r);
-    svg.appendChild(el("text", { x: 6, y: y + (alt - 8) / 2 + 4, class: "rotulo-barra" }, corta(d.chave, opt.maxRot)));
-    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: y + (alt - 8) / 2 + 4, class: "rotulo" }, d.qtd));
+    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: y + 16 + hBarra - 2, class: "rotulo" }, d.qtd));
   });
 }
 
@@ -3472,8 +3513,10 @@ function pgIcit() {
   R.icCat    = visual(pg, 752, 164, 292, 269, "Inconformidades por categoria");
   R.icTop    = visual(pg, 1055, 164, 441, 269, "Top 5 inconformidades");
   R.icEquipe = visual(pg, 17, 444, 894, 231, "ICIT por equipe");
-  R.icTipo   = visual(pg, 923, 444, 290, 231, "ICIT por tipo de serviço");
-  R.icSup    = visual(pg, 1221, 444, 275, 231, "ICIT por supervisor");
+  /* "ICIT por supervisor" saiu em 27/08/2026, a pedido: repetia o mesmo recorte
+     do ICIT por equipe, já que o supervisor vem da equipe. O espaço foi para o
+     tipo de serviço, que estava espremido em 290px. */
+  R.icTipo   = visual(pg, 923, 444, 573, 231, "ICIT por tipo de serviço");
   return pg;
 }
 
@@ -3641,7 +3684,12 @@ function render() {
     const g = gravidades(f);
     setCards(R.icCards, Object.assign({}, base, { gravissimo: fmtN(g["Gravíssimo"]) }));
     gauge(R.icGauge, k.ICIT, { max: 1, faixas: [0.6, 0.85] });
-    const porInsp = porInspetor(f, ms).sort((a, b) => b.qtd - a.qtd);
+    /* Só quem inspecionou. Quem tem zero não tem ICIT — a linha caía a 0%
+       como se a conformidade fosse péssima, quando na verdade não há o que
+       medir. E, com 15 colunas num quadro de 363px, cada uma ficava com 20px
+       e o rótulo de porcentagem não cabia: filtrando, sobra espaço e a
+       porcentagem aparece em cada ponto, que foi o pedido de 27/08/2026. */
+    const porInsp = porInspetor(f, ms).filter(x => x.qtd > 0).sort((a, b) => b.qtd - a.qtd);
     comboChart(R.icInsp, porInsp, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
       linha: { key: "icit", label: "ICIT" }
@@ -3654,10 +3702,6 @@ function render() {
       linha: { key: "icit", label: "ICIT" }, maxRot: 12, minColuna: 30
     });
     comboChart(R.icTipo, agrupar(f, "tipo", ms).sort((a, b) => b.qtd - a.qtd), {
-      series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "icit", label: "ICIT" }, maxRot: 10
-    });
-    comboChart(R.icSup, agrupar(f, "supervisor", ms).filter(x => x.chave !== "(vazio)").sort((a, b) => b.qtd - a.qtd), {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
       linha: { key: "icit", label: "ICIT" }, maxRot: 10
     });

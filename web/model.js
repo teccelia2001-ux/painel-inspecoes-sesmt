@@ -482,11 +482,25 @@ function porDia(f) {
 function ncPorCampo(f, i) {
   const linhas = linhasNC(f);
   const mapa = new Map();
+  /* Guarda também QUAIS perguntas caíram em cada grupo. Serve para "(sem
+     categoria)" dizer de quais itens se trata — perguntado em 27/08/2026:
+     um balde sem nome não diz o que corrigir, e é onde o dado da origem
+     estava incompleto. */
+  const itens = new Map();
   linhas.forEach(r => {
     const k = r[i] || "(sem categoria)";
     mapa.set(k, (mapa.get(k) || 0) + 1);
+    const q = itens.get(k) || new Map();
+    q.set(r[1], (q.get(r[1]) || 0) + 1);
+    itens.set(k, q);
   });
-  return [...mapa].map(([chave, qtd]) => ({ chave, qtd })).sort((a, b) => b.qtd - a.qtd);
+  return [...mapa].map(([chave, qtd]) => ({
+    chave, qtd,
+    /* do mais frequente para o menos, que é a ordem em que se ataca */
+    itens: [...(itens.get(chave) || new Map())]
+      .sort((a, b) => b[1] - a[1])
+      .map(([texto, n]) => ({ texto, n }))
+  })).sort((a, b) => b.qtd - a.qtd);
 }
 function gravidades(f) {
   const g = { "Leve": 0, "Grave": 0, "Gravíssimo": 0, "": 0 };

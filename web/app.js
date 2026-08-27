@@ -349,8 +349,10 @@ function pgIcit() {
   R.icCat    = visual(pg, 752, 164, 292, 269, "Inconformidades por categoria");
   R.icTop    = visual(pg, 1055, 164, 441, 269, "Top 5 inconformidades");
   R.icEquipe = visual(pg, 17, 444, 894, 231, "ICIT por equipe");
-  R.icTipo   = visual(pg, 923, 444, 290, 231, "ICIT por tipo de serviço");
-  R.icSup    = visual(pg, 1221, 444, 275, 231, "ICIT por supervisor");
+  /* "ICIT por supervisor" saiu em 27/08/2026, a pedido: repetia o mesmo recorte
+     do ICIT por equipe, já que o supervisor vem da equipe. O espaço foi para o
+     tipo de serviço, que estava espremido em 290px. */
+  R.icTipo   = visual(pg, 923, 444, 573, 231, "ICIT por tipo de serviço");
   return pg;
 }
 
@@ -518,7 +520,12 @@ function render() {
     const g = gravidades(f);
     setCards(R.icCards, Object.assign({}, base, { gravissimo: fmtN(g["Gravíssimo"]) }));
     gauge(R.icGauge, k.ICIT, { max: 1, faixas: [0.6, 0.85] });
-    const porInsp = porInspetor(f, ms).sort((a, b) => b.qtd - a.qtd);
+    /* Só quem inspecionou. Quem tem zero não tem ICIT — a linha caía a 0%
+       como se a conformidade fosse péssima, quando na verdade não há o que
+       medir. E, com 15 colunas num quadro de 363px, cada uma ficava com 20px
+       e o rótulo de porcentagem não cabia: filtrando, sobra espaço e a
+       porcentagem aparece em cada ponto, que foi o pedido de 27/08/2026. */
+    const porInsp = porInspetor(f, ms).filter(x => x.qtd > 0).sort((a, b) => b.qtd - a.qtd);
     comboChart(R.icInsp, porInsp, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
       linha: { key: "icit", label: "ICIT" }
@@ -531,10 +538,6 @@ function render() {
       linha: { key: "icit", label: "ICIT" }, maxRot: 12, minColuna: 30
     });
     comboChart(R.icTipo, agrupar(f, "tipo", ms).sort((a, b) => b.qtd - a.qtd), {
-      series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "icit", label: "ICIT" }, maxRot: 10
-    });
-    comboChart(R.icSup, agrupar(f, "supervisor", ms).filter(x => x.chave !== "(vazio)").sort((a, b) => b.qtd - a.qtd), {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
       linha: { key: "icit", label: "ICIT" }, maxRot: 10
     });
