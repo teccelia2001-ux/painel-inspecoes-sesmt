@@ -121,6 +121,15 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
 .abas button.on{background:var(--acento);color:#fff;font-weight:700}
 .abas .att{margin-left:auto;font-size:10px;color:var(--txt3);padding-right:6px}
+/* Relatório composto: só os pedaços marcados da página, em coluna.
+   Existe apenas dentro da imagem exportada — na tela nada muda. */
+.export-composto{position:relative;background:var(--fundo);padding:12px;display:block}
+.export-composto .export-cards{display:flex;gap:8px;margin-bottom:12px}
+.export-composto .export-cards .card{position:relative;flex:1 1 0;min-width:0;
+  left:auto;top:auto;width:auto;height:auto;padding:10px 8px}
+.export-composto>.v.painel{margin-bottom:12px}
+.export-composto>.v.painel:last-child{margin-bottom:0}
+
 /* exportar: discreto na barra, mas com alvo de clique de verdade */
 .abas .exportar{margin-left:auto;display:flex;gap:4px;padding-right:8px}
 .abas .exportar+.att{margin-left:0}

@@ -163,8 +163,9 @@ function cabecalho(pg, cards) {
   const faixa = document.createElement("div");
   faixa.className = "faixa-slicers";
   pg.appendChild(faixa);
-  [["ano", "Ano"], ["mes", "Mês"], ["polo", "Polo"], ["inspetor", "Inspetor"],
-   ["funcao", "Função"], ["supervisor", "Supervisor"], ["equipe", "Equipe"]]
+  [["ano", "Ano"], ["mes", "Mês"], ["tipo", "Departamento"], ["polo", "Polo"],
+   ["inspetor", "Inspetor"], ["funcao", "Função"], ["supervisor", "Supervisor"],
+   ["equipe", "Equipe"]]
     .forEach(([campo, rot]) => faixa.appendChild(montarSlicer(campo, rot)));
 
   const lim = document.createElement("button");
@@ -344,10 +345,12 @@ function pgIcit() {
     { k: "qtd", rot: "Inspeções", cls: "destaque" }, { k: "insNC", rot: "Insp. c/ N.C", cls: "alerta" },
     { k: "icit", rot: "ICIT", cls: "ok" }, { k: "gravissimo", rot: "Gravíssimos", cls: "alerta" }
   ]);
-  R.icGauge  = visual(pg, 17, 164, 349, 269, "ICIT");
-  R.icInsp   = visual(pg, 379, 164, 363, 269, "ICIT por inspetor");
-  R.icCat    = visual(pg, 752, 164, 292, 269, "Inconformidades por categoria");
-  R.icTop    = visual(pg, 1055, 164, 441, 269, "Top 5 inconformidades");
+  /* O velocímetro do ICIT saiu em 27/08/2026, a pedido: o mesmo número já
+     está no cartão do cabeçalho, em letra grande, e o ponteiro ocupava 349px
+     para dizer a mesma coisa. O espaço foi para os três que restaram. */
+  R.icInsp   = visual(pg, 17, 164, 486, 269, "ICIT por inspetor");
+  R.icCat    = visual(pg, 513, 164, 400, 269, "Inconformidades por categoria");
+  R.icTop    = visual(pg, 923, 164, 573, 269, "Top 5 inconformidades");
   R.icEquipe = visual(pg, 17, 444, 894, 231, "ICIT por equipe");
   /* "ICIT por supervisor" saiu em 27/08/2026, a pedido: repetia o mesmo recorte
      do ICIT por equipe, já que o supervisor vem da equipe. O espaço foi para o
@@ -379,6 +382,15 @@ function pgJornada() {
   R.joTabela = c;
   R.joPodio  = visual(pg, 951, 163, 537, 316, "Pódio — melhores equipes");
   R.joPiores = visual(pg, 951, 487, 537, 188, "Pódio — piores equipes");
+  /* O que se leva para a reunião desta página são os PÓDIOS, com o cabeçalho
+     dos números — a tabela de 17 linhas é consulta, não apresentação. Marcar
+     assim faz o PNG e o PDF pegarem só isso. Pedido de 27/08/2026. */
+  pg.classList.add("export-marcado");
+  [pg.querySelector(".faixa-topo"), pg.querySelector(".marca")]
+    .forEach(e => e && e.classList.add("export-junto"));
+  pg.querySelectorAll(".card").forEach(e => e.classList.add("export-junto"));
+  R.joPodio.closest(".v").classList.add("export-junto");
+  R.joPiores.closest(".v").classList.add("export-junto");
   return pg;
 }
 
@@ -519,7 +531,6 @@ function render() {
   if (paginaAtual === "icit") {
     const g = gravidades(f);
     setCards(R.icCards, Object.assign({}, base, { gravissimo: fmtN(g["Gravíssimo"]) }));
-    gauge(R.icGauge, k.ICIT, { max: 1, faixas: [0.6, 0.85] });
     /* Só quem inspecionou. Quem tem zero não tem ICIT — a linha caía a 0%
        como se a conformidade fosse péssima, quando na verdade não há o que
        medir. E, com 15 colunas num quadro de 363px, cada uma ficava com 20px
@@ -565,15 +576,40 @@ function render() {
       { titulo: "#", valor: l => l.ranking, num: true },
       { titulo: "Equipe", valor: l => l.equipe },
       { titulo: "Supervisor", valor: l => l.supervisor },
-      { titulo: "Insp.", valor: l => fmtN(l.qtd), num: true },
-      { titulo: "C/ N.C", valor: l => fmtN(l.nc), num: true },
-      { titulo: "N.C", valor: l => fmtN(l.ncLinhas), num: true },
-      { titulo: "ICIT", valor: l => fmtP(l.icit, 0), num: true, classe: l => (l.icit >= 0.8 ? "ok" : l.icit < 0.5 ? "nok" : "") },
-      { titulo: "Pts iniciais", valor: l => fmtN(l.pontosIniciais), num: true },
-      { titulo: "Pts N.C", valor: l => fmtN(l.pontosNC), num: true, classe: () => "nok" },
-      { titulo: "Pts final", valor: l => fmtN(l.pontosFinal), num: true, classe: () => "ok" },
-      { titulo: "Desempate", valor: l => fmtD(l.desempate, 1), num: true }
+      { titulo: "Insp.", valor: l => fmtN(l.qtd), num: true,
+        dica: "Inspeções — quantas visitas esta equipe recebeu no período." },
+      { titulo: "C/ N.C", valor: l => fmtN(l.nc), num: true,
+        dica: "Visitas COM não conformidade — a visita conta uma vez só, tendo "
+          + "ela 1 ou 10 apontamentos." },
+      { titulo: "N.C", valor: l => fmtN(l.ncLinhas), num: true,
+        dica: "Não conformidades — quantos ITENS do checklist foram reprovados "
+          + "no total. Uma mesma visita pode gerar vários." },
+      { titulo: "ICIT", valor: l => fmtP(l.icit, 0), num: true, classe: l => (l.icit >= 0.8 ? "ok" : l.icit < 0.5 ? "nok" : ""),
+        dica: "Índice de Conformidade de Inspeção em Turmas — visitas sem "
+          + "nenhum problema dividido pelo total. Quanto maior, melhor." },
+      { titulo: "Pts iniciais", valor: l => fmtN(l.pontosIniciais), num: true,
+        dica: "Pontos que a equipe recebe no começo de cada mês avaliado." },
+      { titulo: "Pts N.C", valor: l => fmtN(l.pontosNC), num: true, classe: () => "nok",
+        dica: "Pontos descontados pelas não conformidades, conforme a gravidade: "
+          + "Leve −1, Grave −5, Gravíssimo −10." },
+      { titulo: "Pts final", valor: l => fmtN(l.pontosFinal), num: true, classe: () => "ok",
+        dica: "Pontos iniciais menos os descontos. É por ele que o pódio é montado." },
+      { titulo: "Desempate", valor: l => fmtD(l.desempate, 1), num: true,
+        dica: "Pontos finais + (visitas sem N.C ÷ 10). Só serve para ordenar "
+          + "quem empatou nos pontos finais." }
     ], j);
+    /* Verde nas três primeiras, vermelho nas três últimas — pedido de
+       27/08/2026. Com 17 equipes a tabela é uma parede de números iguais, e o
+       que se procura são as pontas.
+
+       Só marca se houver equipes suficientes para haver "pontas": com 5 ou
+       menos, três verdes e três vermelhas se sobreporiam e a marca perderia
+       o sentido. */
+    const trs = [...R.joTabela.querySelectorAll("tbody tr")];
+    if (trs.length > 6) {
+      trs.slice(0, 3).forEach(tr => tr.classList.add("linha-ok"));
+      trs.slice(-3).forEach(tr => tr.classList.add("linha-nok"));
+    }
     R.joPodio.innerHTML  = podioHTML(j);
     R.joPiores.innerHTML = podioPioresHTML(j);
   }
@@ -1087,18 +1123,45 @@ async function imagemDaPagina(escala) {
   const pg = canvas.querySelector(".pagina.ativa");
   if (!pg) throw new Error("nenhuma página aberta");
 
-  /* A página pode marcar um quadro como O conteúdo — é o caso do PAINEL, onde
-     o resto é menu. Sem marca, vai a página inteira. */
+  /* Três modos, do mais específico para o mais geral:
+     1. .export-marcado  — a página escolhe PEDAÇOS (Jornada Segura: cabeçalho
+        e os dois pódios). Eles são remontados numa coluna, porque na tela
+        estão espalhados e no meio deles fica a tabela, que não vai.
+     2. .alvo-export     — um quadro só é o conteúdo (PAINEL).
+     3. sem marca        — a página inteira. */
+  const marcado = pg.classList.contains("export-marcado");
   const alvo = pg.querySelector(".alvo-export") || pg;
   const soOQuadro = alvo !== pg;
 
-  const copia = alvo.cloneNode(true);
-  /* Sem a classe o clone herda .pagina{display:none} e a imagem sai em branco. */
-  copia.classList.add("ativa");
+  let copia;
+  if (marcado) {
+    copia = document.createElement("div");
+    copia.className = "pagina ativa export-composto";
+    const cards = [...pg.querySelectorAll(".card.export-junto")];
+    if (cards.length) {
+      const linha = document.createElement("div");
+      linha.className = "export-cards";
+      cards.forEach(c => {
+        const k = c.cloneNode(true);
+        k.style.cssText = "";        // solta da posição absoluta da tela
+        linha.appendChild(k);
+      });
+      copia.appendChild(linha);
+    }
+    pg.querySelectorAll(".v.painel.export-junto").forEach(v => {
+      const k = v.cloneNode(true);
+      k.style.cssText = "position:relative;left:0;top:0;width:100%;height:auto";
+      copia.appendChild(k);
+    });
+  } else {
+    copia = alvo.cloneNode(true);
+    /* Sem a classe o clone herda .pagina{display:none} e a imagem sai em branco. */
+    copia.classList.add("ativa");
+  }
 
   let larg = LARGURA_EXPORT, alt = ALTURA_EXPORT;
-  if (soOQuadro) {
-    larg = alvo.offsetWidth;
+  if (soOQuadro || marcado) {
+    larg = marcado ? 620 : alvo.offsetWidth;
     /* Tira o quadro da posição absoluta: no SVG ele começa em 0,0. */
     copia.style.position = "relative";
     copia.style.left = copia.style.top = "0";

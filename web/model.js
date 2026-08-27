@@ -182,7 +182,9 @@ const Sincronia = {
 };
 
 /* ---------- Filtros ---------- */
-const CAMPOS = ["ano", "mes", "polo", "inspetor", "funcao", "supervisor", "equipe"];
+/* "tipo" é o DEPARTAMENTO da inspeção (DCMD C&M, DEOP…). Entrou em
+   27/08/2026: sem ele não dava para olhar o ICIT de um departamento só. */
+const CAMPOS = ["ano", "mes", "polo", "inspetor", "funcao", "supervisor", "equipe", "tipo"];
 const filtros = Object.fromEntries(CAMPOS.map(c => [c, new Set()]));
 
 const ativo = c => filtros[c].size > 0;
@@ -203,7 +205,7 @@ function fatoFiltrado(ignorar) {
   return FATO.filter(f =>
     ok("ano", f.ano) && ok("mes", f.mes) && ok("polo", f.polo) &&
     ok("inspetor", f.inspetor) && ok("funcao", f.funcao) &&
-    ok("supervisor", f.supervisor) && ok("equipe", f.equipe));
+    ok("supervisor", f.supervisor) && ok("equipe", f.equipe) && ok("tipo", f.tipo));
 }
 
 /* ---------- Medidas ---------- */

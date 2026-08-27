@@ -281,6 +281,11 @@ function tabela(host, colunas, linhas) {
     const th = document.createElement("th");
     th.textContent = c.titulo;
     if (c.num) th.classList.add("num");
+    /* Cabeçalho abreviado que se explica ao passar o cursor. "C/ N.C" e
+       "Insp." economizam largura, mas quem lê pela primeira vez não adivinha
+       — e a abreviação sozinha já causou a confusão entre VISITAS com
+       problema e ITENS reprovados. Pedido de 27/08/2026. */
+    if (c.dica) { th.title = c.dica; th.classList.add("sigla"); }
     tr.appendChild(th);
   });
   thead.appendChild(tr); t.appendChild(thead);
