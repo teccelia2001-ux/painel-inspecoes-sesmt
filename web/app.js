@@ -476,7 +476,20 @@ function render() {
       { titulo: "ICIT", valor: l => fmtP(l.icit), num: true },
       { titulo: "👍🏼 ou 👎🏼", valor: l => l.pct >= 1 ? "👍🏼" : "👎🏼", num: true }
     ], linhas);
-    [...R.rkTabela.querySelectorAll("tbody tr")].forEach((tr, i) => tr.cells[0].textContent = i + 1);
+    /* Pódio nas três primeiras linhas. A medalha entra NO LUGAR do número,
+       não ao lado: a posição já é a medalha.
+
+       Só medalha quem inspecionou. Um pódio de quem fez zero seria o pior
+       tipo de erro deste painel — premiar por estar no topo de uma lista
+       vazia. Em compensação, se só duas pessoas inspecionaram, só duas
+       medalhas aparecem. */
+    const MEDALHAS = ["🥇", "🥈", "🥉"];
+    [...R.rkTabela.querySelectorAll("tbody tr")].forEach((tr, i) => {
+      const l = linhas[i];
+      const noPodio = i < 3 && l && l.qtd > 0;
+      tr.cells[0].textContent = noPodio ? MEDALHAS[i] : i + 1;
+      if (noPodio) tr.classList.add("podio-linha", "pos" + (i + 1));
+    });
   }
 
   if (paginaAtual === "avanco") {

@@ -313,6 +313,16 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
   /* no fluido o painel cresce, então o pódio precisa de altura mínima própria */
   .podio{min-height:250px}
+/* Pódio do Ranking de inspetores: as três primeiras linhas.
+   A cor é uma tarja à esquerda e um fundo leve — pintar a linha inteira
+   brigaria com o vermelho/verde da coluna % atingida, que diz outra coisa. */
+.tbl tr.podio-linha td{background:#fffdf7}
+.tbl tr.podio-linha td:first-child{font-size:15px;line-height:1}
+.tbl tr.podio-linha td:nth-child(2){font-weight:800}
+.tbl tr.pos1 td:first-child{box-shadow:inset 4px 0 0 #d4a017}
+.tbl tr.pos2 td:first-child{box-shadow:inset 4px 0 0 #9aa0a6}
+.tbl tr.pos3 td:first-child{box-shadow:inset 4px 0 0 #b06a2c}
+.tbl tr.pos1 td{background:#fffaf0}
   .podio.piores{min-height:170px}
   /* alvos de toque maiores */
   .lista label{padding:9px 8px}
