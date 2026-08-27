@@ -42,7 +42,8 @@ function reconstruirModelo() {
        Aqui o cadastro é único e editável na aba Ajustes, não versionado: a
        inspeção casa pelo nome em qualquer mês. Quem continua em "(vazio)" é só
        quem realmente não está cadastrado.
-       META_MESES segue valendo para a META, que essa sim é cadastrada por mês. */
+       A META também deixou de ser versionada por mês em 27/08/2026: é do
+       inspetor, e vale do primeiro mês com inspeção até hoje. Ver mesesComMeta(). */
     const insp = IDX_INSPETOR[r[1]];
     const eq   = IDX_EQUIPE[r[2]];
     return {
@@ -206,20 +207,58 @@ function Dias_uteis_ate_hoje(ms) { return (ms || mesesAtivos()).reduce((a, d) =>
 function inspetoresValidos() {
   return INSPETORES.filter(i => bate("polo", i[1]) && bate("inspetor", i[0]) && bate("funcao", i[2]));
 }
+/* Meses que contam meta: do PRIMEIRO MÊS COM INSPEÇÃO até o MÊS CORRENTE.
+
+   Decidido em 27/08/2026. Antes a meta era versionada por mês numa lista fixa
+   (META_MESES, abr–jul/2026) e agosto aparecia com meta 0 e 0,0% atingida para
+   todo mundo. A meta passou a ser a do inspetor, mas valer nos 12 meses do ano
+   punia duas vezes sem motivo: jan–mar, antes de as inspeções começarem, e
+   set–dez, que ainda não chegaram — o atingido caía de 31% para 19%.
+
+   O corte é pelo serial (d[1], "202604"), não por "tem inspeção no mês": assim
+   um mês recém-começado já nasce com meta, em vez de zerar até alguém
+   inspecionar — que é justamente o defeito que isto conserta. */
+const serialDe = mesAno => {
+  const [m, y] = mesAno.split("/");
+  return "" + y + String(m).padStart(2, "0");
+};
+function mesesComMeta(ms) {
+  const seriais = [...MESES_COM_INSPECAO].map(serialDe).sort();
+  if (!seriais.length) return [];
+  const inicio = seriais[0];             // "202604" — primeira inspeção
+  const anoInicio = inicio.slice(0, 4);
+  const agora = new Date();
+  const fim = "" + agora.getFullYear() + String(agora.getMonth() + 1).padStart(2, "0");
+
+  /* 2026 é a exceção: as inspeções começaram em abril, e dar meta a jan–mar
+     seria cobrar de um período em que o programa nem existia. Do ano seguinte
+     em diante a meta vale o ANO INTEIRO, inclusive os meses que ainda não
+     chegaram — assim o painel mostra a meta anual cheia desde janeiro, e não
+     uma meta que cresce mês a mês. */
+  return (ms || mesesAtivos()).filter(d => {
+    if (d[1] < inicio) return false;
+    return d[1].slice(0, 4) > anoInicio || d[1] <= fim;
+  });
+}
+
 function Qtd_Inspetor(ms) {
-  const meses = (ms || mesesAtivos()).map(d => d[0]).filter(m => META_MESES.includes(m));
-  return inspetoresValidos().length * meses.length;
+  return inspetoresValidos().length * mesesComMeta(ms).length;
 }
-// Meta_Insp = SUMX('Meta Inspetores'; [META INSPEÇÃO DINAMICA]) — metas versionadas por mês
+// Meta_Insp — a meta cadastrada no inspetor, em cada mês que conta meta
 function Meta_Insp(ms) {
-  const meses = (ms || mesesAtivos()).map(d => d[0]).filter(m => META_MESES.includes(m));
   const porMes = inspetoresValidos().reduce((a, i) => a + i[3], 0);
-  return porMes * meses.length;
+  return porMes * mesesComMeta(ms).length;
 }
-// Meta_insp_dia = Meta_Insp / Dias_uteis * Dias_uteis_até_hoje
+/* Meta_insp_dia = Meta_Insp / Dias_uteis * Dias_uteis_até_hoje
+
+   Os dias úteis são os dos MESES QUE TÊM META, não os de todos os meses da
+   tela. Usar os 12 meses do ano dividia uma meta de 5 meses por 260 dias
+   úteis: a meta até hoje saía 265 em vez de 395, e o atingido aparecia 46%
+   quando era 31%. */
 function Meta_insp_dia(ms) {
-  const du = Dias_uteis(ms);
-  return du ? Meta_Insp(ms) / du * Dias_uteis_ate_hoje(ms) : 0;
+  const comMeta = mesesComMeta(ms);
+  const du = Dias_uteis(comMeta);
+  return du ? Meta_Insp(ms) / du * Dias_uteis_ate_hoje(comMeta) : 0;
 }
 
 // #Medidas_Teccel
@@ -263,7 +302,7 @@ function agrupar(f, campo, ms) {
     let meta = 0, metaDia = 0;
     if (campo === "inspetor") {
       const i = IDX_INSPETOR[k];
-      const meses = ms.map(d => d[0]).filter(m => META_MESES.includes(m)).length;
+      const meses = mesesComMeta(ms).length;
       const du = Dias_uteis(ms);
       meta = i ? i[3] * meses : 0;
       metaDia = du ? meta / du * Dias_uteis_ate_hoje(ms) : 0;
@@ -283,7 +322,7 @@ function porInspetor(f, ms, comVazio) {
   ms = ms || mesesAtivos();
   const g = agrupar(f, "inspetor", ms);
   const achados = new Set(g.map(x => x.chave));
-  const meses = ms.map(d => d[0]).filter(m => META_MESES.includes(m)).length;
+  const meses = mesesComMeta(ms).length;
   const du = Dias_uteis(ms), duh = Dias_uteis_ate_hoje(ms);
   inspetoresValidos().forEach(i => {
     if (achados.has(i[0])) return;
@@ -324,8 +363,7 @@ function jornada(f, ms) {
    A meta é cadastrada por inspetor, então ela existe por mês e por polo (soma
    das metas de quem é daquele polo) mas NÃO por equipe — na visão por equipe
    entram no lugar os pontos da Jornada Segura.
-   Meses fora de META_MESES não têm meta cadastrada: entram com meta zero,
-   como no relatório original. */
+   Todo mês tem meta: a do inspetor vale sempre (mudou em 27/08/2026). */
 function nomeMes(mesAno) {
   const [m, y] = mesAno.split("/");
   return MESES_NOME[+m] + "/" + y.slice(2);
@@ -338,7 +376,7 @@ function resumoMensal(f, ms, campo) {
   ms.forEach(d => {
     const mesAno = d[0];
     const doMes = f.filter(x => x.mesAno === mesAno);
-    const temMeta = META_MESES.includes(mesAno);
+    const temMeta = mesesComMeta([d]).length > 0;
     const du = Dias_uteis([d]), duh = Dias_uteis_ate_hoje([d]);
     const proporcional = meta => (du ? meta / du * duh : 0);
 
@@ -350,7 +388,7 @@ function resumoMensal(f, ms, campo) {
     };
 
     if (!campo) {
-      const meta = temMeta ? Meta_Insp([d]) : 0, metaDia = proporcional(meta);
+      const meta = Meta_Insp([d]), metaDia = proporcional(meta);
       linhas.push(Object.assign(base(doMes), {
         chave: "", meta, metaDia, pct: pctAtingida(doMes.length, metaDia),
         inspetores: temMeta ? inspetoresValidos().length : 0
@@ -405,13 +443,12 @@ function porMes(f, ms) {
   return ms.map(d => {
     const rows = f.filter(x => x.mesAno === d[0]);
     const nc = Qtd_Inspecao_NC(rows);
-    const temMeta = META_MESES.includes(d[0]);
-    const meta = temMeta ? Meta_Insp([d]) : 0;
+    const meta = Meta_Insp([d]);
     return {
       chave: MESES_NOME[+d[0].split("/")[0]] + "/" + d[0].split("/")[1].slice(2),
       mesAno: d[0], qtd: rows.length, nc, ncLinhas: Qtd_NC(rows), icit: ICIT(rows),
       meta, metaDia: Meta_insp_dia([d]), pct: pct(rows.length, Meta_insp_dia([d])),
-      qtdInspetor: temMeta ? inspetoresValidos().length : 0
+      qtdInspetor: inspetoresValidos().length
     };
   });
 }

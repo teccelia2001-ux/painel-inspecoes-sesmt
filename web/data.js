@@ -31,10 +31,11 @@ let INSPETORES = [
   ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
 ];
 
-/* Meses com metas de inspeção cadastradas em "Meta Inspetores" (abr–jul/2026).
-   Usado só para calcular a META. O reconhecimento da equipe e do inspetor de
-   cada inspeção NÃO depende mais desta lista — ver reconstruirModelo(). */
-const META_MESES = ["4/2026","5/2026","6/2026","7/2026"];
+/* META_MESES foi removido em 27/08/2026. Era a lista de meses com meta
+   cadastrada (abr–jul/2026), herdada do Power BI, onde a meta era versionada
+   por mês. Fora dela a meta entrava zero, e agosto mostrava 0,0% atingida para
+   todo mundo — o painel parecia quebrado. Agora a meta é a do inspetor
+   (4ª posição de INSPETORES) e vale em todos os meses. Ver Meta_Insp(). */
 
 /* Equipes — [EQUIPE, TIPO, SUPERVISOR, PONTOS/mês, NOMES ANTERIORES?]
    A última posição só aparece em quem já foi renomeada. É o que permite

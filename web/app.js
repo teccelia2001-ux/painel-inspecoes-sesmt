@@ -771,8 +771,7 @@ function resumoPainelDetalhe() {
       k.Meta_Insp = escopo ? escopo.meta : 0;
       k.Meta_insp_dia = escopo ? escopo.metaDia : 0;
       k.pctInspecao = escopo ? escopo.pct : null;
-      const mesesMeta = ms.map(x => x[0]).filter(m => META_MESES.includes(m)).length;
-      k.Qtd_Inspetor = inspetoresValidos().filter(i => i[1] === d.chave).length * mesesMeta;
+      k.Qtd_Inspetor = inspetoresValidos().filter(i => i[1] === d.chave).length * ms.length;
       opt.semMeta = !k.Meta_Insp;
     } else {
       opt.semMeta = true;   // equipe não tem meta de inspeção
