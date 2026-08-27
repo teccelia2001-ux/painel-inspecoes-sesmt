@@ -347,6 +347,34 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 /* bloco do login no diálogo de inspetor novo: nasce escondido */
 .aj-acesso.oculto{display:none}
+/* Filtro de marcar várias opções. A lista é absoluta e fica ACIMA da tabela
+   (z-index), senão ela abriria por baixo das linhas e ninguém veria. */
+.aj-multi{position:relative}
+.aj-filtro .aj-mbotao{width:100%;min-width:135px;min-height:32px;height:auto;
+  text-align:left;padding:0 26px 0 10px;
+  border:1px solid var(--linha-borda);border-radius:8px;background:var(--painel);
+  color:var(--txt);font-size:12.5px;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aj-mbotao::after{content:"▾";position:absolute;right:9px;top:50%;
+  transform:translateY(-30%);color:var(--txt2);pointer-events:none}
+.aj-mbotao:hover{border-color:var(--acento)}
+.aj-multi.aberto .aj-mbotao{border-color:var(--acento);color:var(--acento-forte)}
+.aj-mlista{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:30;
+  min-width:100%;max-width:280px;max-height:262px;overflow:auto;
+  background:var(--painel);border:1px solid var(--linha-borda);border-radius:9px;
+  box-shadow:0 8px 24px rgba(60,44,28,.16);padding:5px}
+.aj-multi.aberto .aj-mlista{display:block}
+.aj-mlista label{display:flex;align-items:center;gap:8px;padding:6px 8px;
+  border-radius:6px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.aj-mlista label:hover{background:var(--acento-suave)}
+.aj-mlista .aj-mtodos{border-bottom:1px solid var(--linha-borda);
+  border-radius:0;margin-bottom:4px;padding-bottom:8px}
+/* Precisa vencer ".aj-filtro input", que dá 135px de largura e 40px de altura
+   a todo campo de filtro — a caixa de marcar saía do tamanho de um botão e
+   empurrava o texto da opção para fora da lista. */
+.aj-filtro .aj-mlista input[type=checkbox]{accent-color:var(--acento);
+  width:15px;height:15px;min-width:0;flex:0 0 auto;margin:0;padding:0}
+
 /* Gravidade colorida na lista de inspeções: é o que se procura primeiro. */
 .etiqueta.gr-gravissimo{background:#fdecea;color:#b3261e;border-color:#f3c4bb}
 .etiqueta.gr-grave{background:#fff4e5;color:#8a4b00;border-color:#f0d9a8}

@@ -78,8 +78,12 @@ const SECOES = {
     titulo: "Inspeções", desc: "Uma linha por não conformidade encontrada. "
       + "Use os filtros e baixe em PDF o que ficar na tela.",
     somenteLeitura: true, chave: "id", baixar: "⭳ Baixar PDF",
-    filtros: [["ano", "Ano"], ["polo", "Polo"], ["inspetor", "Inspetor"],
-              ["gravidade", "Gravidade"], ["tipo", "Departamento"]],
+    /* O terceiro item da tupla é a ordem das opções, quando alfabética não
+       serve: mês tem de sair jan→dez, e gravidade da pior para a mais leve. */
+    filtros: [["ano", "Ano"], ["mesNome", "Mês", (a, b) => ORDEM_MES.indexOf(a) - ORDEM_MES.indexOf(b)],
+              ["polo", "Polo"], ["equipe", "Equipe"], ["inspetor", "Inspetor"],
+              ["gravidade", "Gravidade", (a, b) => postoGravidade(a) - postoGravidade(b)],
+              ["tipo", "Departamento"]],
     /* UMA LINHA POR NÃO CONFORMIDADE, não por inspeção (27/08/2026).
 
        A inspeção com três desvios ocupa três linhas, repetindo data, equipe,
@@ -136,14 +140,18 @@ const ncDe = r => NC_BY_ID[r.id] || [];
 function inspecoesPorNC() {
   const linhas = [];
   FATO.forEach(r => {
+    /* "ago" em vez de "8": o filtro de mês é lido por gente. O ano fica de
+       fora do rótulo porque já existe filtro de ano — juntar os dois faria
+       12 opções virarem 24 sem necessidade. */
+    const base = Object.assign({}, r, { mesNome: MESES_NOME[+r.mes] });
     const nc = ncDe(r);
     if (!nc.length) {
-      linhas.push(Object.assign({}, r, {
+      linhas.push(Object.assign({}, base, {
         gravidade: "Sem desvio", descricao: "—", pontosNC: 0, temNC: false
       }));
       return;
     }
-    nc.forEach(x => linhas.push(Object.assign({}, r, {
+    nc.forEach(x => linhas.push(Object.assign({}, base, {
       gravidade: x[3] || "Sem classificação",
       descricao: x[1] || "—",
       categoria: x[2] || "",
@@ -153,6 +161,7 @@ function inspecoesPorNC() {
   });
   return linhas;
 }
+const ORDEM_MES = MESES_NOME.slice(1);   // jan…dez, sem o vazio da posição 0
 
 /* Da mais grave para a mais leve — é a ordem em que se lê um relatório de
    segurança. "Sem desvio" fica por último, e não no meio do alfabeto. */
@@ -288,8 +297,8 @@ const Ajustes = {
 
     /* Quais filtros valiam. Sem isso o relatório vira um número solto, e
        ninguém lembra depois se aquilo era o ano todo ou um polo só. */
-    const usados = Object.entries(this.filtros).filter(([, v]) => v)
-      .map(([k, v]) => `${(s.filtros.find(f => f[0] === k) || [k, k])[1]}: ${v}`);
+    const usados = Object.entries(this.filtros).filter(([, v]) => v && v.length)
+      .map(([k, v]) => `${(s.filtros.find(f => f[0] === k) || [k, k])[1]}: ${v.join(", ")}`);
     if (this.busca.trim()) usados.push(`busca: "${this.busca.trim()}"`);
 
     /* Cada linha é uma N.C — menos as "Sem desvio". E como a inspeção se
@@ -387,10 +396,11 @@ const Ajustes = {
     const busca = this.busca.trim().toLowerCase();
     return this.fonte(this.secao).filter(r => {
       for (const [campo] of s.filtros) {
+        // lista vazia (ou ausente) = todos; várias marcadas = qualquer uma serve
         const sel = this.filtros[campo];
-        if (!sel) continue;
+        if (!sel || !sel.length) continue;
         const val = campo === s.statusK ? (r[campo] ? "Ativo" : "Inativo") : (r[campo] || "");
-        if (String(val) !== sel) return false;
+        if (!sel.includes(String(val))) return false;
       }
       if (!busca) return true;
       return Object.values(r).some(v => String(v).toLowerCase().includes(busca));
@@ -607,20 +617,65 @@ const Ajustes = {
     }
   },
 
+  /* Filtro de marcar VÁRIAS opções (27/08/2026).
+
+     Era um <select> de escolha única, e ver "PATOS e SOUSA" exigia baixar dois
+     relatórios. Agora cada filtro guarda uma LISTA; vazia significa todos.
+
+     Não é <select multiple>: no celular ele vira uma caixa de rolagem
+     minúscula, e no desktop obriga a segurar Ctrl — ninguém descobre isso
+     sozinho. É um botão que abre uma lista de caixas de marcar. */
   renderFiltros() {
     const s = SECOES[this.secao];
     const host = this.el.querySelector(".aj-filtros");
     host.innerHTML = "";
-    s.filtros.forEach(([campo, rot]) => {
-      const vals = campo === s.statusK ? ["Ativo", "Inativo"]
-        : [...new Set(this.fonte(this.secao).map(r => r[campo]).filter(Boolean))].sort();
-      const d = document.createElement("label");
-      d.className = "aj-filtro";
-      d.innerHTML = `<span>${rot}</span><select><option value="">Todos</option>
-        ${vals.map(v => `<option${this.filtros[campo] === String(v) ? " selected" : ""}>${v}</option>`).join("")}</select>`;
-      d.querySelector("select").onchange = e => {
-        this.filtros[campo] = e.target.value; this.render();
+    s.filtros.forEach(([campo, rot, ordenar]) => {
+      const brutos = campo === s.statusK ? ["Ativo", "Inativo"]
+        : [...new Set(this.fonte(this.secao).map(r => r[campo]).filter(Boolean))];
+      const vals = ordenar ? brutos.sort(ordenar) : brutos.sort(ordemNatural);
+      const escolhidos = this.filtros[campo] || [];
+
+      const d = document.createElement("div");
+      d.className = "aj-filtro aj-multi";
+      d.innerHTML = `<span>${rot}</span>
+        <button type="button" class="aj-mbotao">${
+          !escolhidos.length ? "Todos"
+          : escolhidos.length === 1 ? esc(escolhidos[0])
+          : escolhidos.length + " selecionados"}</button>
+        <div class="aj-mlista">
+          <label class="aj-mtodos"><input type="checkbox"${
+            !escolhidos.length ? " checked" : ""}> <b>Todos</b></label>
+          ${vals.map(v => `<label><input type="checkbox" value="${esc(v)}"${
+            escolhidos.includes(String(v)) ? " checked" : ""}> ${esc(v)}</label>`).join("")}
+        </div>`;
+
+      const lista = d.querySelector(".aj-mlista");
+      d.querySelector(".aj-mbotao").onclick = e => {
+        e.stopPropagation();
+        const aberto = d.classList.contains("aberto");
+        /* Só uma lista aberta por vez: duas abertas se sobrepõem. */
+        host.querySelectorAll(".aj-multi.aberto").forEach(x => x.classList.remove("aberto"));
+        if (!aberto) d.classList.add("aberto");
       };
+      lista.onclick = e => e.stopPropagation();
+
+      /* "Todos" limpa a lista — é o mesmo que nenhum marcado. */
+      lista.querySelector(".aj-mtodos input").onchange = () => {
+        this.filtros[campo] = [];
+        this.render();
+      };
+      lista.querySelectorAll("input[value]").forEach(cx => {
+        cx.onchange = () => {
+          const atual = new Set(this.filtros[campo] || []);
+          if (cx.checked) atual.add(cx.value); else atual.delete(cx.value);
+          this.filtros[campo] = [...atual];
+          this.render();
+          /* Redesenhar fecha a lista; reabrir mantém o ritmo de quem vai
+             marcar três polos seguidos, em vez de reabrir a cada clique. */
+          const novo = this.el.querySelectorAll(".aj-multi")[s.filtros.findIndex(f => f[0] === campo)];
+          if (novo) novo.classList.add("aberto");
+        };
+      });
       host.appendChild(d);
     });
 
@@ -974,5 +1029,7 @@ const Ajustes = {
     };
   }
 };
-document.addEventListener("click", () =>
-  document.querySelectorAll(".aj-acoes.aberto").forEach(d => d.classList.remove("aberto")));
+document.addEventListener("click", () => {
+  document.querySelectorAll(".aj-acoes.aberto").forEach(d => d.classList.remove("aberto"));
+  document.querySelectorAll(".aj-multi.aberto").forEach(d => d.classList.remove("aberto"));
+});
