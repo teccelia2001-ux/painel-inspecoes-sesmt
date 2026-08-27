@@ -347,6 +347,25 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 /* bloco do login no diálogo de inspetor novo: nasce escondido */
 .aj-acesso.oculto{display:none}
+/* Inspeção com desvio abre as N.C ao ser clicada. A tarja laranja à esquerda
+   é o que diz, sem coluna nenhuma, que ali tem o que ver — inspeção limpa não
+   abre e não ganha marca. */
+.tbl tr.abre{cursor:pointer}
+.tbl tr.abre td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
+.tbl tr.abre:hover td{background:var(--acento-suave)}
+.tbl tr.abre.aberta td{background:var(--acento-suave)}
+.aj-det td{background:var(--painel-alt);font-size:12px;padding:2px 12px 10px !important}
+.aj-det ul{margin:5px 0 0;padding-left:0;list-style:none}
+.aj-det li{display:flex;gap:8px;align-items:baseline;padding:3px 0;line-height:1.45}
+.aj-det .grav{flex:0 0 auto;font-size:9.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.05em;padding:2px 7px;border-radius:20px;background:#eee;color:#555}
+.aj-det .grav.gravissimo{background:#fdecea;color:#b3261e}
+.aj-det .grav.grave{background:#fff4e5;color:#8a4b00}
+.aj-det .grav.leve{background:#eef3f8;color:#31536e}
+.aj-det .pt{flex:0 0 46px;text-align:right;color:var(--txt2);
+  font-variant-numeric:tabular-nums}
+.aj-det .txt{flex:1 1 auto}
+.aj-det em{font-style:normal;color:var(--txt3)}
 .aj-lixeira{border:1px solid var(--linha-borda);background:var(--painel);cursor:pointer;
   border-radius:7px;padding:3px 8px;font-size:13px;line-height:1.4}
 .aj-lixeira:hover{border-color:#e0655a;background:#fdecea}

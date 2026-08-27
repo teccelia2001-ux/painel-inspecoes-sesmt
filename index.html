@@ -345,6 +345,25 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 /* bloco do login no diálogo de inspetor novo: nasce escondido */
 .aj-acesso.oculto{display:none}
+/* Inspeção com desvio abre as N.C ao ser clicada. A tarja laranja à esquerda
+   é o que diz, sem coluna nenhuma, que ali tem o que ver — inspeção limpa não
+   abre e não ganha marca. */
+.tbl tr.abre{cursor:pointer}
+.tbl tr.abre td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
+.tbl tr.abre:hover td{background:var(--acento-suave)}
+.tbl tr.abre.aberta td{background:var(--acento-suave)}
+.aj-det td{background:var(--painel-alt);font-size:12px;padding:2px 12px 10px !important}
+.aj-det ul{margin:5px 0 0;padding-left:0;list-style:none}
+.aj-det li{display:flex;gap:8px;align-items:baseline;padding:3px 0;line-height:1.45}
+.aj-det .grav{flex:0 0 auto;font-size:9.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.05em;padding:2px 7px;border-radius:20px;background:#eee;color:#555}
+.aj-det .grav.gravissimo{background:#fdecea;color:#b3261e}
+.aj-det .grav.grave{background:#fff4e5;color:#8a4b00}
+.aj-det .grav.leve{background:#eef3f8;color:#31536e}
+.aj-det .pt{flex:0 0 46px;text-align:right;color:var(--txt2);
+  font-variant-numeric:tabular-nums}
+.aj-det .txt{flex:1 1 auto}
+.aj-det em{font-style:normal;color:var(--txt3)}
 .aj-lixeira{border:1px solid var(--linha-borda);background:var(--painel);cursor:pointer;
   border-radius:7px;padding:3px 8px;font-size:13px;line-height:1.4}
 .aj-lixeira:hover{border-color:#e0655a;background:#fdecea}
@@ -2064,19 +2083,17 @@ const SECOES = {
   inspecoes: {
     titulo: "Inspeções", desc: "As inspeções que alimentam o painel. "
       + "Baixe em CSV para abrir no Excel.",
-    somenteLeitura: true, chave: "id", baixar: "⭳ Baixar CSV",
+    somenteLeitura: true, chave: "id", baixar: "⭳ Baixar PDF", detalhe: true,
     filtros: [["ano", "Ano"], ["polo", "Polo"], ["inspetor", "Inspetor"],
               ["tipo", "Departamento"]],
+    /* Três colunas, a pedido (27/08/2026). Departamento, polo e supervisor
+       saíram da tabela — continuam servindo de FILTRO, que é onde eram úteis.
+       As não conformidades não viram coluna: elas abrem no detalhe da linha,
+       porque o texto da pergunta reprovada espremeria a tabela inteira. */
     colunas: [
       { t: "Data", v: r => r.dataStr },
       { t: "Equipe", v: r => r.equipe || r.equipeBruta || "—", forte: true },
-      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
-      { t: "Departamento", v: r => r.tipo || "—", etiqueta: true },
-      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
-      { t: "Supervisor", v: r => r.supervisor || "—" },
-      { t: "N.C", v: r => fmtN(ncDe(r).length), num: true },
-      { t: "Pontos perdidos", v: r => fmtN(ncDe(r).reduce((a, x) => a + (x[4] || 0), 0)),
-        num: true }
+      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" }
     ]
   },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
@@ -2214,40 +2231,125 @@ const Ajustes = {
     return Cadastros.lista(secao);
   },
 
-  /* Baixar em CSV o que está na tela — com os filtros aplicados, não a base
-     inteira. Quem filtrou por um polo quer aquele polo; baixar tudo obrigaria
-     a filtrar de novo no Excel.
+  /* Clicar na inspeção abre as não conformidades dela, embaixo da linha.
 
-     Separador ponto e vírgula e BOM no começo: é o que faz o Excel em
-     português abrir o arquivo em colunas, e não tudo espremido numa só. */
-  baixarCSV() {
+     Fica escondido por padrão de propósito: a maioria das inspeções não tem
+     desvio nenhum, e uma coluna com o texto das perguntas reprovadas espremeria
+     a tabela inteira. Inspeção sem N.C não abre — não há o que mostrar. */
+  ligarDetalhe(host, linhas, colunas) {
+    const corpo = host.querySelector("tbody");
+    if (!corpo) return;
+    [...corpo.rows].forEach((tr, i) => {
+      const nc = ncDe(linhas[i]);
+      if (!nc.length) { tr.classList.add("sem-nc"); return; }
+      tr.classList.add("abre");
+      tr.onclick = () => {
+        const aberta = tr.nextElementSibling
+          && tr.nextElementSibling.classList.contains("aj-det");
+        if (aberta) { tr.nextElementSibling.remove(); tr.classList.remove("aberta"); return; }
+        const det = document.createElement("tr");
+        det.className = "aj-det";
+        det.innerHTML = `<td colspan="${colunas}">
+          <b>${nc.length} ${nc.length === 1 ? "não conformidade" : "não conformidades"}</b>
+          <ul>${nc.map(x => `<li>
+            <span class="grav g${(x[3] || "sem").toLowerCase().replace(/[^a-z]/g, "")}">${
+              esc(x[3] || "Sem classificação")}</span>
+            <span class="pt">${x[4] ? x[4] + " pt" : "—"}</span>
+            <span class="txt">${esc(x[1])}</span>
+            ${x[2] ? `<em>${esc(x[2])}</em>` : ""}</li>`).join("")}</ul></td>`;
+        tr.after(det);
+        tr.classList.add("aberta");
+      };
+    });
+  },
+
+  /* Relatório em PDF do que está na tela — com os filtros aplicados, não a
+     base inteira. Quem filtrou por um polo quer aquele polo.
+
+     Não há biblioteca de PDF aqui, e não vale trazer uma: o painel é um
+     arquivo só, sem dependência externa, e escrever PDF à mão quebra em
+     acento. Manda IMPRIMIR — o próprio navegador oferece "Salvar como PDF"
+     no destino, com texto selecionável e acentuação certa.
+
+     Num iframe escondido, não em aba nova: aba nova costuma ser bloqueada
+     como pop-up, e o usuário acharia que o botão não faz nada. */
+  baixarPDF() {
     const s = SECOES[this.secao];
     const linhas = this.linhasVisiveis();
     if (!linhas.length) return this.avisar("Não há nada para baixar com esses filtros.", true);
 
-    const celula = v => {
-      const t = String(v == null ? "" : v);
-      return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
-    };
-    const cab = s.colunas.map(c => celula(c.t)).join(";");
-    const corpo = linhas.map(r => s.colunas.map(c => {
-      const v = c.v(r);
-      /* c.v() devolve texto já formatado para a tela — inclusive número com
-         separador brasileiro, que o Excel entende. */
-      return celula(v);
-    }).join(";"));
+    /* Quais filtros valiam. Sem isso o relatório vira um número solto, e
+       ninguém lembra depois se aquilo era o ano todo ou um polo só. */
+    const usados = Object.entries(this.filtros).filter(([, v]) => v)
+      .map(([k, v]) => `${(s.filtros.find(f => f[0] === k) || [k, k])[1]}: ${v}`);
+    if (this.busca.trim()) usados.push(`busca: "${this.busca.trim()}"`);
 
-    // ﻿ escrito por código: o caractere literal é invisível e some no
-    // vaivém entre editores — sem ele o Excel come os acentos.
-    const csv = "\uFEFF" + [cab].concat(corpo).join("\r\n") + "\r\n";
-    const hoje = new Date().toISOString().slice(0, 10);
-    const nome = `inspecoes-sesmt-${hoje}.csv`;
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url; a.download = nome;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    this.avisar(`${linhas.length} ${linhas.length === 1 ? "inspeção baixada" : "inspeções baixadas"} em ${nome}.`);
+    const totalNC = linhas.reduce((a, r) => a + ncDe(r).length, 0);
+    const semNC = linhas.filter(r => !ncDe(r).length).length;
+    const agora = new Date();
+
+    /* No papel as não conformidades vão ABAIXO da inspeção, na mesma folha —
+       é o que dá sentido ao relatório: a visita e o que ela encontrou. */
+    const corpo = linhas.map(r => {
+      const nc = ncDe(r);
+      const celulas = s.colunas.map(c => `<td>${esc(c.v(r))}</td>`).join("");
+      const det = !nc.length ? "" : `<tr class="det"><td colspan="${s.colunas.length}">
+        <ul>${nc.map(x => `<li><b>${esc(x[3] || "Sem classificação")}</b>${
+          x[4] ? ` (${x[4]} pt)` : ""} — ${esc(x[1])}${
+          x[2] ? ` <i>${esc(x[2])}</i>` : ""}</li>`).join("")}</ul></td></tr>`;
+      return `<tr class="insp">${celulas}</tr>${det}`;
+    }).join("");
+
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+      <title>Inspecoes SESMT ${agora.toISOString().slice(0, 10)}</title>
+      <style>
+        @page { size: A4; margin: 14mm 12mm }
+        body { font: 11px "Open Sans", Arial, sans-serif; color: #241f1a; margin: 0 }
+        h1 { font-size: 16px; margin: 0 0 2px }
+        .sub { color: #7b7168; font-size: 10px; margin: 0 0 10px }
+        .resumo { margin: 0 0 12px; font-size: 11px }
+        .resumo b { font-size: 13px }
+        table { border-collapse: collapse; width: 100% }
+        th { text-align: left; font-size: 9.5px; text-transform: uppercase;
+             letter-spacing: .05em; color: #7b7168;
+             border-bottom: 1.5px solid #241f1a; padding: 5px 6px }
+        td { padding: 5px 6px; vertical-align: top }
+        tr.insp td { border-bottom: 1px solid #e6e0d8 }
+        tr.det td { background: #fbf8f4; border-bottom: 1px solid #e6e0d8;
+                    padding-top: 0; padding-bottom: 7px }
+        tr.det ul { margin: 0; padding-left: 16px }
+        tr.det li { margin: 2px 0; line-height: 1.45 }
+        tr.det i { color: #7b7168; font-style: normal }
+        tr { break-inside: avoid }             /* não parte a inspeção ao meio */
+        thead { display: table-header-group }  /* cabeçalho em toda página */
+        .rodape { margin-top: 14px; font-size: 9px; color: #a49a90 }
+      </style></head><body>
+      <h1>Inspeções SESMT · Regional Oeste</h1>
+      <p class="sub">${usados.length ? esc(usados.join(" · ")) : "Sem filtros"}
+        — gerado em ${agora.toLocaleString("pt-BR")}</p>
+      <p class="resumo"><b>${linhas.length}</b> ${
+        linhas.length === 1 ? "inspeção" : "inspeções"} · <b>${totalNC}</b> ${
+        totalNC === 1 ? "não conformidade" : "não conformidades"} · <b>${semNC}</b>
+        sem nenhum desvio</p>
+      <table><thead><tr>${s.colunas.map(c => `<th>${esc(c.t)}</th>`).join("")}</tr></thead>
+        <tbody>${corpo}</tbody></table>
+      <p class="rodape">Painel de Inspeções SESMT — os mesmos números da tela.</p>
+      </body></html>`;
+
+    const q = document.createElement("iframe");
+    q.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    q.srcdoc = html;
+    q.onload = () => {
+      q.contentWindow.focus();
+      q.contentWindow.print();
+      /* Remover antes de o diálogo fechar cancelaria a impressão. */
+      setTimeout(() => q.remove(), 60000);
+    };
+    document.body.appendChild(q);
+
+    this.avisar(`${linhas.length} ${linhas.length === 1 ? "inspeção" : "inspeções"} e `
+      + `${totalNC} ${totalNC === 1 ? "não conformidade" : "não conformidades"} no relatório. `
+      + `Na janela de impressão, escolha "Salvar como PDF" no destino.`);
   },
 
   /* Administrador apaga rascunho abandonado — o inspetor apaga o dele
@@ -2306,7 +2408,7 @@ const Ajustes = {
     btNovo.style.display = s.somenteLeitura && !s.baixar ? "none" : "";
     btNovo.querySelector("span").textContent = s.baixar || s.novo || "";
     btNovo.firstChild.textContent = s.baixar ? "" : "+ ";
-    btNovo.onclick = s.baixar ? () => this.baixarCSV() : () => this.abrirDialogo(null);
+    btNovo.onclick = s.baixar ? () => this.baixarPDF() : () => this.abrirDialogo(null);
 
     this.renderEstado();
     this.renderFiltros();
@@ -2346,6 +2448,7 @@ const Ajustes = {
           : c.v(r),
         classe: () => c.forte ? "forte" : ""
       }))), linhas);
+      if (s.detalhe) this.ligarDetalhe(host, linhas, acao.length + s.colunas.length);
       const cont = this.el.querySelector(".aj-cont");
       if (cont) {
         const total = this.fonte(this.secao).length;
