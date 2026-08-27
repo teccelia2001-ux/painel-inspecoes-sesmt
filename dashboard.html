@@ -2151,8 +2151,12 @@ const Ajustes = {
   sair() { Porta.trancar(); },
 
   avisar(texto, ruim) {
-    const velho = this.el.querySelector(".aj-avisosinc");
-    if (velho) velho.remove();
+    /* A faixa entra DEPOIS de this.estado, que é irmão de this.el — não filho.
+       Procurá-la dentro de this.el nunca achava nada, e cada clique empilhava
+       mais uma sobre o cabeçalho; as de erro, sem temporizador, ficavam para
+       sempre. Procurar no pai, e limpar todas as que restaram. */
+    const pai = this.estado.parentNode;
+    if (pai) pai.querySelectorAll(".aj-avisosinc").forEach(v => v.remove());
     const d = document.createElement("div");
     d.className = "aj-avisosinc" + (ruim ? " ruim" : "");
     d.textContent = texto;
