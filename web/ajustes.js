@@ -189,6 +189,23 @@ const Ajustes = {
     return secao === "rascunhos" ? this.rascunhos : Cadastros.lista(secao);
   },
 
+  /* Administrador apaga rascunho abandonado — o inspetor apaga o dele
+     pelo app, mas rascunho de quem saiu da empresa ou perdeu o acesso
+     ficaria para sempre. As respostas vão junto, por cascata no banco. */
+  async excluirRascunho(r) {
+    const n = contaRespostas(r);
+    if (!confirm(`Excluir o rascunho de ${r.equipe || "—"}, de ${r.inspetor || "—"}?\n\n`
+        + `${n} ${n === 1 ? "resposta será perdida" : "respostas serão perdidas"}. `
+        + "Não dá para desfazer.")) return;
+    try {
+      await Banco.excluir("sesmt_inspecoes", r.id);
+      this.avisar(`Rascunho de ${r.equipe || "—"} excluído.`);
+      await this.carregarRascunhos();
+    } catch (e) {
+      this.avisar("Não deu para excluir: " + e.message, true);
+    }
+  },
+
   linhasVisiveis() {
     const s = SECOES[this.secao];
     const busca = this.busca.trim().toLowerCase();
@@ -230,14 +247,25 @@ const Ajustes = {
     const podeEditar = Banco.podeEditar();
 
     if (s.somenteLeitura) {
-      tabela(host, s.colunas.map(c => ({
+      /* Uma lixeira por linha, e não o menu ⋮: aqui só há uma ação.
+         Aparece para administrador — a política do banco recusaria de
+         qualquer jeito, mas botão que só serve para dar erro é armadilha. */
+      const acao = podeEditar ? [{ titulo: "Ações", valor: r => {
+        const b = document.createElement("button");
+        b.className = "aj-lixeira";
+        b.textContent = "🗑";
+        b.title = `Excluir o rascunho de ${r.equipe || "—"}`;
+        b.onclick = () => this.excluirRascunho(r);
+        return b;
+      } }] : [];
+      tabela(host, acao.concat(s.colunas.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
           ? Object.assign(document.createElement("span"),
               { className: "etiqueta", textContent: c.v(r) })
           : c.v(r),
         classe: () => c.forte ? "forte" : ""
-      })), linhas);
+      }))), linhas);
       const cont = this.el.querySelector(".aj-cont");
       if (cont) cont.textContent = linhas.length === 1 ? "1 rascunho"
         : `${linhas.length} rascunhos`;
