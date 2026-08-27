@@ -771,7 +771,10 @@ function resumoPainelDetalhe() {
       k.Meta_Insp = escopo ? escopo.meta : 0;
       k.Meta_insp_dia = escopo ? escopo.metaDia : 0;
       k.pctInspecao = escopo ? escopo.pct : null;
-      k.Qtd_Inspetor = inspetoresValidos().filter(i => i[1] === d.chave).length * ms.length;
+      // meses COM META, não todos os da tela: com os 12 do ano, um polo de um
+      // inspetor só mostrava "12" onde a meta era de 5 meses.
+      k.Qtd_Inspetor = inspetoresValidos().filter(i => i[1] === d.chave).length
+        * mesesComMeta(ms).length;
       opt.semMeta = !k.Meta_Insp;
     } else {
       opt.semMeta = true;   // equipe não tem meta de inspeção
@@ -869,7 +872,7 @@ function blocosResumo(k, g, opt) {
 
       <div class="rg-pedaco">
         ${opt.semMeta ? "" : `<span>Inspetores × meses com meta <b>${fmtN(k.Qtd_Inspetor)}</b></span>`}
-        <span>Dias úteis ${opt.rotuloDias || "no ano"} / até hoje
+        <span>Dias úteis ${opt.rotuloDias || "no período com meta"} / até hoje
           <b>${k.Dias_uteis} / ${k.Dias_uteis_ate_hoje}</b></span>
       </div>
     </div>`;

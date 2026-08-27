@@ -281,7 +281,11 @@ function kpis(f, ms) {
   return {
     Qtd_Insp: q, Qtd_Inspecao_NC: nc, Qtd_NC: Qtd_NC(f),
     Meta_Insp: meta, Meta_insp_dia: md,
-    Dias_uteis: Dias_uteis(ms), Dias_uteis_ate_hoje: Dias_uteis_ate_hoje(ms),
+    /* Dias úteis DOS MESES COM META — é a base que divide a meta em
+       Meta_insp_dia. Mostrar aqui os dias do ano inteiro (261/169) ao lado de
+       uma meta de 5 meses fazia o rodapé desmentir a própria conta. */
+    Dias_uteis: Dias_uteis(mesesComMeta(ms)),
+    Dias_uteis_ate_hoje: Dias_uteis_ate_hoje(mesesComMeta(ms)),
     Qtd_Inspetor: Qtd_Inspetor(ms),
     ICIT: ICIT(f),
     pctInspecao: pctAtingida(q, md), // %Inspeção_Teccel (= % Atingida, limitado a 100%)
@@ -302,10 +306,10 @@ function agrupar(f, campo, ms) {
     let meta = 0, metaDia = 0;
     if (campo === "inspetor") {
       const i = IDX_INSPETOR[k];
-      const meses = mesesComMeta(ms).length;
-      const du = Dias_uteis(ms);
-      meta = i ? i[3] * meses : 0;
-      metaDia = du ? meta / du * Dias_uteis_ate_hoje(ms) : 0;
+      const comMeta = mesesComMeta(ms);
+      const du = Dias_uteis(comMeta);
+      meta = i ? i[3] * comMeta.length : 0;
+      metaDia = du ? meta / du * Dias_uteis_ate_hoje(comMeta) : 0;
     }
     const nc = Qtd_Inspecao_NC(rows);
     return {
@@ -322,8 +326,9 @@ function porInspetor(f, ms, comVazio) {
   ms = ms || mesesAtivos();
   const g = agrupar(f, "inspetor", ms);
   const achados = new Set(g.map(x => x.chave));
-  const meses = mesesComMeta(ms).length;
-  const du = Dias_uteis(ms), duh = Dias_uteis_ate_hoje(ms);
+  const comMeta = mesesComMeta(ms);
+  const meses = comMeta.length;
+  const du = Dias_uteis(comMeta), duh = Dias_uteis_ate_hoje(comMeta);
   inspetoresValidos().forEach(i => {
     if (achados.has(i[0])) return;
     const meta = i[3] * meses;
