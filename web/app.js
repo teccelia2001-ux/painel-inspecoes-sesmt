@@ -489,6 +489,11 @@ function render() {
       const noPodio = i < 3 && l && l.qtd > 0;
       tr.cells[0].textContent = noPodio ? MEDALHAS[i] : i + 1;
       if (noPodio) tr.classList.add("podio-linha", "pos" + (i + 1));
+      /* Verde quem bateu a meta até hoje, vermelho quem não bateu — mesmo
+         critério da coluna "% atingida", para a linha não dizer uma coisa e
+         a coluna outra. Pódio e cor convivem: são perguntas diferentes.
+         Quem está no topo pode estar abaixo da meta, e é bom que se veja. */
+      if (l) tr.classList.add(l.pct >= 1 ? "linha-ok" : "linha-nok");
     });
   }
 
