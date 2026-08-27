@@ -599,7 +599,26 @@ const Ajustes = {
         <input name="${c.k}" value="${dados[c.k] || ""}" ${c.obrigatorio ? "required" : ""} autocomplete="off"></label>`;
     }).join("");
 
-    this.dialogo(novo ? s.novo : `Editar ${dados[s.chave]}`, corpo,
+    /* Criar o login junto com o cadastro. Só faz sentido em inspetor novo:
+       quem já existe usa o ⋮ → Criar acesso. Era um segundo passo obrigatório,
+       e com 14 acessos para criar isso é meia dúzia de cliques a mais por
+       pessoa. Fica desligado por padrão — nem todo inspetor cadastrado vai
+       usar o app. */
+    const comAcesso = novo && this.secao === "inspetores" && Banco.podeEditar();
+    const blocoAcesso = !comAcesso ? "" : `
+      <label class="aj-vermostrar" style="margin-top:14px">
+        <input type="checkbox" name="criarAcesso"> Criar também o login do app para esta pessoa
+      </label>
+      <div class="aj-acesso oculto">
+        <p class="aj-dtexto">Combine a senha com o inspetor — ela não fica
+          guardada e depois só dá para trocar, não para consultar.</p>
+        <label class="aj-campo"><span>E-mail do inspetor</span>
+          <input name="email" type="email" required disabled
+                 autocapitalize="none" spellcheck="false"></label>
+        ${this.camposSenha()}
+      </div>`;
+
+    this.dialogo(novo ? s.novo : `Editar ${dados[s.chave]}`, corpo + blocoAcesso,
       novo ? "Criar" : "Salvar", async form => {
         const reg = Object.assign({}, registro);
         s.campos.forEach(c => {
@@ -612,7 +631,34 @@ const Ajustes = {
         const repetido = Cadastros.lista(this.secao).some(r =>
           r.id !== reg.id && String(r[s.chave]).toLowerCase() === reg[s.chave].toLowerCase());
         if (repetido) throw new Error(`Já existe um cadastro com o nome ${reg[s.chave]}.`);
+
+        /* Confere e-mail e senha ANTES de gravar o cadastro: reclamar depois
+           deixaria o inspetor já criado, e a segunda tentativa esbarraria no
+           "já existe um cadastro com esse nome". */
+        const querAcesso = comAcesso && form.criarAcesso && form.criarAcesso.checked;
+        let email = "", senha = "";
+        if (querAcesso) {
+          email = form.email.value.trim();
+          if (!email) throw new Error("Informe o e-mail do inspetor.");
+          senha = this.senhaConferida(form);
+        }
+
         await Cadastros.salvar(this.secao, reg);
+
+        if (querAcesso) {
+          /* O cadastro já está gravado. Se o acesso falhar aqui, não dá para
+             desfazer sem apagar o inspetor — então o diálogo fecha e o aviso
+             diz exatamente o que ficou pela metade. */
+          try {
+            await Banco.acessoInspetor("criar", reg.inspetor, email, senha);
+            await Cadastros.carregar();
+            Cadastros.aplicarNoModelo();
+            this.avisar(`${reg.inspetor} cadastrado, e o login ${email} já está criado.`);
+          } catch (e) {
+            this.avisar(`${reg.inspetor} foi cadastrado, mas o login NÃO foi criado: `
+              + e.message + " Crie pelo ⋮ → Criar acesso, na linha dele.", true);
+          }
+        }
         this.render(); render();
       });
   },
@@ -693,6 +739,30 @@ const Ajustes = {
     const ver = fundo.querySelector("input[name=ver]");
     if (ver) ver.onchange = () => fundo.querySelectorAll("input[name^=senha]")
       .forEach(i => i.type = ver.checked ? "text" : "password");
+
+    /* Bloco do login, no cadastro de inspetor novo. Escondido, os campos ficam
+       DESABILITADOS — campo required invisível trava o envio do formulário sem
+       dizer por quê, e o navegador não consegue nem apontar para ele. */
+    const marca = fundo.querySelector("input[name=criarAcesso]");
+    const bloco = fundo.querySelector(".aj-acesso");
+    if (marca && bloco) {
+      const campoEmail = bloco.querySelector("input[name=email]");
+      /* Estado inicial pelo próprio código, não pelo HTML: só o e-mail nascia
+         desabilitado, e as senhas ficavam required e invisíveis — o envio
+         travava sem mensagem nenhuma. */
+      bloco.querySelectorAll("input").forEach(i => i.disabled = !marca.checked);
+      marca.onchange = () => {
+        bloco.classList.toggle("oculto", !marca.checked);
+        bloco.querySelectorAll("input").forEach(i => i.disabled = !marca.checked);
+        if (!marca.checked) return;
+        /* Sugere o e-mail a partir do nome já digitado, sem apagar o que o
+           administrador tenha escrito à mão. */
+        const nome = (form.elements.inspetor || {}).value || "";
+        if (nome && !campoEmail.value) campoEmail.value =
+          semAcentoAj(nome).replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "") + "@teccel.com.br";
+        campoEmail.focus();
+      };
+    }
 
     const primeiro = fundo.querySelector("input, select");
     if (primeiro) primeiro.focus();
