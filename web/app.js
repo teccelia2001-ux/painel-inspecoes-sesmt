@@ -212,6 +212,26 @@ function preencherLista(d, campo) {
 }
 document.addEventListener("click", () => document.querySelectorAll(".slicer.aberto").forEach(s => s.classList.remove("aberto")));
 
+/* De quando são os dados que estão na tela.
+
+   ATUALIZACAO é a data em que o histórico foi extraído do Power BI, em
+   26/08/2026 — e ficou congelada ali. Desde que o painel passou a ler do
+   banco, dizer "Atualizado em 26/08" ao lado de uma inspeção enviada hoje é
+   falso, e é justamente esse rodapé que alguém usa para decidir se confia
+   no número. Quando há sincronização, vale a hora dela. */
+function dataDosDados() {
+  const r = Sincronia.resumo();
+  if (r && r.em) return {
+    texto: r.em.toLocaleString("pt-BR"),
+    dica: `Última sincronização com o banco — ${r.inspecoes} inspeções.`
+  };
+  return {
+    texto: ATUALIZACAO,
+    dica: "Histórico embutido no painel. Entre com sua conta e use ⟳ Sincronizar "
+      + "em Ajustes para trazer o que o app enviou."
+  };
+}
+
 /* ---------- abas ---------- */
 function abas() {
   const d = document.createElement("div");
@@ -237,7 +257,7 @@ function abas() {
   const s = document.createElement("span");
   s.className = "att";
   // A versão ajuda a saber se o navegador está mostrando o build atual
-  s.textContent = `Atualizado em ${ATUALIZACAO} · v${VERSAO}`;
+  s.textContent = `Atualizado em ${dataDosDados().texto} · v${VERSAO}`;
   s.title = "Versão do painel — use para conferir se a página está atualizada";
   d.appendChild(s);
   return d;
@@ -446,6 +466,13 @@ function setCards(refs, vals) {
 function render() {
   marcarSlicers();
   marcarSiglas(canvas);
+  /* O rodapé é montado uma vez por página, mas a data dos dados muda ao
+     sincronizar — e ele existe em TODAS as páginas, não só no PAINEL. */
+  const quandoRodape = dataDosDados();
+  document.querySelectorAll(".abas .att:not(.exportar)").forEach(s => {
+    s.textContent = `Atualizado em ${quandoRodape.texto} · v${VERSAO}`;
+    s.title = `${quandoRodape.dica}\nv${VERSAO} é a versão do arquivo publicado.`;
+  });
   const f = fatoFiltrado(), ms = mesesAtivos(), k = kpis(f, ms);
   const base = {
     meta: fmtN(k.Meta_Insp), metaDia: fmtD(k.Meta_insp_dia, 0), qtd: fmtN(k.Qtd_Insp),
@@ -453,8 +480,10 @@ function render() {
   };
 
   if (paginaAtual === "painel") {
-    R.painelAtt.textContent = ATUALIZACAO;
+    const quando = dataDosDados();
+    R.painelAtt.textContent = quando.texto;
     R.painelAtt.style.fontSize = "17px";
+    R.painelAtt.closest(".card").title = quando.dica;
     resumoPainel();
   }
 

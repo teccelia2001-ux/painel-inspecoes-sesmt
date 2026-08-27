@@ -13,7 +13,16 @@ out=../index.html
   echo '</style>'
   echo '<div id="palco"><div id="canvas"></div></div>'
   for f in assets.js data.js model.js servidor.js charts.js ajustes.js app.js; do
-    echo '<script>'; cat "$f"; echo '</script>'
+    echo '<script>'
+    # O carimbo do rodapé é escrito AQUI, na geração, e não à mão no data.js:
+    # escrito à mão ele envelhece e deixa de servir para conferir se o
+    # navegador está com a versão nova — que é a única razão de existir.
+    if [ "$f" = "data.js" ]; then
+      sed "s/^const VERSAO = \"DEV\";/const VERSAO = \"$(date +%Y%m%d-%H%M)\";/" "$f"
+    else
+      cat "$f"
+    fi
+    echo '</script>'
   done
 } > "$out"
 # index.html   -> https://teccelia2001-ux.github.io/painel-inspecoes-sesmt/

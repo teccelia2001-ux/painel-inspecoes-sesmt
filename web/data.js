@@ -276,5 +276,11 @@ const HISTORICO = { inspecoes: INSPECOES, nc: NC };
 /* Carimbo de atualização do relatório original */
 const ATUALIZACAO = "26/08/2026 08:48:46";
 
-/* Versão do build — carimbada no rodapé para conferir cache do navegador */
-const VERSAO = "20260826-1100";
+/* Versão do build — carimbada no rodapé para conferir cache do navegador.
+
+   O valor abaixo é SUBSTITUÍDO pelo build a cada geração (ver build.sh e o
+   trecho equivalente em PowerShell). Era escrito à mão e por isso ficou
+   parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
+   27/08/2026 — carimbo que não acompanha a publicação não serve para
+   conferir cache, que é a única razão de ele existir. */
+const VERSAO = "DEV";
