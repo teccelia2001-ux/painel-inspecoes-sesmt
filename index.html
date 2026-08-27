@@ -330,11 +330,19 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
    e o primeiro colocado abaixo da meta pareceria em dia. */
 .tbl tr.linha-nok td{background:#fdf4f3}
 .tbl tr.linha-ok  td{background:#f2f8f3}
-.tbl tr.podio-linha td:first-child{font-size:15px;line-height:1}
-.tbl tr.podio-linha td:nth-child(2){font-weight:800}
-.tbl tr.pos1 td:first-child{box-shadow:inset 4px 0 0 #d4a017}
-.tbl tr.pos2 td:first-child{box-shadow:inset 4px 0 0 #9aa0a6}
-.tbl tr.pos3 td:first-child{box-shadow:inset 4px 0 0 #b06a2c}
+/* Pódio bem visível (reforçado em 27/08/2026, a pedido): a medalha vira um
+   selo colorido na primeira célula, e a linha inteira ganha corpo. O selo
+   ocupa só a coluna do "#", então o verde/vermelho da meta continua legível
+   nas outras — as duas informações não disputam o mesmo espaço. */
+.tbl tr.podio-linha td{padding-top:7px;padding-bottom:7px}
+.tbl tr.podio-linha td:first-child{font-size:19px;line-height:1;text-align:center}
+.tbl tr.podio-linha td:nth-child(2){font-weight:800;font-size:13.5px;letter-spacing:.01em}
+.tbl tr.pos1 td:first-child{background:linear-gradient(#fff3cf,#ffe49b);
+  box-shadow:inset 5px 0 0 #d4a017}
+.tbl tr.pos2 td:first-child{background:linear-gradient(#f4f5f6,#e2e5e8);
+  box-shadow:inset 5px 0 0 #9aa0a6}
+.tbl tr.pos3 td:first-child{background:linear-gradient(#fbeadd,#f2d5bd);
+  box-shadow:inset 5px 0 0 #b06a2c}
   .podio.piores{min-height:170px}
   /* alvos de toque maiores */
   .lista label{padding:9px 8px}
@@ -2077,22 +2085,47 @@ function barrasH(host, dados, opt) {
      O corte é calculado pela largura disponível, e não por um número fixo de
      caracteres: o mesmo visual aparece em quadros de tamanhos diferentes. */
   const max = Math.max(...dados.map(d => d.qtd));
-  const alt = Math.min(52, (H - 10) / dados.length);
-  const hBarra = Math.max(8, Math.min(14, alt - 26));
-  const cabe = Math.max(20, Math.floor((W - 30) / 5.6));
+  const alt = Math.min(56, (H - 8) / dados.length);
+  const hBarra = Math.max(8, Math.min(13, alt - 32));
+  /* Quantos caracteres cabem numa linha, pela largura real do quadro. */
+  const cabe = Math.max(20, Math.floor((W - 30) / 5.4));
+
+  /* Quebra em ATÉ DUAS linhas, sem partir palavra ao meio. Antes era uma
+     linha cortada com "…", e a frase morria justamente onde começava a
+     dizer o que foi reprovado: "Os veículos utlizados na atividade estão em
+     boas co…". Duas linhas cobrem quase toda pergunta do checklist. */
+  const quebrar = (txt, largura, linhas) => {
+    const palavras = String(txt).split(/\s+/);
+    const saida = [];
+    let atual = "";
+    palavras.forEach(p => {
+      const teste = atual ? atual + " " + p : p;
+      if (teste.length <= largura) { atual = teste; return; }
+      if (saida.length + 1 === linhas) { atual = corta(teste, largura); return; }
+      if (atual) saida.push(atual);
+      atual = p;
+    });
+    if (atual && saida.length < linhas) saida.push(atual);
+    return saida.slice(0, linhas);
+  };
+
   dados.forEach((d, i) => {
     const y = 6 + i * alt;
     const larg = (d.qtd / max) * (W - 34);
+    const partes = quebrar(d.chave, cabe, 2);
+    const dica = `${d.chave}\n${d.qtd} ocorrência(s)`;
 
-    const t = el("text", { x: 0, y: y + 11, class: "rotulo-barra-fora" },
-      corta(d.chave, Math.min(cabe, opt.maxRot === 46 ? cabe : opt.maxRot)));
-    t.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
+    const t = el("text", { x: 0, y: y + 10, class: "rotulo-barra-fora" });
+    partes.forEach((linha, n) => t.appendChild(
+      el("tspan", { x: 0, dy: n ? 12 : 0 }, linha)));
+    t.appendChild(el("title", {}, dica));
     svg.appendChild(t);
 
-    const r = el("rect", { x: 0, y: y + 16, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
-    r.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
+    const yBarra = y + 10 + (partes.length - 1) * 12 + 7;
+    const r = el("rect", { x: 0, y: yBarra, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
+    r.appendChild(el("title", {}, dica));
     svg.appendChild(r);
-    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: y + 16 + hBarra - 2, class: "rotulo" }, d.qtd));
+    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: yBarra + hBarra - 1, class: "rotulo" }, d.qtd));
   });
 }
 
@@ -3343,9 +3376,13 @@ function cabecalho(pg, cards) {
   const faixa = document.createElement("div");
   faixa.className = "faixa-slicers";
   pg.appendChild(faixa);
+  /* "Supervisor" saiu da faixa em 27/08/2026, a pedido: o supervisor vem da
+     equipe, então filtrar por ele é o mesmo que filtrar pelas equipes dele —
+     e eram 8 filtros disputando a mesma linha. O CAMPO continua no modelo
+     (a coluna Supervisor da Jornada Segura o usa); apenas não há mais como
+     acioná-lo pela tela, e por isso ele nunca fica ativo. */
   [["ano", "Ano"], ["mes", "Mês"], ["tipo", "Departamento"], ["polo", "Polo"],
-   ["inspetor", "Inspetor"], ["funcao", "Função"], ["supervisor", "Supervisor"],
-   ["equipe", "Equipe"]]
+   ["inspetor", "Inspetor"], ["funcao", "Função"], ["equipe", "Equipe"]]
     .forEach(([campo, rot]) => faixa.appendChild(montarSlicer(campo, rot)));
 
   const lim = document.createElement("button");

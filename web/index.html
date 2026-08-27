@@ -332,11 +332,19 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
    e o primeiro colocado abaixo da meta pareceria em dia. */
 .tbl tr.linha-nok td{background:#fdf4f3}
 .tbl tr.linha-ok  td{background:#f2f8f3}
-.tbl tr.podio-linha td:first-child{font-size:15px;line-height:1}
-.tbl tr.podio-linha td:nth-child(2){font-weight:800}
-.tbl tr.pos1 td:first-child{box-shadow:inset 4px 0 0 #d4a017}
-.tbl tr.pos2 td:first-child{box-shadow:inset 4px 0 0 #9aa0a6}
-.tbl tr.pos3 td:first-child{box-shadow:inset 4px 0 0 #b06a2c}
+/* Pódio bem visível (reforçado em 27/08/2026, a pedido): a medalha vira um
+   selo colorido na primeira célula, e a linha inteira ganha corpo. O selo
+   ocupa só a coluna do "#", então o verde/vermelho da meta continua legível
+   nas outras — as duas informações não disputam o mesmo espaço. */
+.tbl tr.podio-linha td{padding-top:7px;padding-bottom:7px}
+.tbl tr.podio-linha td:first-child{font-size:19px;line-height:1;text-align:center}
+.tbl tr.podio-linha td:nth-child(2){font-weight:800;font-size:13.5px;letter-spacing:.01em}
+.tbl tr.pos1 td:first-child{background:linear-gradient(#fff3cf,#ffe49b);
+  box-shadow:inset 5px 0 0 #d4a017}
+.tbl tr.pos2 td:first-child{background:linear-gradient(#f4f5f6,#e2e5e8);
+  box-shadow:inset 5px 0 0 #9aa0a6}
+.tbl tr.pos3 td:first-child{background:linear-gradient(#fbeadd,#f2d5bd);
+  box-shadow:inset 5px 0 0 #b06a2c}
   .podio.piores{min-height:170px}
   /* alvos de toque maiores */
   .lista label{padding:9px 8px}

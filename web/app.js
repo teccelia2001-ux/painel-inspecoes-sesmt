@@ -163,9 +163,13 @@ function cabecalho(pg, cards) {
   const faixa = document.createElement("div");
   faixa.className = "faixa-slicers";
   pg.appendChild(faixa);
+  /* "Supervisor" saiu da faixa em 27/08/2026, a pedido: o supervisor vem da
+     equipe, então filtrar por ele é o mesmo que filtrar pelas equipes dele —
+     e eram 8 filtros disputando a mesma linha. O CAMPO continua no modelo
+     (a coluna Supervisor da Jornada Segura o usa); apenas não há mais como
+     acioná-lo pela tela, e por isso ele nunca fica ativo. */
   [["ano", "Ano"], ["mes", "Mês"], ["tipo", "Departamento"], ["polo", "Polo"],
-   ["inspetor", "Inspetor"], ["funcao", "Função"], ["supervisor", "Supervisor"],
-   ["equipe", "Equipe"]]
+   ["inspetor", "Inspetor"], ["funcao", "Função"], ["equipe", "Equipe"]]
     .forEach(([campo, rot]) => faixa.appendChild(montarSlicer(campo, rot)));
 
   const lim = document.createElement("button");

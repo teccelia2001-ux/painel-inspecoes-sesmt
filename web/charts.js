@@ -253,22 +253,47 @@ function barrasH(host, dados, opt) {
      O corte é calculado pela largura disponível, e não por um número fixo de
      caracteres: o mesmo visual aparece em quadros de tamanhos diferentes. */
   const max = Math.max(...dados.map(d => d.qtd));
-  const alt = Math.min(52, (H - 10) / dados.length);
-  const hBarra = Math.max(8, Math.min(14, alt - 26));
-  const cabe = Math.max(20, Math.floor((W - 30) / 5.6));
+  const alt = Math.min(56, (H - 8) / dados.length);
+  const hBarra = Math.max(8, Math.min(13, alt - 32));
+  /* Quantos caracteres cabem numa linha, pela largura real do quadro. */
+  const cabe = Math.max(20, Math.floor((W - 30) / 5.4));
+
+  /* Quebra em ATÉ DUAS linhas, sem partir palavra ao meio. Antes era uma
+     linha cortada com "…", e a frase morria justamente onde começava a
+     dizer o que foi reprovado: "Os veículos utlizados na atividade estão em
+     boas co…". Duas linhas cobrem quase toda pergunta do checklist. */
+  const quebrar = (txt, largura, linhas) => {
+    const palavras = String(txt).split(/\s+/);
+    const saida = [];
+    let atual = "";
+    palavras.forEach(p => {
+      const teste = atual ? atual + " " + p : p;
+      if (teste.length <= largura) { atual = teste; return; }
+      if (saida.length + 1 === linhas) { atual = corta(teste, largura); return; }
+      if (atual) saida.push(atual);
+      atual = p;
+    });
+    if (atual && saida.length < linhas) saida.push(atual);
+    return saida.slice(0, linhas);
+  };
+
   dados.forEach((d, i) => {
     const y = 6 + i * alt;
     const larg = (d.qtd / max) * (W - 34);
+    const partes = quebrar(d.chave, cabe, 2);
+    const dica = `${d.chave}\n${d.qtd} ocorrência(s)`;
 
-    const t = el("text", { x: 0, y: y + 11, class: "rotulo-barra-fora" },
-      corta(d.chave, Math.min(cabe, opt.maxRot === 46 ? cabe : opt.maxRot)));
-    t.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
+    const t = el("text", { x: 0, y: y + 10, class: "rotulo-barra-fora" });
+    partes.forEach((linha, n) => t.appendChild(
+      el("tspan", { x: 0, dy: n ? 12 : 0 }, linha)));
+    t.appendChild(el("title", {}, dica));
     svg.appendChild(t);
 
-    const r = el("rect", { x: 0, y: y + 16, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
-    r.appendChild(el("title", {}, `${d.chave}\n${d.qtd} ocorrência(s)`));
+    const yBarra = y + 10 + (partes.length - 1) * 12 + 7;
+    const r = el("rect", { x: 0, y: yBarra, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
+    r.appendChild(el("title", {}, dica));
     svg.appendChild(r);
-    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: y + 16 + hBarra - 2, class: "rotulo" }, d.qtd));
+    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: yBarra + hBarra - 1, class: "rotulo" }, d.qtd));
   });
 }
 
