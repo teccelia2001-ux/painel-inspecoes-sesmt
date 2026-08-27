@@ -919,8 +919,6 @@ document.documentElement.style.setProperty("--foto-podio", `url("${FOTO_PODIO}")
 escalar();
 irPara(location.hash.slice(1) || "painel");
 
-const esc = t => String(t == null ? "" : t)
-  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
 /* ============================================================
    PORTA — o painel não abre sem login
