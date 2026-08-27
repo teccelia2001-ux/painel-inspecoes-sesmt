@@ -345,8 +345,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-estado button:hover{border-color:var(--acento);color:var(--acento-forte)}
 .aj-sincronizar{font-weight:700}
 .aj-sincronizar:disabled{opacity:.6;cursor:progress}
-/* recado da sincronização: some sozinho quando deu certo, fica quando não deu */
-.aj-avisosinc{margin:8px 0 0;padding:9px 12px;border-radius:8px;font-size:12.5px;
+/* recado da sincronização: some sozinho quando deu certo, fica quando não deu.
+   Flutua no canto inferior. NÃO usar fluxo normal aqui: a .aj-estado é
+   absolute com height:0, então um bloco inserido depois dela sobe para o topo
+   da página e some atrás da .faixa-topo — o recado existia e ninguém via. */
+.aj-avisosinc{position:fixed;right:16px;bottom:46px;z-index:60;
+  max-width:min(560px,calc(100vw - 32px));
+  padding:9px 12px;border-radius:8px;font-size:12.5px;
+  box-shadow:0 6px 20px rgba(0,0,0,.16);
   background:#e9f5ea;color:#1d5220;border:1px solid #bfdcc1}
 .aj-avisosinc.ruim{background:#fdecea;color:#8e1b0a;border-color:#f3c4bb}
 
