@@ -606,11 +606,21 @@ const Ajustes = {
         <button class="aj-entrar">Entrar para editar</button>`;
       this.estado.querySelector(".aj-entrar").onclick = () => this.abrirLogin();
     } else {
+      /* Sessão vencida e servidor fora do ar não são a mesma coisa, e mandar
+         "tentar de novo" numa sessão morta faz o usuário repetir um botão que
+         nunca vai funcionar. O 401 vem com mensagem própria de pedir(). */
+      const vencida = /sess|401|expir/i.test(Banco.erro || "");
       this.estado.className = "aj-estado erro";
-      this.estado.innerHTML = `<span>Sem conexão com o banco — mostrando os cadastros embutidos no painel.
-        ${Banco.erro ? `<i>${Banco.erro}</i>` : ""} As alterações valem só nesta sessão.</span>
-        <button class="aj-tentar">Tentar de novo</button>`;
+      this.estado.innerHTML = vencida
+        ? `<span><b>Sua sessão expirou.</b> Entre de novo para ver os dados do banco —
+             o painel está mostrando apenas o cadastro embutido.
+             ${Banco.erro ? `<i>${Banco.erro}</i>` : ""}</span>
+           <button class="aj-tentar">Entrar de novo</button>`
+        : `<span>Sem conexão com o banco — mostrando os cadastros embutidos no painel.
+             ${Banco.erro ? `<i>${Banco.erro}</i>` : ""} As alterações valem só nesta sessão.</span>
+           <button class="aj-tentar">Tentar de novo</button>`;
       this.estado.querySelector(".aj-tentar").onclick = async () => {
+        if (vencida) return this.sair();
         this.estado.innerHTML = "<span>Conectando…</span>";
         await Cadastros.carregar(); this.render(); render();
       };

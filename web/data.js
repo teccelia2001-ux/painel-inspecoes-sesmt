@@ -93,6 +93,17 @@ let EQUIPES = [
   ["REAVISO - SSARI02","REA","Junielly",100]
 ];
 
+/* CÓPIA CONGELADA do cadastro deste arquivo — a reserva de verdade.
+
+   EQUIPES e INSPETORES acima são SOBRESCRITOS pelo banco em
+   Cadastros.aplicarNoModelo(). Até 27/08/2026 a reserva era lida dessas
+   mesmas variáveis, então, depois da primeira carga do banco, ela deixava
+   de existir: quando o banco falhava mais tarde, o painel mostrava
+   "mostrando os cadastros embutidos" com a tabela VAZIA. Reserva que some
+   quando o titular funciona não é reserva. */
+const EQUIPES_ARQUIVO = EQUIPES.map(r => r.slice());
+const INSPETORES_ARQUIVO = INSPETORES.map(r => r.slice());
+
 /* Inspeções Teccel1 (grão = inspeção) — [ID, Inspetor, Equipe, Tipo Serviço, Data dd/mm/aaaa] */
 let INSPECOES = [
 ["2","Huislan","CONST 1","DCMD C&M","14/04/2026"],

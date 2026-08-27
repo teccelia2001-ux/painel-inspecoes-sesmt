@@ -697,6 +697,17 @@ let EQUIPES = [
   ["REAVISO - SSARI02","REA","Junielly",100]
 ];
 
+/* CÓPIA CONGELADA do cadastro deste arquivo — a reserva de verdade.
+
+   EQUIPES e INSPETORES acima são SOBRESCRITOS pelo banco em
+   Cadastros.aplicarNoModelo(). Até 27/08/2026 a reserva era lida dessas
+   mesmas variáveis, então, depois da primeira carga do banco, ela deixava
+   de existir: quando o banco falhava mais tarde, o painel mostrava
+   "mostrando os cadastros embutidos" com a tabela VAZIA. Reserva que some
+   quando o titular funciona não é reserva. */
+const EQUIPES_ARQUIVO = EQUIPES.map(r => r.slice());
+const INSPETORES_ARQUIVO = INSPETORES.map(r => r.slice());
+
 /* Inspeções Teccel1 (grão = inspeção) — [ID, Inspetor, Equipe, Tipo Serviço, Data dd/mm/aaaa] */
 let INSPECOES = [
 ["2","Huislan","CONST 1","DCMD C&M","14/04/2026"],
@@ -1646,12 +1657,15 @@ const Cadastros = {
   origem: "embutido",
 
   /* Dados de data.js, usados enquanto o banco não responde */
+  /* Lê a CÓPIA CONGELADA, não as variáveis vivas: aplicarNoModelo() sobrescreve
+     EQUIPES e INSPETORES com o que veio do banco, e ler dali fazia a reserva
+     desaparecer assim que o banco respondia uma vez. Ver data.js. */
   doArquivo() {
-    this.equipes = EQUIPES.map((r, i) => ({
+    this.equipes = EQUIPES_ARQUIVO.map((r, i) => ({
       id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3],
       nomes_anteriores: r[4] || [], ativa: true
     }));
-    this.inspetores = INSPETORES.map((r, i) => ({
+    this.inspetores = INSPETORES_ARQUIVO.map((r, i) => ({
       id: "local-i" + i, inspetor: r[0], polo: r[1],
       funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4],
       nomes_anteriores: r[5] || [], ativo: true
@@ -1679,8 +1693,16 @@ const Cadastros = {
     this.doArquivo();
     try {
       const d = await Banco.baixarCadastros();
-      if (d.equipes.length || d.inspetores.length) {
+      /* Cada lista decide por si. Antes bastava UMA delas ter conteúdo para as
+         DUAS substituírem a reserva — e o banco devolve [] sem erro quando a
+         política nega a leitura (sessão vencida, por exemplo). Bastava isso
+         para a tabela de equipes ficar vazia com o painel dizendo que estava
+         mostrando os cadastros embutidos. */
+      if (d.equipes.length) {
         this.equipes = d.equipes;
+        this.origem = "banco";
+      }
+      if (d.inspetores.length) {
         // "Área" virou "Polo". Enquanto a migração não roda no banco, o valor
         // antigo é aproveitado para o painel não aparecer com o campo vazio.
         this.inspetores = d.inspetores.map(i => {
@@ -2626,11 +2648,21 @@ const Ajustes = {
         <button class="aj-entrar">Entrar para editar</button>`;
       this.estado.querySelector(".aj-entrar").onclick = () => this.abrirLogin();
     } else {
+      /* Sessão vencida e servidor fora do ar não são a mesma coisa, e mandar
+         "tentar de novo" numa sessão morta faz o usuário repetir um botão que
+         nunca vai funcionar. O 401 vem com mensagem própria de pedir(). */
+      const vencida = /sess|401|expir/i.test(Banco.erro || "");
       this.estado.className = "aj-estado erro";
-      this.estado.innerHTML = `<span>Sem conexão com o banco — mostrando os cadastros embutidos no painel.
-        ${Banco.erro ? `<i>${Banco.erro}</i>` : ""} As alterações valem só nesta sessão.</span>
-        <button class="aj-tentar">Tentar de novo</button>`;
+      this.estado.innerHTML = vencida
+        ? `<span><b>Sua sessão expirou.</b> Entre de novo para ver os dados do banco —
+             o painel está mostrando apenas o cadastro embutido.
+             ${Banco.erro ? `<i>${Banco.erro}</i>` : ""}</span>
+           <button class="aj-tentar">Entrar de novo</button>`
+        : `<span>Sem conexão com o banco — mostrando os cadastros embutidos no painel.
+             ${Banco.erro ? `<i>${Banco.erro}</i>` : ""} As alterações valem só nesta sessão.</span>
+           <button class="aj-tentar">Tentar de novo</button>`;
       this.estado.querySelector(".aj-tentar").onclick = async () => {
+        if (vencida) return this.sair();
         this.estado.innerHTML = "<span>Conectando…</span>";
         await Cadastros.carregar(); this.render(); render();
       };

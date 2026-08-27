@@ -255,12 +255,15 @@ const Cadastros = {
   origem: "embutido",
 
   /* Dados de data.js, usados enquanto o banco não responde */
+  /* Lê a CÓPIA CONGELADA, não as variáveis vivas: aplicarNoModelo() sobrescreve
+     EQUIPES e INSPETORES com o que veio do banco, e ler dali fazia a reserva
+     desaparecer assim que o banco respondia uma vez. Ver data.js. */
   doArquivo() {
-    this.equipes = EQUIPES.map((r, i) => ({
+    this.equipes = EQUIPES_ARQUIVO.map((r, i) => ({
       id: "local-e" + i, equipe: r[0], tipo: r[1], supervisor: r[2], pontos: r[3],
       nomes_anteriores: r[4] || [], ativa: true
     }));
-    this.inspetores = INSPETORES.map((r, i) => ({
+    this.inspetores = INSPETORES_ARQUIVO.map((r, i) => ({
       id: "local-i" + i, inspetor: r[0], polo: r[1],
       funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4],
       nomes_anteriores: r[5] || [], ativo: true
@@ -288,8 +291,16 @@ const Cadastros = {
     this.doArquivo();
     try {
       const d = await Banco.baixarCadastros();
-      if (d.equipes.length || d.inspetores.length) {
+      /* Cada lista decide por si. Antes bastava UMA delas ter conteúdo para as
+         DUAS substituírem a reserva — e o banco devolve [] sem erro quando a
+         política nega a leitura (sessão vencida, por exemplo). Bastava isso
+         para a tabela de equipes ficar vazia com o painel dizendo que estava
+         mostrando os cadastros embutidos. */
+      if (d.equipes.length) {
         this.equipes = d.equipes;
+        this.origem = "banco";
+      }
+      if (d.inspetores.length) {
         // "Área" virou "Polo". Enquanto a migração não roda no banco, o valor
         // antigo é aproveitado para o painel não aparecer com o campo vazio.
         this.inspetores = d.inspetores.map(i => {
