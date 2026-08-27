@@ -224,6 +224,18 @@ const Banco = {
       this.pedir("sesmt_perguntas?select=codigo,texto,categoria,gravidade,pontos_nc")
     ]);
     return { inspecoes: insp, respostas, perguntas };
+  },
+
+  /* Inspeções COMEÇADAS e não enviadas. Não entram em número nenhum do
+     painel — de propósito: rascunho não é inspeção feita. Ficam numa aba
+     à parte para o administrador ver o que ficou pelo caminho, já que o
+     rascunho nasce no banco antes da primeira resposta e o abandonado
+     não se anuncia. O inspetor apaga o dele pelo app.
+     O count vem embutido: quantas respostas cada um já tem. */
+  async baixarRascunhos() {
+    if (!this.autenticado()) return [];
+    return this.pedir("sesmt_inspecoes?select=id,departamento,inspetor,equipe,data,criada_em,"
+                      + "sesmt_respostas(count)&enviada_em=is.null&order=criada_em.desc");
   }
 ,
 

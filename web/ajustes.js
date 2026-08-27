@@ -67,8 +67,37 @@ const SECOES = {
       { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true },
       { t: "Acesso", v: r => r.user_id ? "tem login" : "—", etiqueta: true }
     ]
+  },
+  /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
+     do cadastro. Fica aqui, e não numa página do painel, porque é
+     manutenção do sistema e não indicador: rascunho NÃO conta como
+     inspeção feita em lugar nenhum. Quem apaga é o inspetor, pelo app. */
+  rascunhos: {
+    titulo: "Rascunhos", desc: "Inspeções começadas no app e ainda não enviadas. "
+      + "Não entram em nenhum número do painel.",
+    somenteLeitura: true, chave: "id",
+    filtros: [["inspetor", "Inspetor"], ["departamento", "Departamento"]],
+    colunas: [
+      { t: "Equipe", v: r => r.equipe || "—", forte: true },
+      { t: "Inspetor", v: r => r.inspetor || "—" },
+      { t: "Departamento", v: r => NOME_DEPARTAMENTO[r.departamento] || r.departamento || "—",
+        etiqueta: true },
+      { t: "Data", v: r => r.data ? r.data.slice(8, 10) + "/" + r.data.slice(5, 7)
+                                    + "/" + r.data.slice(0, 4) : "—" },
+      { t: "Respostas", v: r => fmtN(contaRespostas(r)), num: true },
+      { t: "Começada em", v: r => r.criada_em
+          ? new Date(r.criada_em).toLocaleString("pt-BR",
+              { day: "2-digit", month: "2-digit", year: "2-digit",
+                hour: "2-digit", minute: "2-digit" })
+          : "—" }
+    ]
   }
 };
+/* O count embutido do PostgREST chega como [{count: n}] */
+const contaRespostas = r => (r.sesmt_respostas && r.sesmt_respostas[0]
+  ? r.sesmt_respostas[0].count : 0);
+const NOME_DEPARTAMENTO = { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LINHA VIVA",
+  DCMD_PODA: "DCMD PODA", DECP: "DECP", DEOP: "DEOP" };
 const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
   PER: "Perdas", PLA: "Plantão", POD: "Poda", REA: "Reaviso" };
 
@@ -128,17 +157,42 @@ const Ajustes = {
       const b = document.createElement("button");
       b.textContent = SECOES[k].titulo;
       b.dataset.sec = k;
-      b.onclick = () => { this.secao = k; this.busca = ""; this.filtros = {}; this.render(); };
+      b.onclick = () => {
+        this.secao = k; this.busca = ""; this.filtros = {};
+        this.render();
+        /* Rascunho muda o tempo todo, e é pouca linha: busca a cada
+           abertura da aba, em vez de guardar e mostrar coisa velha. */
+        if (k === "rascunhos") this.carregarRascunhos();
+      };
       corpo.querySelector(".aj-abas").appendChild(b);
     });
     corpo.querySelector(".aj-novo").onclick = () => this.abrirDialogo(null);
     return pg;
   },
 
+  /* Os rascunhos não moram no Cadastros: são buscados quando a aba abre. */
+  rascunhos: [],
+  rascunhosEm: null,
+
+  async carregarRascunhos() {
+    try {
+      this.rascunhos = await Banco.baixarRascunhos();
+      this.rascunhosEm = new Date();
+    } catch (e) {
+      this.rascunhos = [];
+      this.avisar("Não deu para buscar os rascunhos: " + e.message, true);
+    }
+    this.render();
+  },
+
+  fonte(secao) {
+    return secao === "rascunhos" ? this.rascunhos : Cadastros.lista(secao);
+  },
+
   linhasVisiveis() {
     const s = SECOES[this.secao];
     const busca = this.busca.trim().toLowerCase();
-    return Cadastros.lista(this.secao).filter(r => {
+    return this.fonte(this.secao).filter(r => {
       for (const [campo] of s.filtros) {
         const sel = this.filtros[campo];
         if (!sel) continue;
@@ -147,7 +201,10 @@ const Ajustes = {
       }
       if (!busca) return true;
       return Object.values(r).some(v => String(v).toLowerCase().includes(busca));
-    }).sort(this.secao === "equipes"
+    }).sort(this.secao === "rascunhos"
+      // já vem do banco em ordem de criação, do mais novo para o mais velho
+      ? () => 0
+      : this.secao === "equipes"
       ? (a, b) => ordemNatural(a.equipe, b.equipe)
       // inspetores: primeiro pela função, depois pelo nome
       : (a, b) => (postoFuncao(a.funcao) - postoFuncao(b.funcao)) || ordemNatural(a.inspetor, b.inspetor));
@@ -160,7 +217,10 @@ const Ajustes = {
       b.classList.toggle("on", b.dataset.sec === this.secao));
     this.el.querySelector(".aj-tit").textContent = s.titulo;
     this.el.querySelector(".aj-desc").textContent = s.desc;
-    this.el.querySelector(".aj-novo span").textContent = s.novo;
+    /* Rascunho não se cria pelo painel — ele nasce no app. */
+    const btNovo = this.el.querySelector(".aj-novo");
+    btNovo.style.display = s.somenteLeitura ? "none" : "";
+    if (!s.somenteLeitura) btNovo.querySelector("span").textContent = s.novo;
 
     this.renderEstado();
     this.renderFiltros();
@@ -168,6 +228,21 @@ const Ajustes = {
     const linhas = this.linhasVisiveis();
     const host = this.el.querySelector(".aj-tabela");
     const podeEditar = Banco.podeEditar();
+
+    if (s.somenteLeitura) {
+      tabela(host, s.colunas.map(c => ({
+        titulo: c.t, num: c.num,
+        valor: r => c.etiqueta
+          ? Object.assign(document.createElement("span"),
+              { className: "etiqueta", textContent: c.v(r) })
+          : c.v(r),
+        classe: () => c.forte ? "forte" : ""
+      })), linhas);
+      const cont = this.el.querySelector(".aj-cont");
+      if (cont) cont.textContent = linhas.length === 1 ? "1 rascunho"
+        : `${linhas.length} rascunhos`;
+      return;
+    }
 
     tabela(host, [
       { titulo: "Ações", valor: r => this.menuAcoes(r, podeEditar) },
@@ -291,7 +366,7 @@ const Ajustes = {
     host.innerHTML = "";
     s.filtros.forEach(([campo, rot]) => {
       const vals = campo === s.statusK ? ["Ativo", "Inativo"]
-        : [...new Set(Cadastros.lista(this.secao).map(r => r[campo]).filter(Boolean))].sort();
+        : [...new Set(this.fonte(this.secao).map(r => r[campo]).filter(Boolean))].sort();
       const d = document.createElement("label");
       d.className = "aj-filtro";
       d.innerHTML = `<span>${rot}</span><select><option value="">Todos</option>
