@@ -1386,10 +1386,12 @@ const Banco = {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error_description || j.msg || "Não foi possível entrar");
     this.guardarSessao(j.access_token, email, j.expires_in, j.refresh_token);
+    /* Não ser administrador NÃO barra a entrada. Desde a migração 10, quem
+       tem conta lê o painel inteiro — o inspetor precisa ver os próprios
+       números. O que continua restrito é escrever, e disso cuida
+       podeEditar(): os botões de Ajustes ficam desligados e o banco
+       recusaria a gravação de qualquer jeito. */
     await this.verificarAdmin();
-    if (!this.admin) throw new Error(
-      "Esta conta entrou, mas não tem permissão de administrador do painel. " +
-      "Peça para incluírem seu e-mail na lista de administradores.");
     return j;
   },
   sair() {
