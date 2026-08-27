@@ -4404,11 +4404,19 @@ async function imagemDaPagina(escala) {
   }
 
   const xml = new XMLSerializer().serializeToString(copia);
+  /* Variáveis CSS definidas por código no <html> não chegam aqui: dentro do
+     SVG a raiz é esta div. Sem repassar, o pódio saía sem a foto de fundo. */
+  /* Vai no <style>, NUNCA no atributo style: o valor é url("data:…"), com
+     aspas dentro, e num atributo isso fecha o atributo antes da hora. O SVG
+     virava inválido e o navegador recusava a imagem inteira — o botão dizia
+     "não conseguiu desenhar a página". */
+  const foto = getComputedStyle(document.documentElement).getPropertyValue("--foto-podio");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${larg}" height="${alt}">
     <foreignObject x="0" y="0" width="100%" height="100%">
-      <div xmlns="http://www.w3.org/1999/xhtml"
+      <div xmlns="http://www.w3.org/1999/xhtml" class="export-raiz"
            style="position:relative;width:${larg}px;height:${alt}px;background:#fff">
-        <style>${cssDoPainel()}</style>${xml}
+        <style>${cssDoPainel()}
+          ${foto ? `.export-raiz{--foto-podio:${foto}}` : ""}</style>${xml}
       </div>
     </foreignObject></svg>`;
 
@@ -4461,17 +4469,35 @@ async function baixarPDFPagina(botao) {
   try {
     const tela = await imagemDaPagina(2);
     const p = PAGINAS.find(x => x.id === paginaAtual) || { nome: "Painel" };
+    /* A ORIENTAÇÃO segue o formato da imagem, e a imagem cabe INTEIRA na
+       folha.
+
+       Era "A4 landscape" fixo com img{width:100%}: um relatório em pé, de
+       620x787, virava 35cm de altura numa folha de 21cm e o PDF saía cortado
+       no meio do pódio, com o resto em branco. Quebrou nas duas páginas que
+       exportam recorte — Jornada Segura e PAINEL. Achado em 27/08/2026, pelo
+       print do próprio diálogo de impressão. */
+    /* Só deita quando é claramente mais larga que alta. Uma imagem quase
+       quadrada numa folha deitada fica limitada pela ALTURA e sai pequena, com
+       tarjas brancas dos dois lados — em pé ela aproveita bem mais papel. */
+    const deitada = tela.width / tela.height >= 1.25;
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
       <title>${esc(p.nome)}</title><style>
-        @page { size: A4 landscape; margin: 8mm }
-        body { margin: 0; font: 10px Arial, sans-serif; color: #241f1a }
+        @page { size: A4 ${deitada ? "landscape" : "portrait"}; margin: 8mm }
+        html, body { height: 100%; margin: 0 }
+        body { font: 10px Arial, sans-serif; color: #241f1a;
+               display: flex; flex-direction: column }
         h1 { font-size: 13px; margin: 0 0 1px }
-        p { margin: 0 0 6px; color: #7b7168; font-size: 9px }
-        img { width: 100%; height: auto; display: block }
+        .quando { margin: 0 0 6px; color: #7b7168; font-size: 9px }
+        /* min-height:0 é o que deixa o flex ENCOLHER a imagem; sem ele o item
+           usa o tamanho natural e estoura a folha de novo. */
+        .folha { flex: 1 1 auto; min-height: 0; display: flex;
+                 align-items: flex-start; justify-content: center }
+        .folha img { max-width: 100%; max-height: 100%; object-fit: contain }
       </style></head><body>
       <h1>${esc(p.nome)} — Inspeções SESMT · Regional Oeste</h1>
-      <p>Gerado em ${new Date().toLocaleString("pt-BR")}</p>
-      <img src="${tela.toDataURL("image/png")}" alt="${esc(p.nome)}">
+      <p class="quando">Gerado em ${new Date().toLocaleString("pt-BR")}</p>
+      <div class="folha"><img src="${tela.toDataURL("image/png")}" alt="${esc(p.nome)}"></div>
       </body></html>`;
 
     const q = document.createElement("iframe");
