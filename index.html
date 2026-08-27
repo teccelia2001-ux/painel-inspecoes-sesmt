@@ -925,6 +925,7 @@ const Sincronia = {
   em: null,
   erro: null,
   bancoTemHistorico: false,
+  ncContadas: 0,
 
   /* O código do departamento no banco x o nome usado no histórico */
   DEPARTAMENTO: { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LV", DCMD_PODA: "DCMD PODA",
@@ -983,6 +984,12 @@ const Sincronia = {
        ainda faz falta. A pergunta é respondida pelo campo origem, não
        por contagem: contagem erra quando o app grava e o histórico
        ainda não foi migrado. */
+    /* Quantas N.C o painel realmente conta. NÃO usar respostas.length: aquela
+       consulta traz as não conformes de TODAS as inspeções, rascunho incluído,
+       e as inspeções só vêm as enviadas. Em 27/08/2026 o recado dizia "98 não
+       conformidades" enquanto o painel mostrava 90 — os 8 extras eram de dois
+       rascunhos abandonados. */
+    this.ncContadas = nc.length;
     this.bancoTemHistorico = d.inspecoes.some(x => x.origem === "historico");
     INSPECOES = this.bancoTemHistorico ? inspecoes : HISTORICO.inspecoes.concat(inspecoes);
     NC = this.bancoTemHistorico ? nc : HISTORICO.nc.concat(nc);
@@ -992,7 +999,7 @@ const Sincronia = {
   /* Volta a mostrar só o histórico — usado ao sair da conta. */
   esquecer() {
     this.doBanco = null; this.em = null; this.erro = null;
-    this.bancoTemHistorico = false;
+    this.bancoTemHistorico = false; this.ncContadas = 0;
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();
@@ -1004,7 +1011,7 @@ const Sincronia = {
     return {
       inspecoes: this.doBanco.inspecoes.length,
       doApp: doApp,
-      nc: this.doBanco.respostas.length,
+      nc: this.ncContadas,
       fonteUnica: this.bancoTemHistorico,
       em: this.em
     };
