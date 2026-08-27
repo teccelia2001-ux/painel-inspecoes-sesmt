@@ -68,6 +68,30 @@ const SECOES = {
       { t: "Acesso", v: r => r.user_id ? "tem login" : "—", etiqueta: true }
     ]
   },
+  /* Inspeções — as feitas, para consultar e baixar.
+
+     Sai do modelo já montado (FATO), não de uma consulta nova: é o mesmo
+     conjunto que alimenta os números do painel. Assim a planilha baixada
+     bate com a tela — se saísse de outra consulta, um dia divergiria e
+     ninguém saberia qual das duas está certa. */
+  inspecoes: {
+    titulo: "Inspeções", desc: "As inspeções que alimentam o painel. "
+      + "Baixe em CSV para abrir no Excel.",
+    somenteLeitura: true, chave: "id", baixar: "⭳ Baixar CSV",
+    filtros: [["ano", "Ano"], ["polo", "Polo"], ["inspetor", "Inspetor"],
+              ["tipo", "Departamento"]],
+    colunas: [
+      { t: "Data", v: r => r.dataStr },
+      { t: "Equipe", v: r => r.equipe || r.equipeBruta || "—", forte: true },
+      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
+      { t: "Departamento", v: r => r.tipo || "—", etiqueta: true },
+      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
+      { t: "Supervisor", v: r => r.supervisor || "—" },
+      { t: "N.C", v: r => fmtN(ncDe(r).length), num: true },
+      { t: "Pontos perdidos", v: r => fmtN(ncDe(r).reduce((a, x) => a + (x[4] || 0), 0)),
+        num: true }
+    ]
+  },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
      do cadastro. Fica aqui, e não numa página do painel, porque é
      manutenção do sistema e não indicador: rascunho NÃO conta como
@@ -93,6 +117,9 @@ const SECOES = {
     ]
   }
 };
+/* As não conformidades de uma inspeção: [id, pergunta, categoria, gravidade, pontos] */
+const ncDe = r => NC_BY_ID[r.id] || [];
+
 /* O count embutido do PostgREST chega como [{count: n}] */
 const contaRespostas = r => (r.sesmt_respostas && r.sesmt_respostas[0]
   ? r.sesmt_respostas[0].count : 0);
@@ -195,7 +222,45 @@ const Ajustes = {
   },
 
   fonte(secao) {
-    return secao === "rascunhos" ? this.rascunhos : Cadastros.lista(secao);
+    if (secao === "rascunhos") return this.rascunhos;
+    if (secao === "inspecoes") return FATO;
+    return Cadastros.lista(secao);
+  },
+
+  /* Baixar em CSV o que está na tela — com os filtros aplicados, não a base
+     inteira. Quem filtrou por um polo quer aquele polo; baixar tudo obrigaria
+     a filtrar de novo no Excel.
+
+     Separador ponto e vírgula e BOM no começo: é o que faz o Excel em
+     português abrir o arquivo em colunas, e não tudo espremido numa só. */
+  baixarCSV() {
+    const s = SECOES[this.secao];
+    const linhas = this.linhasVisiveis();
+    if (!linhas.length) return this.avisar("Não há nada para baixar com esses filtros.", true);
+
+    const celula = v => {
+      const t = String(v == null ? "" : v);
+      return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+    };
+    const cab = s.colunas.map(c => celula(c.t)).join(";");
+    const corpo = linhas.map(r => s.colunas.map(c => {
+      const v = c.v(r);
+      /* c.v() devolve texto já formatado para a tela — inclusive número com
+         separador brasileiro, que o Excel entende. */
+      return celula(v);
+    }).join(";"));
+
+    // ﻿ escrito por código: o caractere literal é invisível e some no
+    // vaivém entre editores — sem ele o Excel come os acentos.
+    const csv = "\uFEFF" + [cab].concat(corpo).join("\r\n") + "\r\n";
+    const hoje = new Date().toISOString().slice(0, 10);
+    const nome = `inspecoes-sesmt-${hoje}.csv`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    this.avisar(`${linhas.length} ${linhas.length === 1 ? "inspeção baixada" : "inspeções baixadas"} em ${nome}.`);
   },
 
   /* Administrador apaga rascunho abandonado — o inspetor apaga o dele
@@ -227,7 +292,11 @@ const Ajustes = {
       }
       if (!busca) return true;
       return Object.values(r).some(v => String(v).toLowerCase().includes(busca));
-    }).sort(this.secao === "rascunhos"
+    }).sort(this.secao === "inspecoes"
+      // a mais recente primeiro; empate no dia resolve pela equipe
+      ? (a, b) => (b.serial + b.dataStr).localeCompare(a.serial + a.dataStr)
+                  || ordemNatural(a.equipe, b.equipe)
+      : this.secao === "rascunhos"
       // já vem do banco em ordem de criação, do mais novo para o mais velho
       ? () => 0
       : this.secao === "equipes"
@@ -243,10 +312,14 @@ const Ajustes = {
       b.classList.toggle("on", b.dataset.sec === this.secao));
     this.el.querySelector(".aj-tit").textContent = s.titulo;
     this.el.querySelector(".aj-desc").textContent = s.desc;
-    /* Rascunho não se cria pelo painel — ele nasce no app. */
+    /* O mesmo botão do canto serve a três propósitos: criar, baixar, ou nada.
+       Rascunho não se cria pelo painel (nasce no app) e inspeção também não —
+       nela o botão vira o download. */
     const btNovo = this.el.querySelector(".aj-novo");
-    btNovo.style.display = s.somenteLeitura ? "none" : "";
-    if (!s.somenteLeitura) btNovo.querySelector("span").textContent = s.novo;
+    btNovo.style.display = s.somenteLeitura && !s.baixar ? "none" : "";
+    btNovo.querySelector("span").textContent = s.baixar || s.novo || "";
+    btNovo.firstChild.textContent = s.baixar ? "" : "+ ";
+    btNovo.onclick = s.baixar ? () => this.baixarCSV() : () => this.abrirDialogo(null);
 
     this.renderEstado();
     this.renderFiltros();
@@ -264,8 +337,13 @@ const Ajustes = {
       }
       /* Uma lixeira por linha, e não o menu ⋮: aqui só há uma ação.
          Aparece para administrador — a política do banco recusaria de
-         qualquer jeito, mas botão que só serve para dar erro é armadilha. */
-      const acao = podeEditar ? [{ titulo: "Ações", valor: r => {
+         qualquer jeito, mas botão que só serve para dar erro é armadilha.
+
+         SÓ em rascunhos. A regra valia para qualquer seção só-leitura e a
+         lixeira apareceu na aba Inspeções, onde um clique chamaria
+         excluirRascunho() sobre uma inspeção de verdade. Inspeção enviada
+         não se apaga pelo painel. */
+      const acao = podeEditar && this.secao === "rascunhos" ? [{ titulo: "Ações", valor: r => {
         const b = document.createElement("button");
         b.className = "aj-lixeira";
         b.textContent = "🗑";
@@ -282,8 +360,15 @@ const Ajustes = {
         classe: () => c.forte ? "forte" : ""
       }))), linhas);
       const cont = this.el.querySelector(".aj-cont");
-      if (cont) cont.textContent = linhas.length === 1 ? "1 rascunho"
-        : `${linhas.length} rascunhos`;
+      if (cont) {
+        const total = this.fonte(this.secao).length;
+        const nome = this.secao === "inspecoes"
+          ? (linhas.length === 1 ? "inspeção" : "inspeções")
+          : (linhas.length === 1 ? "rascunho" : "rascunhos");
+        cont.textContent = linhas.length === total
+          ? `${linhas.length} ${nome}`
+          : `${linhas.length} de ${total} ${nome}`;
+      }
       return;
     }
 
