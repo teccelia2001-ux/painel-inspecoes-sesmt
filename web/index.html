@@ -121,6 +121,15 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .abas button:hover{color:var(--acento-forte);background:var(--acento-suave)}
 .abas button.on{background:var(--acento);color:#fff;font-weight:700}
 .abas .att{margin-left:auto;font-size:10px;color:var(--txt3);padding-right:6px}
+/* exportar: discreto na barra, mas com alvo de clique de verdade */
+.abas .exportar{margin-left:auto;display:flex;gap:4px;padding-right:8px}
+.abas .exportar+.att{margin-left:0}
+.abas .exportar button{font-size:10px;font-weight:700;color:var(--txt2);
+  border:1px solid var(--linha-borda);background:var(--painel);
+  border-radius:6px;padding:3px 8px;cursor:pointer}
+.abas .exportar button:hover{border-color:var(--acento);color:var(--acento-forte);
+  background:var(--acento-suave)}
+.abas .exportar button:disabled{opacity:.6;cursor:progress}
 
 /* tabelas */
 .tbl{width:100%;border-collapse:collapse;font-size:11.5px}

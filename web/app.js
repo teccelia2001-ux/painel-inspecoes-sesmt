@@ -218,6 +218,17 @@ function abas() {
     b.onclick = () => irPara(p.id);
     d.appendChild(b);
   });
+  /* Exportar fica na barra de baixo, e não em cada página, porque vale para a
+     página aberta seja ela qual for. A barra não entra na imagem: a captura
+     leva só o .pagina.ativa, e ela é irmã, não filha. */
+  const exp = document.createElement("span");
+  exp.className = "att exportar";
+  exp.innerHTML = `<button class="exp-png" title="Salvar esta página como imagem">⭳ PNG</button>
+    <button class="exp-pdf" title="Salvar esta página como PDF">⭳ PDF</button>`;
+  exp.querySelector(".exp-png").onclick = e => baixarPNG(e.target);
+  exp.querySelector(".exp-pdf").onclick = e => baixarPDFPagina(e.target);
+  d.appendChild(exp);
+
   const s = document.createElement("span");
   s.className = "att";
   // A versão ajuda a saber se o navegador está mostrando o build atual
@@ -1023,4 +1034,121 @@ if (Banco.autenticado()) {
   Porta.abrir().catch(() => Porta.mostrar("A sessão expirou. Entre de novo."));
 } else {
   Porta.mostrar();
+}
+
+/* ============================================================
+   EXPORTAR A PÁGINA — PNG e PDF
+
+   Sem biblioteca: o painel é um arquivo só e não carrega dependência
+   externa. O truque é embrulhar o HTML da página dentro de um <svg>
+   com <foreignObject> e mandar o navegador rasterizar. Funciona porque
+   TODA imagem daqui é data: URI (logo, ícone, foto do pódio) — imagem de
+   outro domínio contaminaria o canvas e o toBlob seria recusado.
+
+   O PDF sai da mesma imagem, numa folha deitada. É de propósito: PDF
+   gerado do DOM quebraria o posicionamento absoluto da tela de 1510x720,
+   e o que se quer aqui é o gráfico como ele aparece.
+
+   Limite conhecido: a fonte Open Sans vem do Google e NÃO carrega dentro
+   do SVG rasterizado — o texto sai na fonte de sistema. O desenho, as
+   cores e os números ficam idênticos.
+   ============================================================ */
+const LARGURA_EXPORT = 1510, ALTURA_EXPORT = 720;
+
+function cssDoPainel() {
+  return [...document.querySelectorAll("style")].map(s => s.textContent).join("\n");
+}
+
+async function imagemDaPagina(escala) {
+  const pg = canvas.querySelector(".pagina.ativa");
+  if (!pg) throw new Error("nenhuma página aberta");
+
+  const copia = pg.cloneNode(true);
+  /* Sem a classe o clone herda .pagina{display:none} e a imagem sai em branco. */
+  copia.classList.add("ativa");
+
+  const xml = new XMLSerializer().serializeToString(copia);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${LARGURA_EXPORT}" height="${ALTURA_EXPORT}">
+    <foreignObject x="0" y="0" width="100%" height="100%">
+      <div xmlns="http://www.w3.org/1999/xhtml"
+           style="position:relative;width:${LARGURA_EXPORT}px;height:${ALTURA_EXPORT}px;background:#fff">
+        <style>${cssDoPainel()}</style>${xml}
+      </div>
+    </foreignObject></svg>`;
+
+  const img = new Image();
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  await new Promise((ok, falha) => {
+    img.onload = ok;
+    img.onerror = () => falha(new Error("o navegador não conseguiu desenhar a página"));
+  });
+
+  const tela = document.createElement("canvas");
+  tela.width = LARGURA_EXPORT * escala;
+  tela.height = ALTURA_EXPORT * escala;
+  const ctx = tela.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, tela.width, tela.height);
+  ctx.drawImage(img, 0, 0, tela.width, tela.height);
+  return tela;
+}
+
+function nomeDoArquivo(ext) {
+  const p = PAGINAS.find(x => x.id === paginaAtual) || { nome: "painel" };
+  const hoje = new Date().toISOString().slice(0, 10);
+  return `${semAcento(p.nome).replace(/[^a-z0-9]+/g, "-")}-${hoje}.${ext}`;
+}
+
+async function baixarPNG(botao) {
+  const antes = botao.textContent;
+  botao.disabled = true; botao.textContent = "Gerando…";
+  try {
+    /* 2x: a imagem vai para apresentação e WhatsApp, onde 1510px de largura
+       fica embaçado ao ampliar. */
+    const tela = await imagemDaPagina(2);
+    const url = await new Promise(ok => tela.toBlob(b => ok(URL.createObjectURL(b)), "image/png"));
+    const a = document.createElement("a");
+    a.href = url; a.download = nomeDoArquivo("png");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    alert("Não deu para gerar a imagem: " + e.message);
+  } finally {
+    botao.disabled = false; botao.textContent = antes;
+  }
+}
+
+async function baixarPDFPagina(botao) {
+  const antes = botao.textContent;
+  botao.disabled = true; botao.textContent = "Gerando…";
+  try {
+    const tela = await imagemDaPagina(2);
+    const p = PAGINAS.find(x => x.id === paginaAtual) || { nome: "Painel" };
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+      <title>${esc(p.nome)}</title><style>
+        @page { size: A4 landscape; margin: 8mm }
+        body { margin: 0; font: 10px Arial, sans-serif; color: #241f1a }
+        h1 { font-size: 13px; margin: 0 0 1px }
+        p { margin: 0 0 6px; color: #7b7168; font-size: 9px }
+        img { width: 100%; height: auto; display: block }
+      </style></head><body>
+      <h1>${esc(p.nome)} — Inspeções SESMT · Regional Oeste</h1>
+      <p>Gerado em ${new Date().toLocaleString("pt-BR")}</p>
+      <img src="${tela.toDataURL("image/png")}" alt="${esc(p.nome)}">
+      </body></html>`;
+
+    const q = document.createElement("iframe");
+    q.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    q.srcdoc = html;
+    q.onload = () => {
+      q.contentWindow.focus();
+      q.contentWindow.print();
+      setTimeout(() => q.remove(), 60000);
+    };
+    document.body.appendChild(q);
+  } catch (e) {
+    alert("Não deu para gerar o PDF: " + e.message);
+  } finally {
+    botao.disabled = false; botao.textContent = antes;
+  }
 }
