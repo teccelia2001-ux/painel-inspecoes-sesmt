@@ -2159,13 +2159,22 @@ const Ajustes = {
   rascunhos: [],
   rascunhosEm: null,
 
+  buscandoRascunhos: false,
+
   async carregarRascunhos() {
+    /* A trava não é por desempenho: carregarRascunhos() termina em render(),
+       e o render() pede a busca quando a aba está aberta e vazia. Sem ela,
+       um erro de rede (que deixa rascunhosEm nulo) viraria laço infinito. */
+    if (this.buscandoRascunhos) return;
+    this.buscandoRascunhos = true;
     try {
       this.rascunhos = await Banco.baixarRascunhos();
       this.rascunhosEm = new Date();
     } catch (e) {
       this.rascunhos = [];
       this.avisar("Não deu para buscar os rascunhos: " + e.message, true);
+    } finally {
+      this.buscandoRascunhos = false;
     }
     this.render();
   },
@@ -2232,6 +2241,12 @@ const Ajustes = {
     const podeEditar = Banco.podeEditar();
 
     if (s.somenteLeitura) {
+      /* Aba aberta e nunca buscada — acontece ao montar o painel já nos
+         Ajustes, sem passar pelo clique na aba. Busca uma vez e volta. */
+      if (this.secao === "rascunhos" && !this.rascunhosEm
+          && !this.buscandoRascunhos && Banco.autenticado()) {
+        this.carregarRascunhos();
+      }
       /* Uma lixeira por linha, e não o menu ⋮: aqui só há uma ação.
          Aparece para administrador — a política do banco recusaria de
          qualquer jeito, mas botão que só serve para dar erro é armadilha. */
@@ -2300,6 +2315,10 @@ const Ajustes = {
       b.disabled = true;
       b.textContent = "⟳ Buscando…";
       const ok = await Sincronia.sincronizar();
+      /* Rascunho vem de outra consulta, e o ⟳ tem de trazer os dois: estando
+         na aba Rascunhos, sincronizar sem isto redesenhava a mesma lista de
+         antes e parecia que o botão não fazia nada. */
+      if (this.secao === "rascunhos") await this.carregarRascunhos();
       this.render();
       render();                       // os visuais do painel recalculam
       const novo = this.estado.querySelector(".aj-sincronizar");
@@ -2322,7 +2341,12 @@ const Ajustes = {
      e deixá-las na tela depois do logout mostraria a quem não pode ver. */
   /* Sair tranca o painel inteiro, não só a edição: desde 26/08/2026
      nada é visível sem login. */
-  sair() { Porta.trancar(); },
+  sair() {
+    /* Rascunho é inspeção de alguém: não pode ficar na tela depois do logout,
+       nem ser mostrado a quem entrar em seguida. */
+    this.rascunhos = []; this.rascunhosEm = null;
+    Porta.trancar();
+  },
 
   avisar(texto, ruim) {
     /* A faixa entra DEPOIS de this.estado, que é irmão de this.el — não filho.
