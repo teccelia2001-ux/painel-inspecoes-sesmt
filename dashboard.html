@@ -3381,6 +3381,9 @@ function pgPainel() {
   });
 
   const res = box(pg, 680, 122, 770, 552, "painel");
+  /* No PAINEL o que se leva para a reunião é ESTE quadro, não a página inteira
+     — o resto é menu de navegação. A marca diz ao exportador o que capturar. */
+  res.classList.add("alvo-export");
   res.innerHTML = `<div class="titulo">Resumo geral (sem filtros)</div>`;
   R.painelTitulo = res.querySelector(".titulo");
   const c = document.createElement("div"); c.className = "corpo"; res.appendChild(c);
@@ -4174,15 +4177,47 @@ async function imagemDaPagina(escala) {
   const pg = canvas.querySelector(".pagina.ativa");
   if (!pg) throw new Error("nenhuma página aberta");
 
-  const copia = pg.cloneNode(true);
+  /* A página pode marcar um quadro como O conteúdo — é o caso do PAINEL, onde
+     o resto é menu. Sem marca, vai a página inteira. */
+  const alvo = pg.querySelector(".alvo-export") || pg;
+  const soOQuadro = alvo !== pg;
+
+  const copia = alvo.cloneNode(true);
   /* Sem a classe o clone herda .pagina{display:none} e a imagem sai em branco. */
   copia.classList.add("ativa");
 
+  let larg = LARGURA_EXPORT, alt = ALTURA_EXPORT;
+  if (soOQuadro) {
+    larg = alvo.offsetWidth;
+    /* Tira o quadro da posição absoluta: no SVG ele começa em 0,0. */
+    copia.style.position = "relative";
+    copia.style.left = copia.style.top = "0";
+    copia.style.width = larg + "px";
+    /* O quadro tem rolagem interna, e exportar só a parte visível cortaria o
+       conteúdo — foi para isso que o PDF foi pedido. Abre tudo e mede a
+       altura de verdade, num medidor fora da tela. */
+    copia.style.height = "auto";
+    copia.querySelectorAll("*").forEach(n => {
+      const ov = getComputedStyle(n).overflowY;
+      if (ov === "auto" || ov === "scroll") {
+        n.style.overflow = "visible";
+        n.style.maxHeight = "none";
+        n.style.height = "auto";
+      }
+    });
+    const medidor = document.createElement("div");
+    medidor.style.cssText = `position:fixed;left:-10000px;top:0;width:${larg}px;visibility:hidden`;
+    medidor.appendChild(copia);
+    document.body.appendChild(medidor);
+    alt = Math.ceil(copia.getBoundingClientRect().height) || ALTURA_EXPORT;
+    medidor.remove();
+  }
+
   const xml = new XMLSerializer().serializeToString(copia);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${LARGURA_EXPORT}" height="${ALTURA_EXPORT}">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${larg}" height="${alt}">
     <foreignObject x="0" y="0" width="100%" height="100%">
       <div xmlns="http://www.w3.org/1999/xhtml"
-           style="position:relative;width:${LARGURA_EXPORT}px;height:${ALTURA_EXPORT}px;background:#fff">
+           style="position:relative;width:${larg}px;height:${alt}px;background:#fff">
         <style>${cssDoPainel()}</style>${xml}
       </div>
     </foreignObject></svg>`;
@@ -4195,8 +4230,9 @@ async function imagemDaPagina(escala) {
   });
 
   const tela = document.createElement("canvas");
-  tela.width = LARGURA_EXPORT * escala;
-  tela.height = ALTURA_EXPORT * escala;
+  // larg/alt, não as constantes: exportando só um quadro o tamanho é o dele
+  tela.width = larg * escala;
+  tela.height = alt * escala;
   const ctx = tela.getContext("2d");
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, tela.width, tela.height);
