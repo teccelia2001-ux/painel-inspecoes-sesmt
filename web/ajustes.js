@@ -75,19 +75,28 @@ const SECOES = {
      bate com a tela — se saísse de outra consulta, um dia divergiria e
      ninguém saberia qual das duas está certa. */
   inspecoes: {
-    titulo: "Inspeções", desc: "As inspeções que alimentam o painel. "
-      + "Baixe em CSV para abrir no Excel.",
-    somenteLeitura: true, chave: "id", baixar: "⭳ Baixar PDF", detalhe: true,
+    titulo: "Inspeções", desc: "Uma linha por não conformidade encontrada. "
+      + "Use os filtros e baixe em PDF o que ficar na tela.",
+    somenteLeitura: true, chave: "id", baixar: "⭳ Baixar PDF",
     filtros: [["ano", "Ano"], ["polo", "Polo"], ["inspetor", "Inspetor"],
-              ["tipo", "Departamento"]],
-    /* Três colunas, a pedido (27/08/2026). Departamento, polo e supervisor
-       saíram da tabela — continuam servindo de FILTRO, que é onde eram úteis.
-       As não conformidades não viram coluna: elas abrem no detalhe da linha,
-       porque o texto da pergunta reprovada espremeria a tabela inteira. */
+              ["gravidade", "Gravidade"], ["tipo", "Departamento"]],
+    /* UMA LINHA POR NÃO CONFORMIDADE, não por inspeção (27/08/2026).
+
+       A inspeção com três desvios ocupa três linhas, repetindo data, equipe,
+       inspetor e polo. Repetição é justamente o que torna a planilha
+       utilizável: dá para ordenar por gravidade, filtrar por polo e contar
+       desvio sem abrir nada. Escondê-los atrás de um clique ficava bonito na
+       tela e inútil no papel.
+
+       Inspeção sem desvio aparece uma vez, com "Sem desvio" — some da lista
+       seria pior: pareceria que ninguém inspecionou aquela equipe. */
     colunas: [
       { t: "Data", v: r => r.dataStr },
       { t: "Equipe", v: r => r.equipe || r.equipeBruta || "—", forte: true },
-      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" }
+      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
+      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
+      { t: "Gravidade", v: r => r.gravidade, etiqueta: true },
+      { t: "Não conformidade", v: r => r.descricao }
     ]
   },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
@@ -117,6 +126,42 @@ const SECOES = {
 };
 /* As não conformidades de uma inspeção: [id, pergunta, categoria, gravidade, pontos] */
 const ncDe = r => NC_BY_ID[r.id] || [];
+
+/* A tabela de fato desdobrada: uma linha por não conformidade, e uma linha
+   para a inspeção que não teve nenhuma.
+
+   Feito sob demanda, não guardado: FATO muda a cada sincronização e a cada
+   edição de cadastro, e uma cópia velha aqui mostraria desvio de equipe que
+   já foi renomeada. São ~120 inspeções — o custo é irrelevante. */
+function inspecoesPorNC() {
+  const linhas = [];
+  FATO.forEach(r => {
+    const nc = ncDe(r);
+    if (!nc.length) {
+      linhas.push(Object.assign({}, r, {
+        gravidade: "Sem desvio", descricao: "—", pontosNC: 0, temNC: false
+      }));
+      return;
+    }
+    nc.forEach(x => linhas.push(Object.assign({}, r, {
+      gravidade: x[3] || "Sem classificação",
+      descricao: x[1] || "—",
+      categoria: x[2] || "",
+      pontosNC: x[4] || 0,
+      temNC: true
+    })));
+  });
+  return linhas;
+}
+
+/* Da mais grave para a mais leve — é a ordem em que se lê um relatório de
+   segurança. "Sem desvio" fica por último, e não no meio do alfabeto. */
+const ORDEM_GRAVIDADE = ["Gravíssimo", "Grave", "Leve", "Sem classificação", "Sem desvio"];
+const postoGravidade = g => {
+  const i = ORDEM_GRAVIDADE.findIndex(o =>
+    o.toLowerCase() === String(g || "").trim().toLowerCase());
+  return i < 0 ? ORDEM_GRAVIDADE.length : i;
+};
 
 /* O count embutido do PostgREST chega como [{count: n}] */
 const contaRespostas = r => (r.sesmt_respostas && r.sesmt_respostas[0]
@@ -221,41 +266,10 @@ const Ajustes = {
 
   fonte(secao) {
     if (secao === "rascunhos") return this.rascunhos;
-    if (secao === "inspecoes") return FATO;
+    if (secao === "inspecoes") return inspecoesPorNC();
     return Cadastros.lista(secao);
   },
 
-  /* Clicar na inspeção abre as não conformidades dela, embaixo da linha.
-
-     Fica escondido por padrão de propósito: a maioria das inspeções não tem
-     desvio nenhum, e uma coluna com o texto das perguntas reprovadas espremeria
-     a tabela inteira. Inspeção sem N.C não abre — não há o que mostrar. */
-  ligarDetalhe(host, linhas, colunas) {
-    const corpo = host.querySelector("tbody");
-    if (!corpo) return;
-    [...corpo.rows].forEach((tr, i) => {
-      const nc = ncDe(linhas[i]);
-      if (!nc.length) { tr.classList.add("sem-nc"); return; }
-      tr.classList.add("abre");
-      tr.onclick = () => {
-        const aberta = tr.nextElementSibling
-          && tr.nextElementSibling.classList.contains("aj-det");
-        if (aberta) { tr.nextElementSibling.remove(); tr.classList.remove("aberta"); return; }
-        const det = document.createElement("tr");
-        det.className = "aj-det";
-        det.innerHTML = `<td colspan="${colunas}">
-          <b>${nc.length} ${nc.length === 1 ? "não conformidade" : "não conformidades"}</b>
-          <ul>${nc.map(x => `<li>
-            <span class="grav g${(x[3] || "sem").toLowerCase().replace(/[^a-z]/g, "")}">${
-              esc(x[3] || "Sem classificação")}</span>
-            <span class="pt">${x[4] ? x[4] + " pt" : "—"}</span>
-            <span class="txt">${esc(x[1])}</span>
-            ${x[2] ? `<em>${esc(x[2])}</em>` : ""}</li>`).join("")}</ul></td>`;
-        tr.after(det);
-        tr.classList.add("aberta");
-      };
-    });
-  },
 
   /* Relatório em PDF do que está na tela — com os filtros aplicados, não a
      base inteira. Quem filtrou por um polo quer aquele polo.
@@ -278,20 +292,23 @@ const Ajustes = {
       .map(([k, v]) => `${(s.filtros.find(f => f[0] === k) || [k, k])[1]}: ${v}`);
     if (this.busca.trim()) usados.push(`busca: "${this.busca.trim()}"`);
 
-    const totalNC = linhas.reduce((a, r) => a + ncDe(r).length, 0);
-    const semNC = linhas.filter(r => !ncDe(r).length).length;
+    /* Cada linha é uma N.C — menos as "Sem desvio". E como a inspeção se
+       repete a cada desvio, contar inspeção é contar id distinto. */
+    const totalNC = linhas.filter(r => r.temNC).length;
+    const inspecoes = new Set(linhas.map(r => r.id)).size;
+    const semNC = linhas.filter(r => !r.temNC).length;
+    const pontos = linhas.reduce((a, r) => a + (r.pontosNC || 0), 0);
     const agora = new Date();
 
     /* No papel as não conformidades vão ABAIXO da inspeção, na mesma folha —
        é o que dá sentido ao relatório: a visita e o que ela encontrou. */
+    /* Tabela plana, igual à da tela: uma linha por não conformidade. A
+       gravidade ganha cor no papel — é o que se procura primeiro. */
     const corpo = linhas.map(r => {
-      const nc = ncDe(r);
-      const celulas = s.colunas.map(c => `<td>${esc(c.v(r))}</td>`).join("");
-      const det = !nc.length ? "" : `<tr class="det"><td colspan="${s.colunas.length}">
-        <ul>${nc.map(x => `<li><b>${esc(x[3] || "Sem classificação")}</b>${
-          x[4] ? ` (${x[4]} pt)` : ""} — ${esc(x[1])}${
-          x[2] ? ` <i>${esc(x[2])}</i>` : ""}</li>`).join("")}</ul></td></tr>`;
-      return `<tr class="insp">${celulas}</tr>${det}`;
+      const classe = semAcentoAj(r.gravidade || "").replace(/[^a-z]/g, "");
+      return `<tr class="${r.temNC ? "insp" : "insp limpa"}">` + s.colunas.map(c =>
+        `<td${c.t === "Gravidade" ? ` class="grav ${classe}"` : ""}>${esc(c.v(r))}</td>`
+      ).join("") + "</tr>";
     }).join("");
 
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
@@ -308,23 +325,25 @@ const Ajustes = {
              letter-spacing: .05em; color: #7b7168;
              border-bottom: 1.5px solid #241f1a; padding: 5px 6px }
         td { padding: 5px 6px; vertical-align: top }
-        tr.insp td { border-bottom: 1px solid #e6e0d8 }
-        tr.det td { background: #fbf8f4; border-bottom: 1px solid #e6e0d8;
-                    padding-top: 0; padding-bottom: 7px }
-        tr.det ul { margin: 0; padding-left: 16px }
-        tr.det li { margin: 2px 0; line-height: 1.45 }
-        tr.det i { color: #7b7168; font-style: normal }
-        tr { break-inside: avoid }             /* não parte a inspeção ao meio */
+        tr.insp td { border-bottom: 1px solid #e6e0d8; line-height: 1.4 }
+        tr.limpa td { color: #a49a90 }         /* inspeção sem desvio: discreta */
+        td.grav { font-weight: 700; white-space: nowrap }
+        td.gravissimo { color: #b3261e }
+        td.grave { color: #8a4b00 }
+        td.leve { color: #31536e }
+        td.semdesvio, td.semclassificacao { color: #a49a90; font-weight: 400 }
+        tr { break-inside: avoid }             /* não parte a linha ao meio */
         thead { display: table-header-group }  /* cabeçalho em toda página */
         .rodape { margin-top: 14px; font-size: 9px; color: #a49a90 }
       </style></head><body>
       <h1>Inspeções SESMT · Regional Oeste</h1>
       <p class="sub">${usados.length ? esc(usados.join(" · ")) : "Sem filtros"}
         — gerado em ${agora.toLocaleString("pt-BR")}</p>
-      <p class="resumo"><b>${linhas.length}</b> ${
-        linhas.length === 1 ? "inspeção" : "inspeções"} · <b>${totalNC}</b> ${
+      <p class="resumo"><b>${inspecoes}</b> ${
+        inspecoes === 1 ? "inspeção" : "inspeções"} · <b>${totalNC}</b> ${
         totalNC === 1 ? "não conformidade" : "não conformidades"} · <b>${semNC}</b>
-        sem nenhum desvio</p>
+        sem nenhum desvio · <b>${pontos}</b> ${
+        Math.abs(pontos) === 1 ? "ponto" : "pontos"} na Jornada Segura</p>
       <table><thead><tr>${s.colunas.map(c => `<th>${esc(c.t)}</th>`).join("")}</tr></thead>
         <tbody>${corpo}</tbody></table>
       <p class="rodape">Painel de Inspeções SESMT — os mesmos números da tela.</p>
@@ -341,7 +360,7 @@ const Ajustes = {
     };
     document.body.appendChild(q);
 
-    this.avisar(`${linhas.length} ${linhas.length === 1 ? "inspeção" : "inspeções"} e `
+    this.avisar(`${inspecoes} ${inspecoes === 1 ? "inspeção" : "inspeções"} e `
       + `${totalNC} ${totalNC === 1 ? "não conformidade" : "não conformidades"} no relatório. `
       + `Na janela de impressão, escolha "Salvar como PDF" no destino.`);
   },
@@ -376,9 +395,11 @@ const Ajustes = {
       if (!busca) return true;
       return Object.values(r).some(v => String(v).toLowerCase().includes(busca));
     }).sort(this.secao === "inspecoes"
-      // a mais recente primeiro; empate no dia resolve pela equipe
+      /* A mais recente primeiro; dentro do mesmo dia, a equipe; dentro da
+         mesma inspeção, o desvio mais grave no topo. */
       ? (a, b) => (b.serial + b.dataStr).localeCompare(a.serial + a.dataStr)
                   || ordemNatural(a.equipe, b.equipe)
+                  || (postoGravidade(a.gravidade) - postoGravidade(b.gravidade))
       : this.secao === "rascunhos"
       // já vem do banco em ordem de criação, do mais novo para o mais velho
       ? () => 0
@@ -437,17 +458,22 @@ const Ajustes = {
       tabela(host, acao.concat(s.colunas.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
-          ? Object.assign(document.createElement("span"),
-              { className: "etiqueta", textContent: c.v(r) })
+          ? Object.assign(document.createElement("span"), {
+              /* A gravidade ganha cor pela própria classe: é o que se procura
+                 primeiro numa lista de desvios, e etiqueta cinza obrigava a
+                 ler palavra por palavra. */
+              className: "etiqueta" + (c.t === "Gravidade"
+                ? " gr-" + semAcentoAj(c.v(r)).replace(/[^a-z]/g, "") : ""),
+              textContent: c.v(r) })
           : c.v(r),
         classe: () => c.forte ? "forte" : ""
       }))), linhas);
-      if (s.detalhe) this.ligarDetalhe(host, linhas, acao.length + s.colunas.length);
       const cont = this.el.querySelector(".aj-cont");
       if (cont) {
         const total = this.fonte(this.secao).length;
+        // na aba Inspeções cada linha é um desvio, não uma inspeção
         const nome = this.secao === "inspecoes"
-          ? (linhas.length === 1 ? "inspeção" : "inspeções")
+          ? (linhas.length === 1 ? "linha" : "linhas")
           : (linhas.length === 1 ? "rascunho" : "rascunhos");
         cont.textContent = linhas.length === total
           ? `${linhas.length} ${nome}`
