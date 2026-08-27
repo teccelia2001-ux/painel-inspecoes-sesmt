@@ -599,21 +599,21 @@ const Ajustes = {
         <input name="${c.k}" value="${dados[c.k] || ""}" ${c.obrigatorio ? "required" : ""} autocomplete="off"></label>`;
     }).join("");
 
-    /* Criar o login junto com o cadastro. Só faz sentido em inspetor novo:
-       quem já existe usa o ⋮ → Criar acesso. Era um segundo passo obrigatório,
-       e com 14 acessos para criar isso é meia dúzia de cliques a mais por
-       pessoa. Fica desligado por padrão — nem todo inspetor cadastrado vai
-       usar o app. */
+    /* Inspetor novo sai COM login, sempre. Era opcional até 27/08/2026, e
+       antes disso um segundo passo separado — o resultado foi cadastro sem
+       acesso, que só se descobre quando a pessoa tenta usar o app. Inspetor
+       existe para inspecionar, e hoje inspecionar é pelo app.
+
+       Vale só para quem é novo: quem já está cadastrado usa o ⋮ → Criar
+       acesso, e não vai ganhar um login por ter sido editado. */
     const comAcesso = novo && this.secao === "inspetores" && Banco.podeEditar();
     const blocoAcesso = !comAcesso ? "" : `
-      <label class="aj-vermostrar" style="margin-top:14px">
-        <input type="checkbox" name="criarAcesso"> Criar também o login do app para esta pessoa
-      </label>
-      <div class="aj-acesso oculto">
-        <p class="aj-dtexto">Combine a senha com o inspetor — ela não fica
-          guardada e depois só dá para trocar, não para consultar.</p>
+      <div class="aj-acesso">
+        <p class="aj-dtexto"><b>Login do app.</b> O inspetor entra com estes
+          dados para fazer inspeção pelo celular. Combine a senha com ele — ela
+          não fica guardada e depois só dá para trocar, não para consultar.</p>
         <label class="aj-campo"><span>E-mail do inspetor</span>
-          <input name="email" type="email" required disabled
+          <input name="email" type="email" required
                  autocapitalize="none" spellcheck="false"></label>
         ${this.camposSenha()}
       </div>`;
@@ -635,7 +635,7 @@ const Ajustes = {
         /* Confere e-mail e senha ANTES de gravar o cadastro: reclamar depois
            deixaria o inspetor já criado, e a segunda tentativa esbarraria no
            "já existe um cadastro com esse nome". */
-        const querAcesso = comAcesso && form.criarAcesso && form.criarAcesso.checked;
+        const querAcesso = comAcesso;
         let email = "", senha = "";
         if (querAcesso) {
           email = form.email.value.trim();
@@ -743,25 +743,27 @@ const Ajustes = {
     /* Bloco do login, no cadastro de inspetor novo. Escondido, os campos ficam
        DESABILITADOS — campo required invisível trava o envio do formulário sem
        dizer por quê, e o navegador não consegue nem apontar para ele. */
-    const marca = fundo.querySelector("input[name=criarAcesso]");
+    /* O e-mail acompanha o nome enquanto ele é digitado — "José da Silva" vira
+       jose.da.silva@teccel.com.br. Para de acompanhar assim que o
+       administrador editar o e-mail à mão: dali em diante o campo é dele.
+
+       Não é enfeite. É esse padrão que faz a conta casar sozinha com o
+       cadastro; e-mail fora dele vira trabalho manual depois, como aconteceu
+       com quatro contas em 27/08/2026. */
     const bloco = fundo.querySelector(".aj-acesso");
-    if (marca && bloco) {
+    const campoNome = form.elements.inspetor;
+    if (bloco && campoNome) {
       const campoEmail = bloco.querySelector("input[name=email]");
-      /* Estado inicial pelo próprio código, não pelo HTML: só o e-mail nascia
-         desabilitado, e as senhas ficavam required e invisíveis — o envio
-         travava sem mensagem nenhuma. */
-      bloco.querySelectorAll("input").forEach(i => i.disabled = !marca.checked);
-      marca.onchange = () => {
-        bloco.classList.toggle("oculto", !marca.checked);
-        bloco.querySelectorAll("input").forEach(i => i.disabled = !marca.checked);
-        if (!marca.checked) return;
-        /* Sugere o e-mail a partir do nome já digitado, sem apagar o que o
-           administrador tenha escrito à mão. */
-        const nome = (form.elements.inspetor || {}).value || "";
-        if (nome && !campoEmail.value) campoEmail.value =
-          semAcentoAj(nome).replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "") + "@teccel.com.br";
-        campoEmail.focus();
+      let aMao = false;
+      campoEmail.oninput = () => { aMao = true; };
+      const sugerir = () => {
+        if (aMao) return;
+        const chave = semAcentoAj(campoNome.value)
+          .replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "");
+        campoEmail.value = chave ? chave + "@teccel.com.br" : "";
       };
+      campoNome.oninput = sugerir;
+      sugerir();
     }
 
     const primeiro = fundo.querySelector("input, select");
