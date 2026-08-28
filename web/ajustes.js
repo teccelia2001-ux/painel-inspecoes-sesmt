@@ -713,7 +713,8 @@ const Ajustes = {
     /* Acesso ao app de inspeções é assunto de inspetor, não de equipe */
     const temAcesso = !!registro.user_id;
     const acesso = this.secao !== "inspetores" ? "" : (temAcesso
-      ? `<button data-a="redefinir">🔑 Redefinir senha</button>
+      ? `<button data-a="trocar-email">✉ Trocar e-mail</button>
+         <button data-a="redefinir">🔑 Redefinir senha</button>
          <button data-a="tirar-acesso" class="perigo">⊘ Remover acesso</button>`
       : `<button data-a="criar-acesso">🔑 Criar acesso</button>`);
     d.innerHTML = `<button class="aj-pontos" title="Ações">⋮</button>
@@ -746,6 +747,7 @@ const Ajustes = {
         const a = b.dataset.a;
         if (a === "editar") this.abrirDialogo(registro);
         else if (a === "criar-acesso") this.criarAcesso(registro);
+        else if (a === "trocar-email") this.trocarEmail(registro);
         else if (a === "redefinir") this.redefinirSenha(registro);
         else if (a === "tirar-acesso") this.tirarAcesso(registro);
         else this.confirmarExclusao(registro);
@@ -762,6 +764,39 @@ const Ajustes = {
      A senha é escolhida pelo administrador, que vai combiná-la com o
      inspetor. Ela não fica guardada em lugar nenhum: vai para a função,
      que manda para o Supabase, e lá só o hash é gravado. */
+  /* Trocar o e-mail de login de quem já tem acesso (28/08/2026).
+
+     Antes, corrigir um endereço errado obrigava a remover o acesso e criar
+     outro — e criar outro gera CONTA NOVA, deixando a antiga órfã. Foi assim
+     que o Francisco ficou com três contas, duas nunca usadas.
+
+     A senha não muda, e o vínculo com o cadastro continua o mesmo: troca só
+     o endereço com que ele entra. */
+  trocarEmail(registro) {
+    const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".")
+      .replace(/^\.|\.$/g, "") + "@teccel.com.br";
+    this.dialogo(`Trocar o e-mail de ${registro.inspetor}`,
+      `<p class="aj-dtexto">Muda o endereço com que ${registro.inspetor} entra no
+         app. <b>A senha continua a mesma</b> e a conta é a mesma — não é criada
+         outra. Avise-o, porque o login antigo deixa de funcionar na hora.</p>
+       <p class="aj-dtexto">O padrão <b>nome.sobrenome@teccel.com.br</b> é o que
+         permite o vínculo automático com o cadastro; fora dele, ligar a conta
+         vira trabalho manual.</p>
+       <label class="aj-campo"><span>Novo e-mail</span>
+         <input name="email" type="email" required value="${esc(sugestao)}"
+                autocapitalize="none" spellcheck="false"></label>`,
+      "Trocar e-mail",
+      async form => {
+        const email = form.email.value.trim();
+        if (!email) throw new Error("Informe o novo e-mail.");
+        await Banco.acessoInspetor("email", registro.inspetor, email);
+        await Cadastros.carregar();
+        Cadastros.aplicarNoModelo();
+        this.render();
+        this.avisar(`${registro.inspetor} entra agora com ${email}.`);
+      });
+  },
+
   criarAcesso(registro) {
     const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".") + "@teccel.com.br";
     this.dialogo(`Criar acesso para ${registro.inspetor}`,
