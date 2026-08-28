@@ -417,6 +417,20 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-filtro .aj-mlista input[type=checkbox]{accent-color:var(--acento);
   width:15px;height:15px;min-width:0;flex:0 0 auto;margin:0;padding:0}
 
+/* Coluna de fotos: só é clicável quando há foto, e mostra isso. */
+.tbl td.tem-fotos{cursor:pointer;font-weight:700;color:var(--acento-forte)}
+.tbl td.tem-fotos:hover{background:var(--acento-suave)}
+.aj-fotos .aj-dialogo{max-width:900px;width:92vw}
+.fotos-bloco{margin-bottom:14px}
+.fotos-rot{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt2);margin-bottom:6px}
+.fotos-tira{display:flex;flex-wrap:wrap;gap:8px}
+.fotos-tira a{display:block;width:190px;height:150px;border-radius:9px;overflow:hidden;
+  border:1px solid var(--linha-borda);background:var(--painel-alt)}
+.fotos-tira img{width:100%;height:100%;object-fit:cover;display:block}
+.fotos-tira a:hover{border-color:var(--acento)}
+.foto-erro{font-size:12px;color:var(--txt3)}
+
 /* Gravidade colorida na lista de inspeções: é o que se procura primeiro. */
 .etiqueta.gr-gravissimo{background:#fdecea;color:#b3261e;border-color:#f3c4bb}
 .etiqueta.gr-grave{background:#fff4e5;color:#8a4b00;border-color:#f0d9a8}
@@ -944,7 +958,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260828-0854";
+const VERSAO = "20260828-0925";
 </script>
 <script>
 /* ============================================================
@@ -1017,6 +1031,10 @@ function reconstruirModelo() {
   return FATO;
 }
 let MESES_COM_INSPECAO;
+/* Fotos de cada inspeção, na chave do painel. Vazio até sincronizar: o
+   histórico do data.js veio do Google Forms, onde as fotos ficaram no Drive
+   e nunca entraram aqui. */
+let FOTOS_POR_INSPECAO = {};
 reconstruirModelo();
 
 /* ============================================================
@@ -1101,6 +1119,20 @@ const Sincronia = {
        e as inspeções só vêm as enviadas. Em 27/08/2026 o recado dizia "98 não
        conformidades" enquanto o painel mostrava 90 — os 8 extras eram de dois
        rascunhos abandonados. */
+    /* Fotos por inspeção, na chave que o painel usa.
+
+       O painel identifica a inspeção do app por "app-" + os 8 primeiros
+       caracteres do uuid, enquanto sesmt_fotos guarda o uuid inteiro — sem
+       traduzir, nenhuma foto encontraria sua inspeção. */
+    FOTOS_POR_INSPECAO = {};
+    const idPorUuid = {};
+    d.inspecoes.forEach(x => { idPorUuid[x.id] = idDe(x); });
+    (d.fotos || []).forEach(f => {
+      const id = idPorUuid[f.inspecao];
+      if (!id) return;                    // foto de rascunho: não vem em inspecoes
+      (FOTOS_POR_INSPECAO[id] = FOTOS_POR_INSPECAO[id] || []).push(f);
+    });
+
     this.ncContadas = nc.length;
     this.bancoTemHistorico = d.inspecoes.some(x => x.origem === "historico");
     INSPECOES = this.bancoTemHistorico ? inspecoes : HISTORICO.inspecoes.concat(inspecoes);
@@ -1112,6 +1144,7 @@ const Sincronia = {
   esquecer() {
     this.doBanco = null; this.em = null; this.erro = null;
     this.bancoTemHistorico = false; this.ncContadas = 0;
+    FOTOS_POR_INSPECAO = {};      // foto não é pública: sai da tela com a sessão
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();
@@ -1696,15 +1729,46 @@ const Banco = {
      e não pode entrar em número nenhum. */
   async baixarInspecoes() {
     if (!this.autenticado()) return { inspecoes: [], nc: [], motivo: "sem-login" };
-    const [insp, respostas, perguntas] = await Promise.all([
+    const [insp, respostas, perguntas, fotos] = await Promise.all([
       this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios"
                  + "&enviada_em=not.is.null&order=data"),
       /* Só as não conformes: é o que vira linha de N.C no painel. As
          conformes e as N/A não entram em conta nenhuma. */
       this.pedir("sesmt_respostas?select=inspecao,pergunta&resposta=eq.nao_conforme"),
-      this.pedir("sesmt_perguntas?select=codigo,texto,categoria,gravidade,pontos_nc")
+      this.pedir("sesmt_perguntas?select=codigo,texto,categoria,gravidade,pontos_nc"),
+      /* As fotos vêm junto, e não sob demanda: são poucas linhas (só o
+         caminho), e pedi-las por inspeção faria uma consulta por linha
+         aberta na tela. O arquivo em si só é buscado ao abrir a foto. */
+      this.pedir("sesmt_fotos?select=inspecao,tipo,caminho&order=enviada_em")
     ]);
-    return { inspecoes: insp, respostas, perguntas };
+    return { inspecoes: insp, respostas, perguntas, fotos };
+  },
+
+  /* URLs assinadas para as fotos. O bucket é privado — foto de inspeção
+     mostra rosto, placa e o interior da instalação do cliente —, então o
+     painel pede um link temporário para cada arquivo.
+
+     Em UMA chamada para todas: assinar de uma em uma seria uma requisição
+     por miniatura, e uma inspeção com 8 fotos abriria 8 conexões. */
+  async assinarFotos(caminhos) {
+    if (!caminhos.length) return {};
+    const r = await fetch(`${SERVIDOR.url}/storage/v1/object/sign/inspecoes`, {
+      method: "POST",
+      headers: {
+        apikey: SERVIDOR.chave,
+        Authorization: "Bearer " + this.token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ expiresIn: 3600, paths: caminhos })
+    });
+    if (!r.ok) throw new Error("não deu para abrir as fotos");
+    const lista = await r.json();
+    const mapa = {};
+    (lista || []).forEach(x => {
+      const u = x.signedURL || x.signedUrl || "";
+      if (x.path && u) mapa[x.path] = u.startsWith("http") ? u : SERVIDOR.url + "/storage/v1" + u;
+    });
+    return mapa;
   },
 
   /* Inspeções COMEÇADAS e não enviadas. Não entram em número nenhum do
@@ -2285,7 +2349,12 @@ const SECOES = {
       { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Gravidade", v: r => r.gravidade, etiqueta: true },
-      { t: "Não conformidade", v: r => r.descricao }
+      { t: "Não conformidade", v: r => r.descricao },
+      /* A foto é da INSPEÇÃO, não do desvio: o app não pergunta a qual item
+         ela se refere. Por isso o número se repete nas linhas da mesma
+         inspeção, e abrir mostra todas de uma vez. */
+      { t: "Fotos", v: r => { const n = (FOTOS_POR_INSPECAO[r.id] || []).length;
+          return n ? "📷 " + n : "—"; }, num: true }
     ]
   },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
@@ -2475,6 +2544,57 @@ const Ajustes = {
 
      Num iframe escondido, não em aba nova: aba nova costuma ser bloqueada
      como pop-up, e o usuário acharia que o botão não faz nada. */
+
+  /* Clicar na contagem de fotos abre todas as da inspeção, em tamanho grande.
+
+     As URLs são assinadas no CLIQUE, não ao desenhar a tabela: uma tela com
+     160 linhas pediria 160 assinaturas para miniaturas que ninguém olharia.
+     E elas expiram em uma hora — assinar cedo é assinar duas vezes. */
+  ligarFotos(host, linhas) {
+    [...host.querySelectorAll("tbody tr")].forEach((tr, i) => {
+      const r = linhas[i];
+      const fotos = r && FOTOS_POR_INSPECAO[r.id];
+      if (!fotos || !fotos.length) return;
+      const td = tr.cells[tr.cells.length - 1];
+      td.classList.add("tem-fotos");
+      td.title = `${fotos.length} foto${fotos.length > 1 ? "s" : ""} — clique para ver`;
+      td.onclick = e => { e.stopPropagation(); this.verFotos(r, fotos); };
+    });
+  },
+
+  async verFotos(linha, fotos) {
+    const fundo = document.createElement("div");
+    fundo.className = "aj-fundo aj-fotos";
+    fundo.innerHTML = `<div class="aj-dialogo">
+      <div class="aj-dcab">
+        <h3>${esc(linha.equipe || "—")} · ${esc(linha.dataStr)}</h3>
+        <button type="button" class="aj-x" aria-label="Fechar">✕</button>
+      </div>
+      <div class="aj-dcorpo"><p class="aj-dtexto">Carregando as fotos…</p></div>
+    </div>`;
+    canvas.appendChild(fundo);
+    const fechar = () => fundo.remove();
+    fundo.querySelector(".aj-x").onclick = fechar;
+    fundo.onclick = e => { if (e.target === fundo) fechar(); };
+
+    const corpo = fundo.querySelector(".aj-dcorpo");
+    try {
+      const urls = await Banco.assinarFotos(fotos.map(f => f.caminho));
+      corpo.innerHTML = ["desvio", "boa_pratica"].map(t => {
+        const minhas = fotos.filter(f => f.tipo === t);
+        if (!minhas.length) return "";
+        return `<div class="fotos-bloco">
+          <div class="fotos-rot">${t === "desvio" ? "Desvios" : "Boas práticas"}</div>
+          <div class="fotos-tira">${minhas.map(f => urls[f.caminho]
+            ? `<a href="${urls[f.caminho]}" target="_blank" rel="noopener"
+                  title="Abrir em tamanho original"><img src="${urls[f.caminho]}" alt=""></a>`
+            : `<span class="foto-erro">indisponível</span>`).join("")}</div></div>`;
+      }).join("") || `<p class="aj-dtexto">Sem fotos.</p>`;
+    } catch (e) {
+      corpo.innerHTML = `<p class="aj-dtexto">Não deu para abrir as fotos: ${esc(e.message)}</p>`;
+    }
+  },
+
   baixarPDF() {
     const s = SECOES[this.secao];
     const linhas = this.linhasVisiveis();
@@ -2663,6 +2783,7 @@ const Ajustes = {
           : c.v(r),
         classe: () => c.forte ? "forte" : ""
       }))), linhas);
+      if (this.secao === "inspecoes") this.ligarFotos(host, linhas);
       const cont = this.el.querySelector(".aj-cont");
       if (cont) {
         const total = this.fonte(this.secao).length;

@@ -419,6 +419,20 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-filtro .aj-mlista input[type=checkbox]{accent-color:var(--acento);
   width:15px;height:15px;min-width:0;flex:0 0 auto;margin:0;padding:0}
 
+/* Coluna de fotos: só é clicável quando há foto, e mostra isso. */
+.tbl td.tem-fotos{cursor:pointer;font-weight:700;color:var(--acento-forte)}
+.tbl td.tem-fotos:hover{background:var(--acento-suave)}
+.aj-fotos .aj-dialogo{max-width:900px;width:92vw}
+.fotos-bloco{margin-bottom:14px}
+.fotos-rot{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt2);margin-bottom:6px}
+.fotos-tira{display:flex;flex-wrap:wrap;gap:8px}
+.fotos-tira a{display:block;width:190px;height:150px;border-radius:9px;overflow:hidden;
+  border:1px solid var(--linha-borda);background:var(--painel-alt)}
+.fotos-tira img{width:100%;height:100%;object-fit:cover;display:block}
+.fotos-tira a:hover{border-color:var(--acento)}
+.foto-erro{font-size:12px;color:var(--txt3)}
+
 /* Gravidade colorida na lista de inspeções: é o que se procura primeiro. */
 .etiqueta.gr-gravissimo{background:#fdecea;color:#b3261e;border-color:#f3c4bb}
 .etiqueta.gr-grave{background:#fff4e5;color:#8a4b00;border-color:#f0d9a8}

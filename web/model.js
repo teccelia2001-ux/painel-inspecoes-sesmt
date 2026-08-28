@@ -68,6 +68,10 @@ function reconstruirModelo() {
   return FATO;
 }
 let MESES_COM_INSPECAO;
+/* Fotos de cada inspeção, na chave do painel. Vazio até sincronizar: o
+   histórico do data.js veio do Google Forms, onde as fotos ficaram no Drive
+   e nunca entraram aqui. */
+let FOTOS_POR_INSPECAO = {};
 reconstruirModelo();
 
 /* ============================================================
@@ -152,6 +156,20 @@ const Sincronia = {
        e as inspeções só vêm as enviadas. Em 27/08/2026 o recado dizia "98 não
        conformidades" enquanto o painel mostrava 90 — os 8 extras eram de dois
        rascunhos abandonados. */
+    /* Fotos por inspeção, na chave que o painel usa.
+
+       O painel identifica a inspeção do app por "app-" + os 8 primeiros
+       caracteres do uuid, enquanto sesmt_fotos guarda o uuid inteiro — sem
+       traduzir, nenhuma foto encontraria sua inspeção. */
+    FOTOS_POR_INSPECAO = {};
+    const idPorUuid = {};
+    d.inspecoes.forEach(x => { idPorUuid[x.id] = idDe(x); });
+    (d.fotos || []).forEach(f => {
+      const id = idPorUuid[f.inspecao];
+      if (!id) return;                    // foto de rascunho: não vem em inspecoes
+      (FOTOS_POR_INSPECAO[id] = FOTOS_POR_INSPECAO[id] || []).push(f);
+    });
+
     this.ncContadas = nc.length;
     this.bancoTemHistorico = d.inspecoes.some(x => x.origem === "historico");
     INSPECOES = this.bancoTemHistorico ? inspecoes : HISTORICO.inspecoes.concat(inspecoes);
@@ -163,6 +181,7 @@ const Sincronia = {
   esquecer() {
     this.doBanco = null; this.em = null; this.erro = null;
     this.bancoTemHistorico = false; this.ncContadas = 0;
+    FOTOS_POR_INSPECAO = {};      // foto não é pública: sai da tela com a sessão
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();

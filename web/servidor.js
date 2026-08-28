@@ -215,15 +215,46 @@ const Banco = {
      e não pode entrar em número nenhum. */
   async baixarInspecoes() {
     if (!this.autenticado()) return { inspecoes: [], nc: [], motivo: "sem-login" };
-    const [insp, respostas, perguntas] = await Promise.all([
+    const [insp, respostas, perguntas, fotos] = await Promise.all([
       this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios"
                  + "&enviada_em=not.is.null&order=data"),
       /* Só as não conformes: é o que vira linha de N.C no painel. As
          conformes e as N/A não entram em conta nenhuma. */
       this.pedir("sesmt_respostas?select=inspecao,pergunta&resposta=eq.nao_conforme"),
-      this.pedir("sesmt_perguntas?select=codigo,texto,categoria,gravidade,pontos_nc")
+      this.pedir("sesmt_perguntas?select=codigo,texto,categoria,gravidade,pontos_nc"),
+      /* As fotos vêm junto, e não sob demanda: são poucas linhas (só o
+         caminho), e pedi-las por inspeção faria uma consulta por linha
+         aberta na tela. O arquivo em si só é buscado ao abrir a foto. */
+      this.pedir("sesmt_fotos?select=inspecao,tipo,caminho&order=enviada_em")
     ]);
-    return { inspecoes: insp, respostas, perguntas };
+    return { inspecoes: insp, respostas, perguntas, fotos };
+  },
+
+  /* URLs assinadas para as fotos. O bucket é privado — foto de inspeção
+     mostra rosto, placa e o interior da instalação do cliente —, então o
+     painel pede um link temporário para cada arquivo.
+
+     Em UMA chamada para todas: assinar de uma em uma seria uma requisição
+     por miniatura, e uma inspeção com 8 fotos abriria 8 conexões. */
+  async assinarFotos(caminhos) {
+    if (!caminhos.length) return {};
+    const r = await fetch(`${SERVIDOR.url}/storage/v1/object/sign/inspecoes`, {
+      method: "POST",
+      headers: {
+        apikey: SERVIDOR.chave,
+        Authorization: "Bearer " + this.token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ expiresIn: 3600, paths: caminhos })
+    });
+    if (!r.ok) throw new Error("não deu para abrir as fotos");
+    const lista = await r.json();
+    const mapa = {};
+    (lista || []).forEach(x => {
+      const u = x.signedURL || x.signedUrl || "";
+      if (x.path && u) mapa[x.path] = u.startsWith("http") ? u : SERVIDOR.url + "/storage/v1" + u;
+    });
+    return mapa;
   },
 
   /* Inspeções COMEÇADAS e não enviadas. Não entram em número nenhum do

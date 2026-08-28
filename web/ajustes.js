@@ -100,7 +100,12 @@ const SECOES = {
       { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Gravidade", v: r => r.gravidade, etiqueta: true },
-      { t: "Não conformidade", v: r => r.descricao }
+      { t: "Não conformidade", v: r => r.descricao },
+      /* A foto é da INSPEÇÃO, não do desvio: o app não pergunta a qual item
+         ela se refere. Por isso o número se repete nas linhas da mesma
+         inspeção, e abrir mostra todas de uma vez. */
+      { t: "Fotos", v: r => { const n = (FOTOS_POR_INSPECAO[r.id] || []).length;
+          return n ? "📷 " + n : "—"; }, num: true }
     ]
   },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
@@ -290,6 +295,57 @@ const Ajustes = {
 
      Num iframe escondido, não em aba nova: aba nova costuma ser bloqueada
      como pop-up, e o usuário acharia que o botão não faz nada. */
+
+  /* Clicar na contagem de fotos abre todas as da inspeção, em tamanho grande.
+
+     As URLs são assinadas no CLIQUE, não ao desenhar a tabela: uma tela com
+     160 linhas pediria 160 assinaturas para miniaturas que ninguém olharia.
+     E elas expiram em uma hora — assinar cedo é assinar duas vezes. */
+  ligarFotos(host, linhas) {
+    [...host.querySelectorAll("tbody tr")].forEach((tr, i) => {
+      const r = linhas[i];
+      const fotos = r && FOTOS_POR_INSPECAO[r.id];
+      if (!fotos || !fotos.length) return;
+      const td = tr.cells[tr.cells.length - 1];
+      td.classList.add("tem-fotos");
+      td.title = `${fotos.length} foto${fotos.length > 1 ? "s" : ""} — clique para ver`;
+      td.onclick = e => { e.stopPropagation(); this.verFotos(r, fotos); };
+    });
+  },
+
+  async verFotos(linha, fotos) {
+    const fundo = document.createElement("div");
+    fundo.className = "aj-fundo aj-fotos";
+    fundo.innerHTML = `<div class="aj-dialogo">
+      <div class="aj-dcab">
+        <h3>${esc(linha.equipe || "—")} · ${esc(linha.dataStr)}</h3>
+        <button type="button" class="aj-x" aria-label="Fechar">✕</button>
+      </div>
+      <div class="aj-dcorpo"><p class="aj-dtexto">Carregando as fotos…</p></div>
+    </div>`;
+    canvas.appendChild(fundo);
+    const fechar = () => fundo.remove();
+    fundo.querySelector(".aj-x").onclick = fechar;
+    fundo.onclick = e => { if (e.target === fundo) fechar(); };
+
+    const corpo = fundo.querySelector(".aj-dcorpo");
+    try {
+      const urls = await Banco.assinarFotos(fotos.map(f => f.caminho));
+      corpo.innerHTML = ["desvio", "boa_pratica"].map(t => {
+        const minhas = fotos.filter(f => f.tipo === t);
+        if (!minhas.length) return "";
+        return `<div class="fotos-bloco">
+          <div class="fotos-rot">${t === "desvio" ? "Desvios" : "Boas práticas"}</div>
+          <div class="fotos-tira">${minhas.map(f => urls[f.caminho]
+            ? `<a href="${urls[f.caminho]}" target="_blank" rel="noopener"
+                  title="Abrir em tamanho original"><img src="${urls[f.caminho]}" alt=""></a>`
+            : `<span class="foto-erro">indisponível</span>`).join("")}</div></div>`;
+      }).join("") || `<p class="aj-dtexto">Sem fotos.</p>`;
+    } catch (e) {
+      corpo.innerHTML = `<p class="aj-dtexto">Não deu para abrir as fotos: ${esc(e.message)}</p>`;
+    }
+  },
+
   baixarPDF() {
     const s = SECOES[this.secao];
     const linhas = this.linhasVisiveis();
@@ -478,6 +534,7 @@ const Ajustes = {
           : c.v(r),
         classe: () => c.forte ? "forte" : ""
       }))), linhas);
+      if (this.secao === "inspecoes") this.ligarFotos(host, linhas);
       const cont = this.el.querySelector(".aj-cont");
       if (cont) {
         const total = this.fonte(this.secao).length;
