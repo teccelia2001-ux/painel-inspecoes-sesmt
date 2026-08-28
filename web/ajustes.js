@@ -65,7 +65,13 @@ const SECOES = {
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
       { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true },
-      { t: "Acesso", v: r => r.user_id ? "tem login" : "—", etiqueta: true }
+      /* O e-mail em si, e não "tem login": é ele que o administrador precisa
+         para avisar a pessoa, conferir se está no padrão do cadastro ou
+         perceber que duas contas ficaram parecidas. Só aparece para
+         administrador — para os outros, a função do banco devolve vazio e
+         a coluna cai no "tem login" de antes. */
+      { t: "Acesso", v: r => !r.user_id ? "—"
+          : (Cadastros.acessos[r.inspetor] || "tem login") }
     ]
   },
   /* Inspeções — as feitas, para consultar e baixar.
@@ -1056,8 +1062,12 @@ const Ajustes = {
      A senha não muda, e o vínculo com o cadastro continua o mesmo: troca só
      o endereço com que ele entra. */
   trocarEmail(registro) {
-    const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".")
-      .replace(/^\.|\.$/g, "") + "@teccel.com.br";
+    /* Parte do endereço ATUAL quando ele é conhecido: quase sempre a troca é
+       consertar uma letra, não escrever tudo de novo. Só cai na sugestão pelo
+       nome quando a função do banco não devolveu o e-mail. */
+    const atual = Cadastros.acessos[registro.inspetor];
+    const sugestao = atual || (semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".")
+      .replace(/^\.|\.$/g, "") + "@teccel.com.br");
     this.dialogo(`Trocar o e-mail de ${registro.inspetor}`,
       `<p class="aj-dtexto">Muda o endereço com que ${registro.inspetor} entra no
          app. <b>A senha continua a mesma</b> e a conta é a mesma — não é criada

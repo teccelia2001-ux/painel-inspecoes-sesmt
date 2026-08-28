@@ -967,7 +967,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260828-0933";
+const VERSAO = "20260828-1223";
 </script>
 <script>
 /* ============================================================
@@ -1696,6 +1696,25 @@ const Banco = {
     throw new Error(detalhe);
   },
 
+  /* O e-mail com que cada inspetor entra no app.
+
+     Vem de uma função no banco (sesmt_acessos), não de uma consulta: o
+     endereço mora em auth.users, que não é — nem deve ser — exposta ao
+     PostgREST. A função devolve só inspetor e e-mail, e só para
+     administrador; para inspetor volta vazio.
+
+     Falhar aqui não pode derrubar o cadastro: sem o e-mail a tela ainda
+     mostra quem tem login, que era o comportamento até 28/08/2026. */
+  async baixarAcessos() {
+    if (!this.autenticado() || !this.admin) return {};
+    try {
+      const linhas = await this.pedir("rpc/sesmt_acessos", { method: "POST", body: "{}" });
+      const mapa = {};
+      (linhas || []).forEach(x => { if (x.inspetor) mapa[x.inspetor] = x.email; });
+      return mapa;
+    } catch (e) { return {}; }
+  },
+
   /* ---------- cadastros ---------- */
   async baixarCadastros() {
     const [eq, insp] = await Promise.all([
@@ -1822,6 +1841,7 @@ const Banco = {
 const Cadastros = {
   equipes: [],       // {id, equipe, tipo, supervisor, pontos, ativa}
   inspetores: [],    // {id, inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo}
+  acessos: {},       // inspetor -> e-mail de login (só para administrador)
   origem: "embutido",
 
   /* Dados de data.js, usados enquanto o banco não responde */
@@ -1883,6 +1903,9 @@ const Cadastros = {
       Banco.ligado = false;
       Banco.erro = e.message;
     }
+    /* Depois de verificarAdmin(), que roda dentro de baixarCadastros: antes
+       dela a função do banco devolveria vazio mesmo para o administrador. */
+    this.acessos = await Banco.baixarAcessos();
     this.aplicarNoModelo();
     return this.origem;
   },
@@ -2339,7 +2362,13 @@ const SECOES = {
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
       { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
       { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true },
-      { t: "Acesso", v: r => r.user_id ? "tem login" : "—", etiqueta: true }
+      /* O e-mail em si, e não "tem login": é ele que o administrador precisa
+         para avisar a pessoa, conferir se está no padrão do cadastro ou
+         perceber que duas contas ficaram parecidas. Só aparece para
+         administrador — para os outros, a função do banco devolve vazio e
+         a coluna cai no "tem login" de antes. */
+      { t: "Acesso", v: r => !r.user_id ? "—"
+          : (Cadastros.acessos[r.inspetor] || "tem login") }
     ]
   },
   /* Inspeções — as feitas, para consultar e baixar.
@@ -3330,8 +3359,12 @@ const Ajustes = {
      A senha não muda, e o vínculo com o cadastro continua o mesmo: troca só
      o endereço com que ele entra. */
   trocarEmail(registro) {
-    const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".")
-      .replace(/^\.|\.$/g, "") + "@teccel.com.br";
+    /* Parte do endereço ATUAL quando ele é conhecido: quase sempre a troca é
+       consertar uma letra, não escrever tudo de novo. Só cai na sugestão pelo
+       nome quando a função do banco não devolveu o e-mail. */
+    const atual = Cadastros.acessos[registro.inspetor];
+    const sugestao = atual || (semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".")
+      .replace(/^\.|\.$/g, "") + "@teccel.com.br");
     this.dialogo(`Trocar o e-mail de ${registro.inspetor}`,
       `<p class="aj-dtexto">Muda o endereço com que ${registro.inspetor} entra no
          app. <b>A senha continua a mesma</b> e a conta é a mesma — não é criada

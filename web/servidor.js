@@ -157,6 +157,25 @@ const Banco = {
     throw new Error(detalhe);
   },
 
+  /* O e-mail com que cada inspetor entra no app.
+
+     Vem de uma função no banco (sesmt_acessos), não de uma consulta: o
+     endereço mora em auth.users, que não é — nem deve ser — exposta ao
+     PostgREST. A função devolve só inspetor e e-mail, e só para
+     administrador; para inspetor volta vazio.
+
+     Falhar aqui não pode derrubar o cadastro: sem o e-mail a tela ainda
+     mostra quem tem login, que era o comportamento até 28/08/2026. */
+  async baixarAcessos() {
+    if (!this.autenticado() || !this.admin) return {};
+    try {
+      const linhas = await this.pedir("rpc/sesmt_acessos", { method: "POST", body: "{}" });
+      const mapa = {};
+      (linhas || []).forEach(x => { if (x.inspetor) mapa[x.inspetor] = x.email; });
+      return mapa;
+    } catch (e) { return {}; }
+  },
+
   /* ---------- cadastros ---------- */
   async baixarCadastros() {
     const [eq, insp] = await Promise.all([
@@ -283,6 +302,7 @@ const Banco = {
 const Cadastros = {
   equipes: [],       // {id, equipe, tipo, supervisor, pontos, ativa}
   inspetores: [],    // {id, inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo}
+  acessos: {},       // inspetor -> e-mail de login (só para administrador)
   origem: "embutido",
 
   /* Dados de data.js, usados enquanto o banco não responde */
@@ -344,6 +364,9 @@ const Cadastros = {
       Banco.ligado = false;
       Banco.erro = e.message;
     }
+    /* Depois de verificarAdmin(), que roda dentro de baixarCadastros: antes
+       dela a função do banco devolveria vazio mesmo para o administrador. */
+    this.acessos = await Banco.baixarAcessos();
     this.aplicarNoModelo();
     return this.origem;
   },
