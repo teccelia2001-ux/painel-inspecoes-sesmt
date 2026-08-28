@@ -159,6 +159,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .rotulo{fill:var(--txt);font-size:9px;font-weight:600}
 .rotulo-linha{fill:var(--c-linha);font-size:9.5px;font-weight:800;
   paint-order:stroke fill;stroke:var(--painel);stroke-width:3px;stroke-linejoin:round}
+/* coluna estreita (inspeções por dia, ~24px por dia): texto menor e contorno
+   mais fino, senão os rótulos vizinhos se tocam */
+.rotulo-linha.miudo{font-size:8px;stroke-width:2.5px}
 /* o rótulo fica por cima da barra colorida: contorno branco garante leitura
    tanto sobre a barra quanto sobre o fundo, quando o texto passa dela */
 .rotulo-barra{fill:var(--txt);font-size:10px;
@@ -941,7 +944,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260827-1404";
+const VERSAO = "20260828-0827";
 </script>
 <script>
 /* ============================================================
@@ -1859,7 +1862,13 @@ function comboChart(host, dados, opt) {
   opt = Object.assign({
     series: [{ key: "qtd", label: "Realizado", cor: "var(--c1)" }],
     linha: null, rotulo: "chave", pctLinha: true, rotacionar: true,
-    metaLinha: null, maxRot: 14, minColuna: 0
+    metaLinha: null, maxRot: 14, minColuna: 0,
+    /* Largura mínima de coluna para escrever o valor da linha, e quantas casas
+       decimais usar. Padrão 34px com uma casa ("57,4%"). Em gráficos de muitas
+       colunas — o de inspeções por dia tem ~60 em 1482px, 24px cada — o rótulo
+       simplesmente não aparecia. Baixando o mínimo e tirando a casa decimal,
+       "100%" cabe em 24px. */
+    larguraRotuloLinha: 34, casasLinha: 1
   }, opt);
 
   const H = host.clientHeight;
@@ -1964,7 +1973,7 @@ function comboChart(host, dados, opt) {
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
       // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
-      if (bw >= 34) {
+      if (bw >= opt.larguraRotuloLinha) {
         const xl = dentroX(x);
         let yl = y - 11;
         /* Enquanto cair em cima de alguma quantidade da mesma coluna, sobe
@@ -1976,8 +1985,12 @@ function comboChart(host, dados, opt) {
           if (!c.length) break;
           yl = Math.min(...c.map(r => r.y)) - 11;
         }
-        g.appendChild(el("text", { x: xl, y: dentroY(yl), class: "rotulo-linha", "text-anchor": "middle" },
-          opt.pctLinha ? fmtP(v, 1) : fmtD(v, 1)));
+        /* Coluna estreita ganha texto menor: com 24px por dia, o rótulo do
+           tamanho normal encostaria no vizinho. */
+        g.appendChild(el("text", {
+          x: xl, y: dentroY(yl), "text-anchor": "middle",
+          class: "rotulo-linha" + (bw < 30 ? " miudo" : "")
+        }, opt.pctLinha ? fmtP(v, opt.casasLinha) : fmtD(v, opt.casasLinha)));
       }
     });
     for (let i = 0; i <= 4; i++) {
@@ -3813,7 +3826,11 @@ function render() {
     }));
     comboChart(R.diChart, dias, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22
+      /* Porcentagem em cada dia, a pedido de 27/08/2026. Sem casa decimal e
+         com o mínimo de coluna baixado, "100%" cabe nos 24px de cada dia —
+         com o padrão (34px e "100,0%") nenhum rótulo aparecia. */
+      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22,
+      larguraRotuloLinha: 14, casasLinha: 0
     });
     legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
       { cor: "var(--c-linha)", txt: "% com N.C" }]);

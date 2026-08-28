@@ -594,7 +594,11 @@ function render() {
     }));
     comboChart(R.diChart, dias, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
-      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22
+      /* Porcentagem em cada dia, a pedido de 27/08/2026. Sem casa decimal e
+         com o mínimo de coluna baixado, "100%" cabe nos 24px de cada dia —
+         com o padrão (34px e "100,0%") nenhum rótulo aparecia. */
+      linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22,
+      larguraRotuloLinha: 14, casasLinha: 0
     });
     legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
       { cor: "var(--c-linha)", txt: "% com N.C" }]);

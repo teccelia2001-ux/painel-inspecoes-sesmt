@@ -21,7 +21,13 @@ function comboChart(host, dados, opt) {
   opt = Object.assign({
     series: [{ key: "qtd", label: "Realizado", cor: "var(--c1)" }],
     linha: null, rotulo: "chave", pctLinha: true, rotacionar: true,
-    metaLinha: null, maxRot: 14, minColuna: 0
+    metaLinha: null, maxRot: 14, minColuna: 0,
+    /* Largura mínima de coluna para escrever o valor da linha, e quantas casas
+       decimais usar. Padrão 34px com uma casa ("57,4%"). Em gráficos de muitas
+       colunas — o de inspeções por dia tem ~60 em 1482px, 24px cada — o rótulo
+       simplesmente não aparecia. Baixando o mínimo e tirando a casa decimal,
+       "100%" cabe em 24px. */
+    larguraRotuloLinha: 34, casasLinha: 1
   }, opt);
 
   const H = host.clientHeight;
@@ -126,7 +132,7 @@ function comboChart(host, dados, opt) {
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
       // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
-      if (bw >= 34) {
+      if (bw >= opt.larguraRotuloLinha) {
         const xl = dentroX(x);
         let yl = y - 11;
         /* Enquanto cair em cima de alguma quantidade da mesma coluna, sobe
@@ -138,8 +144,12 @@ function comboChart(host, dados, opt) {
           if (!c.length) break;
           yl = Math.min(...c.map(r => r.y)) - 11;
         }
-        g.appendChild(el("text", { x: xl, y: dentroY(yl), class: "rotulo-linha", "text-anchor": "middle" },
-          opt.pctLinha ? fmtP(v, 1) : fmtD(v, 1)));
+        /* Coluna estreita ganha texto menor: com 24px por dia, o rótulo do
+           tamanho normal encostaria no vizinho. */
+        g.appendChild(el("text", {
+          x: xl, y: dentroY(yl), "text-anchor": "middle",
+          class: "rotulo-linha" + (bw < 30 ? " miudo" : "")
+        }, opt.pctLinha ? fmtP(v, opt.casasLinha) : fmtD(v, opt.casasLinha)));
       }
     });
     for (let i = 0; i <= 4; i++) {

@@ -161,6 +161,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .rotulo{fill:var(--txt);font-size:9px;font-weight:600}
 .rotulo-linha{fill:var(--c-linha);font-size:9.5px;font-weight:800;
   paint-order:stroke fill;stroke:var(--painel);stroke-width:3px;stroke-linejoin:round}
+/* coluna estreita (inspeções por dia, ~24px por dia): texto menor e contorno
+   mais fino, senão os rótulos vizinhos se tocam */
+.rotulo-linha.miudo{font-size:8px;stroke-width:2.5px}
 /* o rótulo fica por cima da barra colorida: contorno branco garante leitura
    tanto sobre a barra quanto sobre o fundo, quando o texto passa dela */
 .rotulo-barra{fill:var(--txt);font-size:10px;
