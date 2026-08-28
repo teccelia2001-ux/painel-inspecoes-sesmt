@@ -419,6 +419,15 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-filtro .aj-mlista input[type=checkbox]{accent-color:var(--acento);
   width:15px;height:15px;min-width:0;flex:0 0 auto;margin:0;padding:0}
 
+/* Ações por linha na aba Inspeções: botões pequenos, lado a lado. */
+.aj-acoes-linha{display:flex;gap:4px}
+.aj-mini{border:1px solid var(--linha-borda);background:var(--painel);cursor:pointer;
+  border-radius:6px;padding:2px 7px;font-size:12px;line-height:1.4;color:var(--txt2)}
+.aj-mini:hover{border-color:var(--acento);color:var(--acento-forte);
+  background:var(--acento-suave)}
+.aj-mini.perigo:hover{border-color:#e0655a;color:#b3261e;background:#fdecea}
+.aj-mini:disabled{opacity:.5;cursor:progress}
+
 /* Coluna de fotos: só é clicável quando há foto, e mostra isso. */
 .tbl td.tem-fotos{cursor:pointer;font-weight:700;color:var(--acento-forte)}
 .tbl td.tem-fotos:hover{background:var(--acento-suave)}

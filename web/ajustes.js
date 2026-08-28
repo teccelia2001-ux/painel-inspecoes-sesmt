@@ -346,6 +346,207 @@ const Ajustes = {
     }
   },
 
+  /* Editar a inspeção — só o cabeçalho: equipe, data e departamento.
+
+     As RESPOSTAS não se editam aqui, de propósito. Quem respondeu foi o
+     inspetor em campo, olhando a turma; mudar isso de escritório apagaria a
+     diferença entre o que foi visto e o que alguém preferiria ter visto. Erro
+     de resposta se corrige refazendo a inspeção.
+
+     O que se corrige aqui é o que se erra ao começar: escolher a equipe
+     errada na lista, ou a data. */
+  editarInspecao(linha) {
+    const uuid = UUID_POR_ID[linha.id];
+    if (!uuid) return this.avisar("Esta inspeção não está no banco — não dá para editar.", true);
+    const equipes = Cadastros.equipes.filter(e => e.ativa).map(e => e.equipe).sort(ordemNatural);
+    const dep = Object.entries(Sincronia.DEPARTAMENTO);
+    const [d, m, a] = String(linha.dataStr).split("/");
+
+    this.dialogo(`Editar inspeção de ${linha.equipe}`,
+      `<p class="aj-dtexto">Corrige o cabeçalho da inspeção. <b>As respostas do
+         checklist não mudam</b> — elas são o que o inspetor viu em campo.</p>
+       <label class="aj-campo"><span>Equipe</span>
+         <input name="equipe" list="lista-eq-insp" value="${esc(linha.equipe)}" required>
+         <datalist id="lista-eq-insp">${equipes.map(e =>
+           `<option value="${esc(e)}">`).join("")}</datalist></label>
+       <label class="aj-campo"><span>Data</span>
+         <input name="data" type="date" required value="${a}-${m}-${d}"></label>
+       <label class="aj-campo"><span>Departamento</span>
+         <select name="departamento">${dep.map(([cod, nome]) =>
+           `<option value="${cod}"${nome === linha.tipo ? " selected" : ""}>${esc(nome)}</option>`
+         ).join("")}</select></label>`,
+      "Salvar",
+      async form => {
+        const equipe = form.equipe.value.trim();
+        if (!equipe) throw new Error("Informe a equipe.");
+        /* Só cobra a lista se houver lista. Com o cadastro vazio — banco fora
+           do ar, por exemplo — a conferência recusaria TODO nome, e o
+           administrador ficaria sem conseguir corrigir nada. */
+        if (equipes.length && !equipes.includes(equipe)) {
+          throw new Error(`"${equipe}" não está no cadastro de equipes. `
+            + "A inspeção casa com a equipe pelo nome — um nome fora do cadastro "
+            + "faria ela sumir dos números.");
+        }
+        await Banco.atualizar("sesmt_inspecoes", uuid, {
+          equipe, data: form.data.value, departamento: form.departamento.value
+        });
+        /* Rebaixa tudo: mudar equipe ou data mexe em quase todo indicador,
+           e recalcular na memória sem reler o banco arriscaria divergir. */
+        await Sincronia.sincronizar();
+        this.render(); render();
+        this.avisar(`Inspeção atualizada para ${equipe}.`);
+      });
+  },
+
+  /* Excluir a inspeção. Leva junto respostas e fotos, por cascata no banco. */
+  excluirInspecao(linha) {
+    const uuid = UUID_POR_ID[linha.id];
+    if (!uuid) return this.avisar("Esta inspeção não está no banco — não dá para excluir.", true);
+    const nc = ncDe(linha).length;
+    const fotos = (FOTOS_POR_INSPECAO[linha.id] || []).length;
+
+    this.dialogo(`Excluir a inspeção de ${linha.equipe}?`,
+      `<p class="aj-dtexto">Serão apagados <b>${nc} não conformidade(s)</b> e
+         <b>${fotos} foto(s)</b>, além da própria inspeção. <b>Não dá para
+         desfazer</b> — nem o inspetor consegue reenviá-la.</p>
+       <p class="aj-dtexto">Os números do painel mudam na hora: a equipe
+         ${esc(linha.equipe)} recupera os pontos descontados, e a inspeção sai
+         da contagem de ${esc(linha.inspetor || "—")}.</p>
+       <label class="aj-campo"><span>Digite EXCLUIR para confirmar</span>
+         <input name="confirma" autocomplete="off" placeholder="EXCLUIR"></label>`,
+      "Excluir", async form => {
+        /* Digitar a palavra, e não só clicar: apagar inspeção é irreversível
+           e mexe em indicador de segurança do trabalho. */
+        if (form.confirma.value.trim().toUpperCase() !== "EXCLUIR") {
+          throw new Error('Digite EXCLUIR para confirmar.');
+        }
+        await Banco.excluir("sesmt_inspecoes", uuid);
+        await Sincronia.sincronizar();
+        this.render(); render();
+        this.avisar(`Inspeção de ${linha.equipe} · ${linha.dataStr} excluída.`);
+      }, true);
+  },
+
+  /* Relatório de UMA inspeção, com as fotos dentro.
+
+     As fotos são convertidas para dados embutidos no documento, e não
+     referenciadas pelo link assinado. O link expira em uma hora: um PDF
+     salvo com links viraria uma folha de quadrados vazios no dia seguinte,
+     que é exatamente quando alguém vai abri-lo. Embutir custa tamanho —
+     cada foto some 33% ao virar base64 — e é o preço de o arquivo valer
+     sozinho, sem depender do servidor nem de sessão. */
+  async baixarInspecao(linha, botao) {
+    const antes = botao ? botao.textContent : "";
+    if (botao) { botao.disabled = true; botao.textContent = "…"; }
+    try {
+      const nc = ncDe(linha);
+      const fotos = FOTOS_POR_INSPECAO[linha.id] || [];
+      const texto = TEXTO_DESVIOS[linha.id] || "";
+
+      let embutidas = [];
+      if (fotos.length) {
+        const urls = await Banco.assinarFotos(fotos.map(f => f.caminho));
+        embutidas = await Promise.all(fotos.map(async f => {
+          try {
+            const r = await fetch(urls[f.caminho]);
+            const b = await r.blob();
+            const dados = await new Promise((ok, falha) => {
+              const fr = new FileReader();
+              fr.onload = () => ok(fr.result);
+              fr.onerror = () => falha(new Error("falhou"));
+              fr.readAsDataURL(b);
+            });
+            return { tipo: f.tipo, dados };
+          } catch (e) { return null; }   // uma foto quebrada não derruba o relatório
+        }));
+        embutidas = embutidas.filter(Boolean);
+      }
+
+      const bloco = t => {
+        const minhas = embutidas.filter(f => f.tipo === t);
+        if (!minhas.length) return "";
+        return `<h2>${t === "desvio" ? "Fotos dos desvios" : "Fotos de boas práticas"}</h2>
+          <div class="fotos">${minhas.map(f =>
+            `<img src="${f.dados}" alt="">`).join("")}</div>`;
+      };
+
+      const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+        <title>Inspecao ${esc(linha.equipe)} ${esc(linha.dataStr)}</title><style>
+          @page { size: A4 portrait; margin: 14mm 12mm }
+          body { font: 11.5px "Open Sans", Arial, sans-serif; color: #241f1a; margin: 0 }
+          h1 { font-size: 17px; margin: 0 0 2px }
+          .sub { color: #7b7168; font-size: 10px; margin: 0 0 12px }
+          h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+               color: #7b7168; border-bottom: 1.5px solid #241f1a;
+               padding-bottom: 4px; margin: 16px 0 8px }
+          .ficha { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 18px }
+          .ficha div { border-bottom: 1px solid #e6e0d8; padding: 4px 0 }
+          .ficha b { display: block; font-size: 9px; text-transform: uppercase;
+                     letter-spacing: .06em; color: #7b7168; font-weight: 700 }
+          ul { margin: 0; padding-left: 16px }
+          li { margin: 4px 0; line-height: 1.45; break-inside: avoid }
+          .g { font-weight: 800 }
+          .gravissimo { color: #b3261e } .grave { color: #8a4b00 } .leve { color: #31536e }
+          .livre { white-space: pre-wrap; line-height: 1.5;
+                   background: #fbf8f4; padding: 9px 11px; border-radius: 7px }
+          .fotos { display: flex; flex-wrap: wrap; gap: 8px }
+          /* Duas por linha: menor que isso não se enxerga o desvio, que é o
+             motivo de a foto existir no relatório. */
+          .fotos img { width: 48%; border-radius: 6px; break-inside: avoid }
+          .limpa { color: #1d5220; font-weight: 700 }
+          .rodape { margin-top: 16px; font-size: 9px; color: #a49a90 }
+        </style></head><body>
+        <h1>Inspeção — ${esc(linha.equipe || "—")}</h1>
+        <p class="sub">Inspeções SESMT · Regional Oeste — gerado em ${
+          new Date().toLocaleString("pt-BR")}</p>
+
+        <div class="ficha">
+          <div><b>Data</b>${esc(linha.dataStr)}</div>
+          <div><b>Inspetor</b>${esc(linha.inspetor || linha.inspetorBruto || "—")}</div>
+          <div><b>Departamento</b>${esc(linha.tipo || "—")}</div>
+          <div><b>Polo</b>${esc(linha.polo || "—")}</div>
+          <div><b>Supervisor</b>${esc(linha.supervisor || "—")}</div>
+          <div><b>Não conformidades</b>${nc.length} · ${
+            nc.reduce((a, x) => a + (x[4] || 0), 0)} ponto(s)</div>
+        </div>
+
+        <h2>Não conformidades</h2>
+        ${nc.length ? `<ul>${nc.map(x => `<li>
+            <span class="g ${semAcentoAj(x[3] || "").replace(/[^a-z]/g, "")}">${
+              esc(x[3] || "Sem classificação")}</span>${
+              x[4] ? ` (${x[4]} pt)` : ""} — ${esc(x[1])}${
+              x[2] ? ` <i>${esc(x[2])}</i>` : ""}</li>`).join("")}</ul>`
+          : `<p class="limpa">Nenhuma não conformidade registrada nesta inspeção.</p>`}
+
+        ${texto ? `<h2>Desvios encontrados (relato do inspetor)</h2>
+          <div class="livre">${esc(texto)}</div>` : ""}
+
+        ${bloco("desvio")}${bloco("boa_pratica")}
+        ${fotos.length && !embutidas.length
+          ? `<p class="sub">As fotos não puderam ser carregadas.</p>` : ""}
+
+        <p class="rodape">Painel de Inspeções SESMT — os mesmos dados da tela.</p>
+        </body></html>`;
+
+      const q = document.createElement("iframe");
+      q.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+      q.srcdoc = html;
+      q.onload = () => {
+        q.contentWindow.focus();
+        q.contentWindow.print();
+        setTimeout(() => q.remove(), 60000);
+      };
+      document.body.appendChild(q);
+      this.avisar(`Relatório de ${linha.equipe} · ${linha.dataStr} — ${nc.length} `
+        + `não conformidade(s) e ${embutidas.length} foto(s). `
+        + `Na janela de impressão, escolha "Salvar como PDF".`);
+    } catch (e) {
+      this.avisar("Não deu para gerar o relatório: " + e.message, true);
+    } finally {
+      if (botao) { botao.disabled = false; botao.textContent = antes; }
+    }
+  },
+
   baixarPDF() {
     const s = SECOES[this.secao];
     const linhas = this.linhasVisiveis();
@@ -513,6 +714,31 @@ const Ajustes = {
          lixeira apareceu na aba Inspeções, onde um clique chamaria
          excluirRascunho() sobre uma inspeção de verdade. Inspeção enviada
          não se apaga pelo painel. */
+      /* Na aba Inspeções cada linha ganha ações próprias. Baixar vale para
+         qualquer uma; editar e excluir, só para as que vieram do APP — as do
+         histórico moram no data.js, não no banco, e não há o que alterar. */
+      const acaoInsp = this.secao !== "inspecoes" ? [] : [{ titulo: "Ações", valor: r => {
+        const d = document.createElement("div");
+        d.className = "aj-acoes-linha";
+        const doApp = String(r.id).startsWith("app-");
+        const bt = (txt, dica, fn, classe) => {
+          const b = document.createElement("button");
+          b.className = "aj-mini " + (classe || "");
+          b.textContent = txt; b.title = dica;
+          b.onclick = e => { e.stopPropagation(); fn(b); };
+          d.appendChild(b);
+        };
+        bt("⭳", "Baixar esta inspeção em PDF, com as fotos",
+           b => this.baixarInspecao(r, b));
+        if (podeEditar && doApp) {
+          bt("✎", "Editar equipe, data ou departamento desta inspeção",
+             () => this.editarInspecao(r));
+          bt("🗑", "Excluir esta inspeção, com respostas e fotos",
+             () => this.excluirInspecao(r), "perigo");
+        }
+        return d;
+      } }];
+
       const acao = podeEditar && this.secao === "rascunhos" ? [{ titulo: "Ações", valor: r => {
         const b = document.createElement("button");
         b.className = "aj-lixeira";
@@ -521,7 +747,7 @@ const Ajustes = {
         b.onclick = () => this.excluirRascunho(r);
         return b;
       } }] : [];
-      tabela(host, acao.concat(s.colunas.map(c => ({
+      tabela(host, acao.concat(acaoInsp).concat(s.colunas.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
           ? Object.assign(document.createElement("span"), {

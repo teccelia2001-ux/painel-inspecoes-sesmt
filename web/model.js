@@ -72,6 +72,8 @@ let MESES_COM_INSPECAO;
    histórico do data.js veio do Google Forms, onde as fotos ficaram no Drive
    e nunca entraram aqui. */
 let FOTOS_POR_INSPECAO = {};
+let TEXTO_DESVIOS = {};
+let UUID_POR_ID = {};
 reconstruirModelo();
 
 /* ============================================================
@@ -162,8 +164,21 @@ const Sincronia = {
        caracteres do uuid, enquanto sesmt_fotos guarda o uuid inteiro — sem
        traduzir, nenhuma foto encontraria sua inspeção. */
     FOTOS_POR_INSPECAO = {};
+    /* O texto livre que o inspetor escreveu em "Desvios encontrados". Não
+       entra em número nenhum, mas é o que explica o que a foto mostra — some
+       do modelo se não for guardado aqui, e o relatório individual perderia
+       justamente a parte escrita por gente. */
+    TEXTO_DESVIOS = {};
+    /* O caminho de volta: do id curto do painel para o uuid do banco. É o que
+       permite editar ou excluir uma inspeção a partir da tela — sem ele, o
+       painel sabe mostrar mas não sabe apontar. */
+    UUID_POR_ID = {};
     const idPorUuid = {};
-    d.inspecoes.forEach(x => { idPorUuid[x.id] = idDe(x); });
+    d.inspecoes.forEach(x => {
+      idPorUuid[x.id] = idDe(x);
+      UUID_POR_ID[idDe(x)] = x.id;
+      if (x.desvios) TEXTO_DESVIOS[idDe(x)] = x.desvios;
+    });
     (d.fotos || []).forEach(f => {
       const id = idPorUuid[f.inspecao];
       if (!id) return;                    // foto de rascunho: não vem em inspecoes
@@ -182,6 +197,7 @@ const Sincronia = {
     this.doBanco = null; this.em = null; this.erro = null;
     this.bancoTemHistorico = false; this.ncContadas = 0;
     FOTOS_POR_INSPECAO = {};      // foto não é pública: sai da tela com a sessão
+    TEXTO_DESVIOS = {};
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();
