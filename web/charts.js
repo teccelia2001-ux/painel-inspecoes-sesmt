@@ -31,8 +31,31 @@ function comboChart(host, dados, opt) {
   }, opt);
 
   const H = host.clientHeight;
+
+  /* Visual ampliado: o painel triplica de tamanho e a fonte tem que crescer
+     junto, senão o gráfico grande fica com letra de gráfico pequeno — foi o
+     que se viu ao ampliar o ICIT por inspetor. O fator vale para o TEXTO (no
+     CSS, por .v.ampliado) e para tudo que é medido em pixel aqui: margens,
+     folgas dos rótulos e a largura máxima da barra. Sem isso o rótulo do eixo
+     cresce e sai cortado na margem de baixo, que continuaria com 62px. */
+  const amp = host.closest && host.closest(".ampliado") ? 1.6 : 1;
+  // ampliado cabe mais texto no rótulo do eixo: "PLANTÃO - P…" volta inteiro
+  const maxRot = Math.round(opt.maxRot * amp);
+  const largRotLinha = opt.larguraRotuloLinha * amp;
+
+  /* O rótulo do eixo X é inclinado a -35°: quanto mais longo, mais fundo ele
+     desce. Ampliado o texto cresce E cabe mais caractere, então a margem de
+     baixo tem que sair do maior rótulo — com os 62px de sempre, "PLANTÃO -
+     PTSCX02" passava por baixo da borda do quadro. Em tamanho normal a conta
+     dá menos que 62 e nada muda. */
+  const maiorRot = opt.rotacionar
+    ? Math.max(0, ...dados.map(d => corta(String(d[opt.rotulo]), maxRot).length))
+    : 0;
+  const alturaRot = maiorRot * 9.5 * amp * 0.55 * 0.574 + 16 * amp;
+
   // com linha de % o rótulo do ponto sobe 11px: sem folga no topo ele sai cortado
-  const m = { t: opt.linha ? 26 : 16, r: opt.linha ? 44 : 14, b: opt.rotacionar ? 62 : 30, l: 40 };
+  const m = { t: (opt.linha ? 26 : 16) * amp, r: (opt.linha ? 44 : 14) * amp,
+              b: Math.max((opt.rotacionar ? 62 : 30) * amp, alturaRot), l: 40 * amp };
 
   /* No celular caberiam 68 dias em 500px — as barras viram fios e os rótulos
      somem. Havendo largura mínima por coluna, o gráfico cresce e rola na
@@ -50,7 +73,7 @@ function comboChart(host, dados, opt) {
   const maxV = Math.max(1, ...dados.flatMap(d => opt.series.map(s => d[s.key] || 0)));
   const esc  = v => ih - (v / maxV) * ih;
   const bw   = iw / dados.length;
-  const sw   = Math.min(26, (bw * 0.68) / opt.series.length);
+  const sw   = Math.min(26 * amp, (bw * 0.68) / opt.series.length);
 
   const g = el("g", { transform: `translate(${m.l},${m.t})` });
   svg.appendChild(g);
@@ -59,13 +82,13 @@ function comboChart(host, dados, opt) {
   for (let i = 0; i <= 4; i++) {
     const y = ih - (ih / 4) * i, v = (maxV / 4) * i;
     g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, class: "grade" }));
-    g.appendChild(el("text", { x: -8, y: y + 4, class: "eixo", "text-anchor": "end" }, fmtN(v)));
+    g.appendChild(el("text", { x: -8 * amp, y: y + 4 * amp, class: "eixo", "text-anchor": "end" }, fmtN(v)));
   }
 
   /* Mantém o texto dentro da área desenhada: sem isso os rótulos da primeira e
      da última coluna saem pela borda do SVG e aparecem cortados. */
   const dentroX = x => Math.max(-m.l + 4, Math.min(iw + m.r - 4, x));
-  const dentroY = y => Math.max(-m.t + 9, y);
+  const dentroY = y => Math.max(-m.t + 9 * amp, y);
 
   /* colunas — rotulos[i] guarda onde cada quantidade foi escrita, para a
      porcentagem depois não ser escrita por cima de nenhuma delas */
@@ -80,7 +103,7 @@ function comboChart(host, dados, opt) {
       g.appendChild(r);
       // a quantidade aparece sempre que a coluna for larga o bastante para ela caber
       if (v > 0 && sw >= 11) {
-        const xr = dentroX(x0 + j * sw + (sw - 2) / 2), yr = dentroY(y - 4);
+        const xr = dentroX(x0 + j * sw + (sw - 2) / 2), yr = dentroY(y - 4 * amp);
         g.appendChild(el("text", { x: xr, y: yr, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
         anotar(i, xr, yr);
       }
@@ -91,7 +114,7 @@ function comboChart(host, dados, opt) {
     if (!rotulos[i] && bw >= 15) {
       const v = d[opt.series[0].key] || 0;
       if (v > 0) {
-        const xr = dentroX(i * bw + bw / 2), yr = dentroY(esc(v) - 4);
+        const xr = dentroX(i * bw + bw / 2), yr = dentroY(esc(v) - 4 * amp);
         g.appendChild(el("text", { x: xr, y: yr, class: "rotulo", "text-anchor": "middle" }, fmtN(v)));
         anotar(i, xr, yr);
       }
@@ -119,51 +142,51 @@ function comboChart(host, dados, opt) {
     });
     const cor = opt.linha.cor || "var(--c-linha)";
     // halo branco por baixo: destaca a linha mesmo cruzando as colunas
-    g.appendChild(el("path", { d: dpath, fill: "none", stroke: "var(--painel)", "stroke-width": 6,
+    g.appendChild(el("path", { d: dpath, fill: "none", stroke: "var(--painel)", "stroke-width": 6 * amp,
       "stroke-linejoin": "round", "stroke-linecap": "round", opacity: .9 }));
-    g.appendChild(el("path", { d: dpath, fill: "none", stroke: cor, "stroke-width": 3.2,
+    g.appendChild(el("path", { d: dpath, fill: "none", stroke: cor, "stroke-width": 3.2 * amp,
       "stroke-linejoin": "round", "stroke-linecap": "round" }));
     dados.forEach((d, i) => {
       const v = d[opt.linha.key];
       if (v === null || v === undefined) return;
       const x = i * bw + bw / 2, y = escL(v);
-      g.appendChild(el("circle", { cx: x, cy: y, r: 5, fill: "var(--painel)" }));
-      const c = el("circle", { cx: x, cy: y, r: 3.4, fill: cor });
+      g.appendChild(el("circle", { cx: x, cy: y, r: 5 * amp, fill: "var(--painel)" }));
+      const c = el("circle", { cx: x, cy: y, r: 3.4 * amp, fill: cor });
       c.appendChild(el("title", {}, `${d[opt.rotulo]}\n${opt.linha.label}: ${opt.pctLinha ? fmtP(v) : fmtD(v)}`));
       g.appendChild(c);
       // valor exato (uma casa decimal) sempre que houver espaço para o rótulo
-      if (bw >= opt.larguraRotuloLinha) {
+      if (bw >= largRotLinha) {
         const xl = dentroX(x);
-        let yl = y - 11;
+        let yl = y - 11 * amp;
         /* Enquanto cair em cima de alguma quantidade da mesma coluna, sobe
            para logo acima dela. São no máximo três rótulos por coluna. */
         const perto = () => (rotulos[i] || []).filter(r =>
-          Math.abs(r.x - xl) < 16 && Math.abs(r.y - yl) < 11);
+          Math.abs(r.x - xl) < 16 * amp && Math.abs(r.y - yl) < 11 * amp);
         for (let n = 0; n < 4; n++) {
           const c = perto();
           if (!c.length) break;
-          yl = Math.min(...c.map(r => r.y)) - 11;
+          yl = Math.min(...c.map(r => r.y)) - 11 * amp;
         }
         /* Coluna estreita ganha texto menor: com 24px por dia, o rótulo do
            tamanho normal encostaria no vizinho. */
         g.appendChild(el("text", {
           x: xl, y: dentroY(yl), "text-anchor": "middle",
-          class: "rotulo-linha" + (bw < 30 ? " miudo" : "")
+          class: "rotulo-linha" + (bw < 30 * amp ? " miudo" : "")
         }, opt.pctLinha ? fmtP(v, opt.casasLinha) : fmtD(v, opt.casasLinha)));
       }
     });
     for (let i = 0; i <= 4; i++) {
       const y = ih - (ih / 4) * i, v = (maxL / 4) * i;
-      g.appendChild(el("text", { x: iw + 8, y: y + 4, class: "eixo eixo2" }, opt.pctLinha ? fmtP(v, 0) : fmtD(v, 0)));
+      g.appendChild(el("text", { x: iw + 8 * amp, y: y + 4 * amp, class: "eixo eixo2" }, opt.pctLinha ? fmtP(v, 0) : fmtD(v, 0)));
     }
   }
 
   /* eixo X */
   dados.forEach((d, i) => {
     const x = i * bw + bw / 2;
-    const t = el("text", { x, y: ih + 14, class: "eixo", "text-anchor": opt.rotacionar ? "end" : "middle" },
-      corta(String(d[opt.rotulo]), opt.maxRot));
-    if (opt.rotacionar) t.setAttribute("transform", `rotate(-35 ${x} ${ih + 14})`);
+    const t = el("text", { x, y: ih + 14 * amp, class: "eixo", "text-anchor": opt.rotacionar ? "end" : "middle" },
+      corta(String(d[opt.rotulo]), maxRot));
+    if (opt.rotacionar) t.setAttribute("transform", `rotate(-35 ${x} ${ih + 14 * amp})`);
     g.appendChild(t);
   });
 }
@@ -172,6 +195,8 @@ function comboChart(host, dados, opt) {
 function gauge(host, valor, opt) {
   opt = Object.assign({ min: 0, max: 1, faixas: [0.5, 0.8], formato: fmtP, alvo: null }, opt);
   const W = host.clientWidth, H = host.clientHeight;
+  // mesmo fator de ampliação do comboChart — ver o comentário de lá
+  const amp = host.closest && host.closest(".ampliado") ? 1.6 : 1;
   const cx = W / 2, cy = H * 0.72, R = Math.min(W * 0.42, H * 0.62), r = R * 0.62;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
@@ -194,17 +219,19 @@ function gauge(host, valor, opt) {
     const a = ang(valor);
     const px = cx + (R * 0.98) * Math.cos(a), py = cy - (R * 0.98) * Math.sin(a);
     svg.appendChild(el("line", { x1: cx, y1: cy, x2: px, y2: py, class: "ponteiro" }));
-    svg.appendChild(el("circle", { cx, cy, r: 6, class: "pivo" }));
+    svg.appendChild(el("circle", { cx, cy, r: 6 * amp, class: "pivo" }));
   }
-  svg.appendChild(el("text", { x: cx, y: cy + 34, class: "gauge-valor", "text-anchor": "middle" }, opt.formato(valor)));
-  svg.appendChild(el("text", { x: cx - R - 2, y: cy + 16, class: "eixo", "text-anchor": "middle" }, opt.formato(opt.min, 0)));
-  svg.appendChild(el("text", { x: cx + R + 2, y: cy + 16, class: "eixo", "text-anchor": "middle" }, opt.formato(opt.max, 0)));
+  svg.appendChild(el("text", { x: cx, y: cy + 34 * amp, class: "gauge-valor", "text-anchor": "middle" }, opt.formato(valor)));
+  svg.appendChild(el("text", { x: cx - R - 2, y: cy + 16 * amp, class: "eixo", "text-anchor": "middle" }, opt.formato(opt.min, 0)));
+  svg.appendChild(el("text", { x: cx + R + 2, y: cy + 16 * amp, class: "eixo", "text-anchor": "middle" }, opt.formato(opt.max, 0)));
 }
 
 /* ---------- Waterfall (inconformidades por categoria) ---------- */
 function waterfall(host, dados) {
   const W = host.clientWidth, H = host.clientHeight;
-  const m = { t: 18, r: 12, b: 58, l: 38 };
+  // mesmo fator de ampliação do comboChart — ver o comentário de lá
+  const amp = host.closest && host.closest(".ampliado") ? 1.6 : 1;
+  const m = { t: 18 * amp, r: 12 * amp, b: 58 * amp, l: 38 * amp };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
@@ -213,13 +240,13 @@ function waterfall(host, dados) {
   const total = dados.reduce((a, d) => a + d.qtd, 0);
   const passos = [...dados, { chave: "Total", qtd: total, total: true }];
   const max = total;
-  const bw = iw / passos.length, sw = Math.min(40, bw * 0.62);
+  const bw = iw / passos.length, sw = Math.min(40 * amp, bw * 0.62);
   const g = el("g", { transform: `translate(${m.l},${m.t})` });
   svg.appendChild(g);
   for (let i = 0; i <= 4; i++) {
     const y = ih - (ih / 4) * i;
     g.appendChild(el("line", { x1: 0, x2: iw, y1: y, y2: y, class: "grade" }));
-    g.appendChild(el("text", { x: -8, y: y + 4, class: "eixo", "text-anchor": "end" }, fmtN((max / 4) * i)));
+    g.appendChild(el("text", { x: -8 * amp, y: y + 4 * amp, class: "eixo", "text-anchor": "end" }, fmtN((max / 4) * i)));
   }
   let acc = 0;
   passos.forEach((d, i) => {
@@ -238,10 +265,10 @@ function waterfall(host, dados) {
       `${d.chave}: ${d.qtd}` + (detalhe ? `\n\n${detalhe}` : "")
       + (sobra > 0 ? `\n… e mais ${sobra}` : "")));
     g.appendChild(rect);
-    g.appendChild(el("text", { x: x + sw / 2, y: y - 5, class: "rotulo", "text-anchor": "middle" }, fmtN(d.qtd)));
+    g.appendChild(el("text", { x: x + sw / 2, y: y - 5 * amp, class: "rotulo", "text-anchor": "middle" }, fmtN(d.qtd)));
     if (!d.total) acc += d.qtd;
-    const t = el("text", { x: x + sw / 2, y: ih + 14, class: "eixo", "text-anchor": "end" }, corta(d.chave, 16));
-    t.setAttribute("transform", `rotate(-35 ${x + sw / 2} ${ih + 14})`);
+    const t = el("text", { x: x + sw / 2, y: ih + 14 * amp, class: "eixo", "text-anchor": "end" }, corta(d.chave, Math.round(16 * amp)));
+    t.setAttribute("transform", `rotate(-35 ${x + sw / 2} ${ih + 14 * amp})`);
     g.appendChild(t);
   });
 }
@@ -250,6 +277,8 @@ function waterfall(host, dados) {
 function barrasH(host, dados, opt) {
   opt = Object.assign({ cor: "var(--ruim)", maxRot: 46 }, opt);
   const W = host.clientWidth, H = host.clientHeight;
+  // mesmo fator de ampliação do comboChart — ver o comentário de lá
+  const amp = host.closest && host.closest(".ampliado") ? 1.6 : 1;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
@@ -263,10 +292,10 @@ function barrasH(host, dados, opt) {
      O corte é calculado pela largura disponível, e não por um número fixo de
      caracteres: o mesmo visual aparece em quadros de tamanhos diferentes. */
   const max = Math.max(...dados.map(d => d.qtd));
-  const alt = Math.min(56, (H - 8) / dados.length);
-  const hBarra = Math.max(8, Math.min(13, alt - 32));
+  const alt = Math.min(56 * amp, (H - 8) / dados.length);
+  const hBarra = Math.max(8 * amp, Math.min(13 * amp, alt - 32 * amp));
   /* Quantos caracteres cabem numa linha, pela largura real do quadro. */
-  const cabe = Math.max(20, Math.floor((W - 30) / 5.4));
+  const cabe = Math.max(20, Math.floor((W - 30) / (5.4 * amp)));
 
   /* Quebra em ATÉ DUAS linhas, sem partir palavra ao meio. Antes era uma
      linha cortada com "…", e a frase morria justamente onde começava a
@@ -289,21 +318,21 @@ function barrasH(host, dados, opt) {
 
   dados.forEach((d, i) => {
     const y = 6 + i * alt;
-    const larg = (d.qtd / max) * (W - 34);
+    const larg = (d.qtd / max) * (W - 34 * amp);
     const partes = quebrar(d.chave, cabe, 2);
     const dica = `${d.chave}\n${d.qtd} ocorrência(s)`;
 
-    const t = el("text", { x: 0, y: y + 10, class: "rotulo-barra-fora" });
+    const t = el("text", { x: 0, y: y + 10 * amp, class: "rotulo-barra-fora" });
     partes.forEach((linha, n) => t.appendChild(
-      el("tspan", { x: 0, dy: n ? 12 : 0 }, linha)));
+      el("tspan", { x: 0, dy: n ? 12 * amp : 0 }, linha)));
     t.appendChild(el("title", {}, dica));
     svg.appendChild(t);
 
-    const yBarra = y + 10 + (partes.length - 1) * 12 + 7;
+    const yBarra = y + (10 + (partes.length - 1) * 12 + 7) * amp;
     const r = el("rect", { x: 0, y: yBarra, width: Math.max(2, larg), height: hBarra, rx: 2, fill: opt.cor });
     r.appendChild(el("title", {}, dica));
     svg.appendChild(r);
-    svg.appendChild(el("text", { x: Math.max(2, larg) + 6, y: yBarra + hBarra - 1, class: "rotulo" }, d.qtd));
+    svg.appendChild(el("text", { x: Math.max(2, larg) + 6 * amp, y: yBarra + hBarra - 1, class: "rotulo" }, d.qtd));
   });
 }
 
