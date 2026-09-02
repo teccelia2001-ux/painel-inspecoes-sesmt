@@ -125,6 +125,7 @@ function fecharAmpliado() {
   if (!vAmpliado) return;
   const b = vAmpliado.querySelector(".v-ampliar");
   if (b) { b.textContent = "⤢"; b.title = "Ampliar"; b.setAttribute("aria-label", "Ampliar"); }
+  vAmpliado.querySelectorAll(".v-baixar").forEach(x => x.remove());
   vAmpliado.classList.remove("ampliado");
   vAmpliado = null;
   document.querySelectorAll(".v-fundo").forEach(f => f.remove());
@@ -140,6 +141,18 @@ function alternarAmpliado(painel) {
   painel.classList.add("ampliado");
   const b = painel.querySelector(".v-ampliar");
   if (b) { b.textContent = "✕"; b.title = "Reduzir (Esc)"; b.setAttribute("aria-label", "Reduzir"); }
+  /* Baixar só este gráfico. Os mesmos PNG e PDF da barra de baixo, que ao
+     ver um visual ampliado passam a exportar o visual em vez da página —
+     aqui eles ficam à mão, onde a pessoa já está olhando. */
+  const barra = document.createElement("div");
+  barra.className = "v-baixar";
+  barra.innerHTML = `<button type="button" title="Baixar este gráfico como imagem">⤓ PNG</button>
+    <button type="button" title="Baixar este gráfico em PDF">⤓ PDF</button>`;
+  const [bPng, bPdf] = barra.querySelectorAll("button");
+  bPng.onclick = e => { e.stopPropagation(); baixarPNG(e.currentTarget); };
+  bPdf.onclick = e => { e.stopPropagation(); baixarPDFPagina(e.currentTarget); };
+  painel.appendChild(barra);
+
   const fundo = document.createElement("div");
   fundo.className = "v-fundo";
   fundo.onclick = fecharAmpliado;
@@ -1245,8 +1258,13 @@ async function imagemDaPagina(escala) {
         estão espalhados e no meio deles fica a tabela, que não vai.
      2. .alvo-export     — um quadro só é o conteúdo (PAINEL).
      3. sem marca        — a página inteira. */
-  const marcado = pg.classList.contains("export-marcado");
-  const alvo = pg.querySelector(".alvo-export") || pg;
+  /* Visual ampliado manda em tudo: se há um aberto, ele É o conteúdo —
+     quem clicou em baixar com um gráfico ampliado quer AQUELE gráfico,
+     não a página atrás dele. Vale para os botões da barra de baixo e para
+     os ⤓ PNG / ⤓ PDF do próprio quadro ampliado. */
+  const ampl = pg.querySelector(".v.ampliado");
+  const marcado = !ampl && pg.classList.contains("export-marcado");
+  const alvo = ampl || pg.querySelector(".alvo-export") || pg;
   const soOQuadro = alvo !== pg;
 
   let copia;
@@ -1275,8 +1293,21 @@ async function imagemDaPagina(escala) {
     copia.classList.add("ativa");
   }
 
+  /* Os botões do quadro (ampliar, fechar, baixar) são controles da tela,
+     não conteúdo: na imagem apareceriam como enfeite sem função. */
+  copia.querySelectorAll(".v-ampliar,.v-baixar").forEach(n => n.remove());
+
   let larg = LARGURA_EXPORT, alt = ALTURA_EXPORT;
-  if (soOQuadro || marcado) {
+  if (ampl) {
+    /* Quadro ampliado tem tamanho próprio e conteúdo posicionado por
+       absolute: medir com height:auto devolvia 33px — só o título — e a
+       imagem saía uma tira. Aqui o tamanho é o que está na tela. */
+    larg = alvo.offsetWidth; alt = alvo.offsetHeight;
+    copia.style.position = "relative";
+    copia.style.left = copia.style.top = "0";
+    copia.style.width = larg + "px";
+    copia.style.height = alt + "px";
+  } else if (soOQuadro || marcado) {
     larg = marcado ? 620 : alvo.offsetWidth;
     /* Tira o quadro da posição absoluta: no SVG ele começa em 0,0. */
     copia.style.position = "relative";
@@ -1338,8 +1369,12 @@ async function imagemDaPagina(escala) {
 }
 
 function nomeDoArquivo(ext) {
-  const p = PAGINAS.find(x => x.id === paginaAtual) || { nome: "painel" };
   const hoje = new Date().toISOString().slice(0, 10);
+  /* Com um gráfico ampliado o arquivo leva o nome DELE: baixar cinco
+     visuais da mesma página geraria cinco "icit-2026-09-02.png". */
+  const amp = document.querySelector(".pagina.ativa .v.ampliado .titulo");
+  if (amp) return `${semAcento(amp.textContent).replace(/[^a-z0-9]+/g, "-")}-${hoje}.${ext}`;
+  const p = PAGINAS.find(x => x.id === paginaAtual) || { nome: "painel" };
   return `${semAcento(p.nome).replace(/[^a-z0-9]+/g, "-")}-${hoje}.${ext}`;
 }
 

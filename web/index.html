@@ -98,6 +98,17 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .v.ampliado .tbl tr.podio-linha td:first-child{font-size:26px}
 .v.ampliado .tbl tr.podio-linha td:nth-child(2){font-size:18px}
 
+/* PNG e PDF do quadro ampliado, ao lado do ✕. Só existem enquanto o visual
+   está ampliado — na tela cheia de quadros pequenos não caberiam. */
+.v-baixar{position:absolute;right:32px;top:4px;z-index:2;display:flex;gap:5px}
+.v-baixar button{height:22px;padding:0 9px;border:1px solid var(--linha-borda);
+  border-radius:6px;background:var(--painel);color:var(--txt2);
+  font:inherit;font-size:11px;font-weight:700;line-height:1;cursor:pointer}
+.v-baixar button:hover{background:var(--acento-suave);border-color:var(--acento);
+  color:var(--acento-forte)}
+.v-baixar button:disabled{opacity:.6;cursor:default}
+.v-baixar button:focus-visible{outline:2px solid var(--acento);outline-offset:1px}
+
 /* cards de KPI */
 .card{background:var(--painel);border:1px solid var(--linha-borda);border-radius:8px;
   box-shadow:var(--sombra);
