@@ -706,23 +706,26 @@ const DDATA = [
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
-/* Inspetores — [INSPETOR, POLO, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
+/* Inspetores — [INSPETOR, POLO, FUNÇÃO, META/mês, NOMES ANTERIORES?]
+   Meta única de inspeção por mês (a antiga "meta estática" foi removida em
+   02/09/2026 — nunca entrou em nenhum cálculo). A última posição só aparece
+   em quem já foi renomeado, mesma regra de EQUIPES. */
 let INSPETORES = [
-  ["Acacio","PATOS","Supervisor",4,0],
-  ["Aisleudo","SOUSA","Supervisor",4,0],
-  ["Edney","SESMT","Técnico Segurança",12,2],
-  ["Eliakin","ITAPORANGA","Supervisor",4,0],
-  ["Francisco","SESMT","Técnico Segurança",12,2],
-  ["Gustavo","TECCEL","Coordenador Operacional",4,2],
-  ["Halanildo","CATOLE DO ROCHA","Supervisor",4,0],
-  ["Huislan","SESMT","Técnico Segurança",12,2],
-  ["Humberto","TECCEL","Supervisor",4,0],
-  ["Joab","SESMT","Engenheiro Segurança",4,0],
-  ["José Pereira","CAJAZEIRAS","Supervisor",4,0],
-  ["Julierme","TECCEL","Gerente Operacional",2,2],
-  ["Junielly","PATOS","Supervisor",4,0],
-  ["Manoel Vaz","TECCEL","Auditor",4,0],
-  ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
+  ["Acacio","PATOS","Supervisor",4],
+  ["Aisleudo","SOUSA","Supervisor",4],
+  ["Edney","SESMT","Técnico Segurança",12],
+  ["Eliakin","ITAPORANGA","Supervisor",4],
+  ["Francisco","SESMT","Técnico Segurança",12],
+  ["Gustavo","TECCEL","Coordenador Operacional",4],
+  ["Halanildo","CATOLE DO ROCHA","Supervisor",4],
+  ["Huislan","SESMT","Técnico Segurança",12],
+  ["Humberto","TECCEL","Supervisor",4],
+  ["Joab","SESMT","Engenheiro Segurança",4],
+  ["José Pereira","CAJAZEIRAS","Supervisor",4],
+  ["Julierme","TECCEL","Gerente Operacional",2],
+  ["Junielly","PATOS","Supervisor",4],
+  ["Manoel Vaz","TECCEL","Auditor",4],
+  ["Samuel","PRINCESA ISABEL","Supervisor",4]
 ];
 
 /* META_MESES foi removido em 27/08/2026. Era a lista de meses com meta
@@ -977,7 +980,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260831-0805";
+const VERSAO = "20260902-0741";
 </script>
 <script>
 /* ============================================================
@@ -1009,7 +1012,7 @@ function reconstruirModelo() {
     linhas.forEach(r => { ix[r[0]] = r; });
     return ix;
   };
-  IDX_INSPETOR = indexar(INSPETORES, 5);
+  IDX_INSPETOR = indexar(INSPETORES, 4);
   IDX_EQUIPE   = indexar(EQUIPES, 4);
 
   FATO = INSPECOES.map(r => {
@@ -1850,7 +1853,7 @@ const Banco = {
    ============================================================ */
 const Cadastros = {
   equipes: [],       // {id, equipe, tipo, supervisor, pontos, ativa}
-  inspetores: [],    // {id, inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo}
+  inspetores: [],    // {id, inspetor, polo, funcao, meta, ativo}
   acessos: {},       // inspetor -> e-mail de login (só para administrador)
   origem: "embutido",
 
@@ -1865,8 +1868,8 @@ const Cadastros = {
     }));
     this.inspetores = INSPETORES_ARQUIVO.map((r, i) => ({
       id: "local-i" + i, inspetor: r[0], polo: r[1],
-      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4],
-      nomes_anteriores: r[5] || [], ativo: true
+      funcao: r[2], meta: r[3],
+      nomes_anteriores: r[4] || [], ativo: true
     }));
     this.origem = "embutido";
   },
@@ -1882,7 +1885,7 @@ const Cadastros = {
                  e.nomes_anteriores || []]);
     INSPETORES = this.inspetores.filter(i => i.ativo)
       .map(i => [i.inspetor, i.polo || i.area || "", i.funcao || "",
-                 Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0,
+                 Number(i.meta) || 0,
                  i.nomes_anteriores || []]);
     reconstruirModelo();
   },
@@ -1905,6 +1908,9 @@ const Cadastros = {
         // antigo é aproveitado para o painel não aparecer com o campo vazio.
         this.inspetores = d.inspetores.map(i => {
           if (i.polo === undefined && i.area !== undefined) i.polo = i.area;
+          // "Meta dinâmica" virou a meta única, e a estática foi excluída.
+          // Mesma ponte: banco ainda sem a migração continua alimentando o painel.
+          if (i.meta === undefined && i.meta_dinamica !== undefined) i.meta = i.meta_dinamica;
           return i;
         });
         this.origem = "banco";
@@ -1930,6 +1936,8 @@ const Cadastros = {
     delete corpo.id; delete corpo.criada_em; delete corpo.atualizada_em;
     // resquício da migração Área→Polo: não mandar a coluna antiga de volta
     delete corpo.area;
+    // idem para a meta: colunas antigas não voltam para o banco
+    delete corpo.meta_dinamica; delete corpo.meta_estatica;
 
     if (Banco.podeEditar()) {
       const r = novo ? await Banco.criar(tabela, corpo)
@@ -2340,8 +2348,7 @@ const CAMPOS_INSPETOR = [
       Cadastros.inspetores.map(i => i.funcao))].filter(Boolean).sort() },
   { k: "polo", rot: "Polo", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.polo))].filter(Boolean).sort() },
-  { k: "meta_dinamica", rot: "Meta de inspeção dinâmica (por mês)", tipo: "numero", padrao: 0 },
-  { k: "meta_estatica", rot: "Meta de inspeção estática (por mês)", tipo: "numero", padrao: 0 },
+  { k: "meta", rot: "Meta de inspeção (por mês)", tipo: "numero", padrao: 0 },
   { k: "ativo", rot: "Situação", tipo: "booleano", rotSim: "Ativo", rotNao: "Inativo", padrao: true }
 ];
 
@@ -2370,8 +2377,7 @@ const SECOES = {
       { t: "Inspetor", v: r => r.inspetor, forte: true },
       { t: "Função", v: r => r.funcao || "—" },
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
-      { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
-      { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true },
+      { t: "Meta", v: r => fmtN(r.meta), num: true },
       /* O e-mail em si, e não "tem login": é ele que o administrador precisa
          para avisar a pessoa, conferir se está no padrão do cadastro ou
          perceber que duas contas ficaram parecidas. Só aparece para
@@ -4179,7 +4185,7 @@ function render() {
     const serie = [{ key: "meta", label: "Meta", cor: "var(--c2)" },
                    { key: "qtd", label: "Realizado", cor: "var(--c1)" }];
     const bloco = (host, hostTotal, funcoes) => {
-      // função é o índice 2 de [nome, polo, função, meta dinâmica, meta estática]
+      // função é o índice 2 de [nome, polo, função, meta]
       const d = porInsp.filter(g => funcoes.includes((IDX_INSPETOR[g.chave] || [])[2]))
                        .sort((a, b) => b.qtd - a.qtd);
       comboChart(host, d, { series: serie, linha: { key: "pctTotal", label: "% da meta" } });

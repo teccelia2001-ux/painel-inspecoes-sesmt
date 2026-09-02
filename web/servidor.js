@@ -301,7 +301,7 @@ const Banco = {
    ============================================================ */
 const Cadastros = {
   equipes: [],       // {id, equipe, tipo, supervisor, pontos, ativa}
-  inspetores: [],    // {id, inspetor, polo, funcao, meta_dinamica, meta_estatica, ativo}
+  inspetores: [],    // {id, inspetor, polo, funcao, meta, ativo}
   acessos: {},       // inspetor -> e-mail de login (só para administrador)
   origem: "embutido",
 
@@ -316,8 +316,8 @@ const Cadastros = {
     }));
     this.inspetores = INSPETORES_ARQUIVO.map((r, i) => ({
       id: "local-i" + i, inspetor: r[0], polo: r[1],
-      funcao: r[2], meta_dinamica: r[3], meta_estatica: r[4],
-      nomes_anteriores: r[5] || [], ativo: true
+      funcao: r[2], meta: r[3],
+      nomes_anteriores: r[4] || [], ativo: true
     }));
     this.origem = "embutido";
   },
@@ -333,7 +333,7 @@ const Cadastros = {
                  e.nomes_anteriores || []]);
     INSPETORES = this.inspetores.filter(i => i.ativo)
       .map(i => [i.inspetor, i.polo || i.area || "", i.funcao || "",
-                 Number(i.meta_dinamica) || 0, Number(i.meta_estatica) || 0,
+                 Number(i.meta) || 0,
                  i.nomes_anteriores || []]);
     reconstruirModelo();
   },
@@ -356,6 +356,9 @@ const Cadastros = {
         // antigo é aproveitado para o painel não aparecer com o campo vazio.
         this.inspetores = d.inspetores.map(i => {
           if (i.polo === undefined && i.area !== undefined) i.polo = i.area;
+          // "Meta dinâmica" virou a meta única, e a estática foi excluída.
+          // Mesma ponte: banco ainda sem a migração continua alimentando o painel.
+          if (i.meta === undefined && i.meta_dinamica !== undefined) i.meta = i.meta_dinamica;
           return i;
         });
         this.origem = "banco";
@@ -381,6 +384,8 @@ const Cadastros = {
     delete corpo.id; delete corpo.criada_em; delete corpo.atualizada_em;
     // resquício da migração Área→Polo: não mandar a coluna antiga de volta
     delete corpo.area;
+    // idem para a meta: colunas antigas não voltam para o banco
+    delete corpo.meta_dinamica; delete corpo.meta_estatica;
 
     if (Banco.podeEditar()) {
       const r = novo ? await Banco.criar(tabela, corpo)

@@ -497,7 +497,7 @@ function render() {
     const serie = [{ key: "meta", label: "Meta", cor: "var(--c2)" },
                    { key: "qtd", label: "Realizado", cor: "var(--c1)" }];
     const bloco = (host, hostTotal, funcoes) => {
-      // função é o índice 2 de [nome, polo, função, meta dinâmica, meta estática]
+      // função é o índice 2 de [nome, polo, função, meta]
       const d = porInsp.filter(g => funcoes.includes((IDX_INSPETOR[g.chave] || [])[2]))
                        .sort((a, b) => b.qtd - a.qtd);
       comboChart(host, d, { series: serie, linha: { key: "pctTotal", label: "% da meta" } });

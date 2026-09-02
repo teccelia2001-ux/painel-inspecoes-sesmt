@@ -33,8 +33,7 @@ const CAMPOS_INSPETOR = [
       Cadastros.inspetores.map(i => i.funcao))].filter(Boolean).sort() },
   { k: "polo", rot: "Polo", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.polo))].filter(Boolean).sort() },
-  { k: "meta_dinamica", rot: "Meta de inspeção dinâmica (por mês)", tipo: "numero", padrao: 0 },
-  { k: "meta_estatica", rot: "Meta de inspeção estática (por mês)", tipo: "numero", padrao: 0 },
+  { k: "meta", rot: "Meta de inspeção (por mês)", tipo: "numero", padrao: 0 },
   { k: "ativo", rot: "Situação", tipo: "booleano", rotSim: "Ativo", rotNao: "Inativo", padrao: true }
 ];
 
@@ -63,8 +62,7 @@ const SECOES = {
       { t: "Inspetor", v: r => r.inspetor, forte: true },
       { t: "Função", v: r => r.funcao || "—" },
       { t: "Polo", v: r => r.polo || "—", etiqueta: true },
-      { t: "Meta dinâmica", v: r => fmtN(r.meta_dinamica), num: true },
-      { t: "Meta estática", v: r => fmtN(r.meta_estatica), num: true },
+      { t: "Meta", v: r => fmtN(r.meta), num: true },
       /* O e-mail em si, e não "tem login": é ele que o administrador precisa
          para avisar a pessoa, conferir se está no padrão do cadastro ou
          perceber que duas contas ficaram parecidas. Só aparece para

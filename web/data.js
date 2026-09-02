@@ -12,23 +12,26 @@ const DDATA = [
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
-/* Inspetores — [INSPETOR, POLO, FUNÇÃO, META DINAMICA, META ESTÁTICA] */
+/* Inspetores — [INSPETOR, POLO, FUNÇÃO, META/mês, NOMES ANTERIORES?]
+   Meta única de inspeção por mês (a antiga "meta estática" foi removida em
+   02/09/2026 — nunca entrou em nenhum cálculo). A última posição só aparece
+   em quem já foi renomeado, mesma regra de EQUIPES. */
 let INSPETORES = [
-  ["Acacio","PATOS","Supervisor",4,0],
-  ["Aisleudo","SOUSA","Supervisor",4,0],
-  ["Edney","SESMT","Técnico Segurança",12,2],
-  ["Eliakin","ITAPORANGA","Supervisor",4,0],
-  ["Francisco","SESMT","Técnico Segurança",12,2],
-  ["Gustavo","TECCEL","Coordenador Operacional",4,2],
-  ["Halanildo","CATOLE DO ROCHA","Supervisor",4,0],
-  ["Huislan","SESMT","Técnico Segurança",12,2],
-  ["Humberto","TECCEL","Supervisor",4,0],
-  ["Joab","SESMT","Engenheiro Segurança",4,0],
-  ["José Pereira","CAJAZEIRAS","Supervisor",4,0],
-  ["Julierme","TECCEL","Gerente Operacional",2,2],
-  ["Junielly","PATOS","Supervisor",4,0],
-  ["Manoel Vaz","TECCEL","Auditor",4,0],
-  ["Samuel","PRINCESA ISABEL","Supervisor",4,0]
+  ["Acacio","PATOS","Supervisor",4],
+  ["Aisleudo","SOUSA","Supervisor",4],
+  ["Edney","SESMT","Técnico Segurança",12],
+  ["Eliakin","ITAPORANGA","Supervisor",4],
+  ["Francisco","SESMT","Técnico Segurança",12],
+  ["Gustavo","TECCEL","Coordenador Operacional",4],
+  ["Halanildo","CATOLE DO ROCHA","Supervisor",4],
+  ["Huislan","SESMT","Técnico Segurança",12],
+  ["Humberto","TECCEL","Supervisor",4],
+  ["Joab","SESMT","Engenheiro Segurança",4],
+  ["José Pereira","CAJAZEIRAS","Supervisor",4],
+  ["Julierme","TECCEL","Gerente Operacional",2],
+  ["Junielly","PATOS","Supervisor",4],
+  ["Manoel Vaz","TECCEL","Auditor",4],
+  ["Samuel","PRINCESA ISABEL","Supervisor",4]
 ];
 
 /* META_MESES foi removido em 27/08/2026. Era a lista de meses com meta

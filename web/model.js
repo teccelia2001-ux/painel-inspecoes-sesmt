@@ -27,7 +27,7 @@ function reconstruirModelo() {
     linhas.forEach(r => { ix[r[0]] = r; });
     return ix;
   };
-  IDX_INSPETOR = indexar(INSPETORES, 5);
+  IDX_INSPETOR = indexar(INSPETORES, 4);
   IDX_EQUIPE   = indexar(EQUIPES, 4);
 
   FATO = INSPECOES.map(r => {
