@@ -89,7 +89,10 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .v.ampliado .rotulo-barra-fora{font-size:17.5px}
 .v.ampliado .vazio{font-size:19px}
 .v.ampliado .gauge-valor{font-size:35px}
-.v.ampliado .legenda{font-size:14px;gap:16px}
+/* A legenda divide a faixa do título com o ✕ e os ⤓ PNG / ⤓ PDF. Sem abrir
+   espaço para eles, os botões caíam em cima dela — "Meta" e "Realizado"
+   ficavam por baixo do PDF. */
+.v.ampliado .legenda{font-size:14px;gap:16px;right:175px}
 .v.ampliado .tbl{font-size:16px}
 .v.ampliado .tbl th{font-size:13.5px}
 .v.ampliado .medalha{font-size:20px}
@@ -1064,7 +1067,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260902-0903";
+const VERSAO = "20260902-0909";
 </script>
 <script>
 /* ============================================================
