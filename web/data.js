@@ -12,6 +12,36 @@ const DDATA = [
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
+/* "Dias úteis até hoje" (4ª posição) recalculado no navegador, não congelado.
+
+   Os valores vieram da extração de 24/08/2026: agosto ficou com 17 e
+   set–dez com ZERO. Como a meta até hoje é meta / dias úteis * dias úteis
+   até hoje, todo mês a partir de setembro nascia com "0 previstas" e o
+   progresso do realizado nunca saía do lugar — reclamado em 02/09/2026,
+   no resumo por polo de set/26 ("2 de 0 previstas").
+
+   Regra: mês passado conta o mês inteiro, mês futuro conta zero, mês
+   corrente conta até hoje. Só dias de semana, sem feriados — é a mesma
+   conta que produz a 3ª posição (dias úteis do mês), então as duas
+   continuam falando a mesma língua. */
+function atualizarDiasUteisAteHoje(hoje) {
+  hoje = hoje || new Date();
+  const serialHoje = "" + hoje.getFullYear() + String(hoje.getMonth() + 1).padStart(2, "0");
+  DDATA.forEach(d => {
+    const ano = +d[1].slice(0, 4), mes = +d[1].slice(4);
+    const ate = d[1] < serialHoje ? new Date(ano, mes, 0).getDate()   // dia 0 do mês seguinte = último deste
+              : d[1] > serialHoje ? 0
+              : hoje.getDate();
+    let uteis = 0;
+    for (let dia = 1; dia <= ate; dia++) {
+      const s = new Date(ano, mes - 1, dia).getDay();
+      if (s !== 0 && s !== 6) uteis++;
+    }
+    d[3] = uteis;
+  });
+}
+atualizarDiasUteisAteHoje();
+
 /* Inspetores — [INSPETOR, POLO, FUNÇÃO, META/mês, NOMES ANTERIORES?]
    Meta única de inspeção por mês (a antiga "meta estática" foi removida em
    02/09/2026 — nunca entrou em nenhum cálculo). A última posição só aparece

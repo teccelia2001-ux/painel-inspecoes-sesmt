@@ -826,8 +826,11 @@ function resumoPainelLista(v) {
     const pe = porIcit
       ? [`${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"}`,
          `${fmtN(l.nc)} com problema`, `${fmtN(l.ncLinhas)} N.C`]
-      // sem meta cadastrada não há "de quantas": mostra só o realizado
-      : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, 0)} previstas`
+      /* sem meta cadastrada não há "de quantas": mostra só o realizado.
+         Uma casa decimal abaixo de 10: no começo do mês a meta até hoje é
+         fração de inspeção (4/mês em 2 dias úteis = 0,4) e arredondar para
+         inteiro escrevia "de 0 previstas", como se não houvesse meta. */
+      : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, l.metaDia < 10 ? 1 : 0)} previstas`
                 : `${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"} · sem meta cadastrada`,
          `ICIT ${fmtP(l.icit, 0)}`, `${fmtN(l.ncLinhas)} N.C`];
     return `<button class="rp-item" data-chave="${l.chave || ""}" data-busca="${

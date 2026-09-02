@@ -706,6 +706,36 @@ const DDATA = [
   ["10/2026","202610",22,0,31],["11/2026","202611",21,0,30],["12/2026","202612",23,0,31]
 ];
 
+/* "Dias úteis até hoje" (4ª posição) recalculado no navegador, não congelado.
+
+   Os valores vieram da extração de 24/08/2026: agosto ficou com 17 e
+   set–dez com ZERO. Como a meta até hoje é meta / dias úteis * dias úteis
+   até hoje, todo mês a partir de setembro nascia com "0 previstas" e o
+   progresso do realizado nunca saía do lugar — reclamado em 02/09/2026,
+   no resumo por polo de set/26 ("2 de 0 previstas").
+
+   Regra: mês passado conta o mês inteiro, mês futuro conta zero, mês
+   corrente conta até hoje. Só dias de semana, sem feriados — é a mesma
+   conta que produz a 3ª posição (dias úteis do mês), então as duas
+   continuam falando a mesma língua. */
+function atualizarDiasUteisAteHoje(hoje) {
+  hoje = hoje || new Date();
+  const serialHoje = "" + hoje.getFullYear() + String(hoje.getMonth() + 1).padStart(2, "0");
+  DDATA.forEach(d => {
+    const ano = +d[1].slice(0, 4), mes = +d[1].slice(4);
+    const ate = d[1] < serialHoje ? new Date(ano, mes, 0).getDate()   // dia 0 do mês seguinte = último deste
+              : d[1] > serialHoje ? 0
+              : hoje.getDate();
+    let uteis = 0;
+    for (let dia = 1; dia <= ate; dia++) {
+      const s = new Date(ano, mes - 1, dia).getDay();
+      if (s !== 0 && s !== 6) uteis++;
+    }
+    d[3] = uteis;
+  });
+}
+atualizarDiasUteisAteHoje();
+
 /* Inspetores — [INSPETOR, POLO, FUNÇÃO, META/mês, NOMES ANTERIORES?]
    Meta única de inspeção por mês (a antiga "meta estática" foi removida em
    02/09/2026 — nunca entrou em nenhum cálculo). A última posição só aparece
@@ -980,7 +1010,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260902-0741";
+const VERSAO = "20260902-0749";
 </script>
 <script>
 /* ============================================================
@@ -4514,8 +4544,11 @@ function resumoPainelLista(v) {
     const pe = porIcit
       ? [`${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"}`,
          `${fmtN(l.nc)} com problema`, `${fmtN(l.ncLinhas)} N.C`]
-      // sem meta cadastrada não há "de quantas": mostra só o realizado
-      : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, 0)} previstas`
+      /* sem meta cadastrada não há "de quantas": mostra só o realizado.
+         Uma casa decimal abaixo de 10: no começo do mês a meta até hoje é
+         fração de inspeção (4/mês em 2 dias úteis = 0,4) e arredondar para
+         inteiro escrevia "de 0 previstas", como se não houvesse meta. */
+      : [l.meta ? `${fmtN(l.qtd)} de ${fmtD(l.metaDia, l.metaDia < 10 ? 1 : 0)} previstas`
                 : `${fmtN(l.qtd)} inspeç${l.qtd === 1 ? "ão" : "ões"} · sem meta cadastrada`,
          `ICIT ${fmtP(l.icit, 0)}`, `${fmtN(l.ncLinhas)} N.C`];
     return `<button class="rp-item" data-chave="${l.chave || ""}" data-busca="${
