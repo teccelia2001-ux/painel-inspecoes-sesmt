@@ -1303,6 +1303,22 @@ async function imagemDaPagina(escala) {
        absolute: medir com height:auto devolvia 33px — só o título — e a
        imagem saía uma tira. Aqui o tamanho é o que está na tela. */
     larg = alvo.offsetWidth; alt = alvo.offsetHeight;
+
+    /* A barra de rolagem NÃO vai para o arquivo — ela saía desenhada no
+       rodapé do PNG, uma barra cinza inútil numa imagem que não rola. E
+       o que estava fora da vista sairia cortado, que é justamente o que
+       o gráfico por dia tem de mais: os dias que não couberam.
+
+       Então a imagem cresce até o conteúdo inteiro e a rolagem some. A
+       medida sai do elemento REAL, na tela: o clone está solto do
+       documento e não tem layout para medir. */
+    const corpoTela = alvo.querySelector(".corpo");
+    const corpoCopia = copia.querySelector(".corpo");
+    if (corpoTela && corpoCopia) {
+      larg += Math.max(0, corpoTela.scrollWidth - corpoTela.clientWidth);
+      alt  += Math.max(0, corpoTela.scrollHeight - corpoTela.clientHeight);
+      corpoCopia.style.overflow = "visible";
+    }
     copia.style.position = "relative";
     copia.style.left = copia.style.top = "0";
     copia.style.width = larg + "px";
