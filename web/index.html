@@ -637,10 +637,12 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio{position:relative;height:100%;border-radius:6px;overflow:hidden;
   display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   gap:10px;padding:14px 16px 16px;text-align:center;
-  background-image:var(--foto-podio);background-size:cover;background-position:center 30%}
-/* véu escuro: a foto é contraluz, o texto precisa de base para ler */
+  background-image:var(--foto-podio);background-size:cover;background-position:center 45%}
+/* Véu escuro: o texto precisa de base para ler. Mais leve desde 02/09/2026,
+   quando a foto de campo deu lugar à arte do pódio — a arte já é escura nas
+   bordas, e o véu antigo (.88 embaixo) apagava o tapete laranja. */
 .podio::before{content:"";position:absolute;inset:0;
-  background:linear-gradient(180deg,rgba(10,18,26,.30) 0%,rgba(10,18,26,.62) 45%,rgba(10,18,26,.88) 100%)}
+  background:linear-gradient(180deg,rgba(10,18,26,.18) 0%,rgba(10,18,26,.46) 45%,rgba(10,18,26,.78) 100%)}
 .podio>*{position:relative;z-index:1}
 .podio .marca-podio{position:absolute;top:9px;right:12px;height:21px;width:auto;border-radius:4px;
   box-shadow:0 2px 8px rgba(0,0,0,.35)}
