@@ -100,6 +100,18 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .v.ampliado .medalha{font-size:20px}
 .v.ampliado .tbl tr.podio-linha td:first-child{font-size:26px}
 .v.ampliado .tbl tr.podio-linha td:nth-child(2){font-size:18px}
+/* O pódio ampliado ocupa a página inteira: com a letra da tela pequena, o
+   nome da equipe campeã ficava perdido no meio de tanto espaço. */
+.v.ampliado .podio .tit{font-size:15px}
+.v.ampliado .podio .eq{font-size:44px}
+.v.ampliado .podio .pts{font-size:18px}
+.v.ampliado .podio .sup{font-size:16px}
+.v.ampliado .podio .empate{font-size:14px}
+.v.ampliado .podio .chip{font-size:14px;padding:5px 12px}
+.v.ampliado .podio .lugar{font-size:18px;padding:11px 18px}
+.v.ampliado .podio .lugar .detalhe{font-size:15px}
+.v.ampliado .podio .marca-podio{height:32px}
+.v.ampliado .podio:not(.piores) .coroa{padding:20px 22px;gap:8px;border-radius:16px}
 
 /* PNG e PDF do quadro ampliado, ao lado do ✕. Só existem enquanto o visual
    está ampliado — na tela cheia de quadros pequenos não caberiam. */
@@ -633,29 +645,60 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 /* siglas com descrição ao passar o cursor */
 .sigla{border-bottom:1px dotted currentColor;cursor:help}
 
-/* ---- pódio ---- */
+/* ---- pódio ----
+
+   Duas colunas: o CONTEÚDO à esquerda, a ARTE à direita. Antes a arte era
+   fundo esticado por trás de tudo — no visual ampliado ela ia de 612px para
+   1490 e ficava borrada, com o cartão da campeã tapando justamente o troféu.
+   Agora a arte ocupa uma faixa à direita, num tamanho perto do nativo, e o
+   texto tem a esquerda inteira só para ele. Mudou em 02/09/2026. */
 .podio{position:relative;height:100%;border-radius:6px;overflow:hidden;
   display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
   gap:10px;padding:14px 16px 16px;text-align:center;
-  background-image:var(--foto-podio);background-size:cover;background-position:center 45%}
-/* Véu escuro: o texto precisa de base para ler. Mais leve desde 02/09/2026,
-   quando a foto de campo deu lugar à arte do pódio — a arte já é escura nas
-   bordas, e o véu antigo (.88 embaixo) apagava o tapete laranja. */
-.podio::before{content:"";position:absolute;inset:0;
-  background:linear-gradient(180deg,rgba(10,18,26,.18) 0%,rgba(10,18,26,.46) 45%,rgba(10,18,26,.78) 100%)}
-.podio>*{position:relative;z-index:1}
+  /* base vetorial, nos tons da arte: é ela que continua nítida em qualquer
+     tamanho, e é o que faz a emenda com a foto desaparecer */
+  background:radial-gradient(120% 100% at 78% 38%,#7d2711 0%,#43160b 48%,#26100a 100%)}
+
+.podio:not(.piores){flex-direction:row;align-items:center;justify-content:flex-start;
+  text-align:left;gap:16px;padding:14px 18px}
+
+/* a arte, na faixa da direita */
+.podio:not(.piores)::after{content:"";position:absolute;right:0;top:0;bottom:0;width:58%;
+  background-image:var(--foto-podio);background-size:cover;background-position:center 46%;
+  /* esmaece à esquerda para encostar no fundo sem linha de corte */
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 26%,#000 58%);
+  mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 26%,#000 58%)}
+
+/* véu: escurece o lado do texto, deixa o troféu limpo */
+.podio::before{content:"";position:absolute;inset:0;z-index:1;
+  background:linear-gradient(90deg,rgba(14,8,5,.82) 0%,rgba(14,8,5,.55) 42%,rgba(14,8,5,0) 72%)}
+.podio>*{position:relative;z-index:2}
 .podio .marca-podio{position:absolute;top:9px;right:12px;height:21px;width:auto;border-radius:4px;
+  z-index:3;
   box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .podio .coroa{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;
   max-width:400px;padding:12px 14px;border-radius:12px;
   background:rgba(251,69,19,.80);border:1px solid rgba(255,255,255,.34);
   box-shadow:0 6px 22px rgba(0,0,0,.35)}
+.podio:not(.piores) .coroa{align-items:flex-start;text-align:left;
+  width:min(56%,440px);max-width:none;min-width:0;
+  /* nunca mais alto que o quadro: na tela pequena o cartão passava do pódio */
+  max-height:100%;overflow:hidden;
+  /* o cartão fica sobre o fundo liso, não sobre a arte: dispensa o vidro
+     leitoso e pode ser o laranja da marca, cheio */
+  background:linear-gradient(140deg,rgba(251,69,19,.94),rgba(200,48,10,.90))}
+/* o logo sai de cima da arte e vai para o canto limpo */
+.podio:not(.piores) .marca-podio{right:auto;left:14px;top:12px}
+.podio:not(.piores) .chips{justify-content:flex-start}
+.podio:not(.piores) .empate{max-width:none}
 .podio .tit{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#ffe4da}
 .podio .eq{font-size:27px;font-weight:800;color:#fff;line-height:1.05;
   text-shadow:0 2px 10px rgba(0,0,0,.45)}
 .podio .pts{font-size:12px;color:#ffeee8;font-variant-numeric:tabular-nums}
 .podio .chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;
-  max-height:140px;overflow-y:auto;margin-top:2px}
+  min-height:0;
+  max-height:96px;overflow-y:auto;margin-top:2px}
+.v.ampliado .podio .chips{max-height:220px}
 .podio .chip{font-size:10.5px;font-weight:600;color:#fff;padding:3px 8px;border-radius:20px;
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.30);white-space:nowrap;cursor:help}
 .podio .chip.lider{background:#fff;color:var(--acento-forte);border-color:#fff}
