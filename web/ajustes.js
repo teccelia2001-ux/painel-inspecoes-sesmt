@@ -7,6 +7,23 @@
 const semAcentoAj = t => String(t || "").normalize("NFD")
   .replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
+
+/* Meta de inspeção que cada função ganha por padrão, ao ser escolhida no
+   cadastro. É sugestão, não trava: o administrador pode digitar outro
+   número por cima, e aí o campo para de acompanhar a função.
+
+   A chave é a função sem acento e em minúsculas, e o "de" é opcional —
+   "Técnico Segurança" (como está cadastrado) e "Técnico de Segurança"
+   (como se escreve) caem na mesma linha. */
+const META_POR_FUNCAO = {
+  "supervisor": 4,
+  "tecnico seguranca": 12,
+  "engenheiro seguranca": 4,
+  "coordenador operacional": 4,
+  "gerente operacional": 2
+};
+const metaDaFuncao = f => META_POR_FUNCAO[
+  semAcentoAj(f).replace(/\bde\b/g, " ").replace(/\s+/g, " ").trim()];
 const CAMPOS_EQUIPE = [
   { k: "equipe", rot: "Nome da equipe", obrigatorio: true },
   /* O tipo define o departamento, e é por ele que o app decide quais
@@ -1352,6 +1369,26 @@ const Ajustes = {
       sugerir();
     }
 
+
+    /* A meta acompanha a FUNÇÃO, do mesmo jeito que o e-mail acompanha o
+       nome: escolheu "Supervisor", a meta vira 4; "Técnico de Segurança",
+       12. Cada função tem seu número em META_POR_FUNCAO.
+
+       Continua sendo só sugestão. Digitou a meta à mão, o campo é seu e
+       para de mudar sozinho — é o que preserva a exceção de quem tem meta
+       diferente da função. Função sem padrão cadastrado não mexe no campo. */
+    const campoFuncao = form.elements.funcao, campoMeta = form.elements.meta;
+    if (campoFuncao && campoMeta) {
+      let metaAMao = false;
+      campoMeta.oninput = () => { metaAMao = true; };
+      campoFuncao.oninput = () => {
+        if (metaAMao) return;
+        const m = metaDaFuncao(campoFuncao.value);
+        if (m !== undefined) campoMeta.value = m;
+      };
+      // cadastro novo já abre com a meta da função, se ela veio preenchida
+      if (!campoMeta.value || campoMeta.value === "0") campoFuncao.oninput();
+    }
     const primeiro = fundo.querySelector("input, select");
     if (primeiro) primeiro.focus();
 
