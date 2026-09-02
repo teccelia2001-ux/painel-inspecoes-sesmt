@@ -1116,7 +1116,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260902-0921";
+const VERSAO = "20260902-1423";
 </script>
 <script>
 /* ============================================================
@@ -4051,21 +4051,26 @@ function alternarAmpliado(painel) {
   render();
 }
 
+/* Botão de ampliar de um quadro. Todo visual ganha o seu: os gráficos desta
+   tela são pequenos por necessidade — cabem até 20 numa página — e alguns
+   rótulos só ficam legíveis grandes. Aparece no hover, para não poluir. */
+function botaoAmpliar(painel) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "v-ampliar";
+  b.textContent = "⤢"; b.title = "Ampliar";
+  b.setAttribute("aria-label", "Ampliar");
+  b.onclick = e => { e.stopPropagation(); alternarAmpliado(painel); };
+  painel.appendChild(b);
+  return b;
+}
+
 function visual(pai, x, y, w, h, titulo) {
   const d = box(pai, x, y, w, h, "painel");
   if (titulo) d.appendChild(Object.assign(document.createElement("div"), { className: "titulo", textContent: titulo }));
   const c = document.createElement("div");
   c.className = "corpo" + (titulo ? "" : " semtitulo");
   d.appendChild(c);
-  /* Botão de ampliar em todo visual: os gráficos desta tela são pequenos por
-     necessidade — cabem 20 numa página só — e alguns rótulos só ficam
-     legíveis grandes. Aparece no hover, para não poluir. */
-  const amp = document.createElement("button");
-  amp.type = "button"; amp.className = "v-ampliar";
-  amp.textContent = "⤢"; amp.title = "Ampliar";
-  amp.setAttribute("aria-label", "Ampliar");
-  amp.onclick = e => { e.stopPropagation(); alternarAmpliado(d); };
-  d.appendChild(amp);
+  botaoAmpliar(d);
   return c;
 }
 function cartao(pai, x, y, w, h, rotulo, classe) {
@@ -4249,9 +4254,13 @@ function pgPainel() {
   /* No PAINEL o que se leva para a reunião é ESTE quadro, não a página inteira
      — o resto é menu de navegação. A marca diz ao exportador o que capturar. */
   res.classList.add("alvo-export");
+  /* O resumo é o maior quadro da tela, mas continua sendo um quadro: ampliar
+     vale para ele como para qualquer gráfico — com 20 polos ou 40 equipes na
+     lista, é onde mais rende. Mesmo botão, mesmo comportamento. */
   res.innerHTML = `<div class="titulo">Resumo geral (sem filtros)</div>`;
   R.painelTitulo = res.querySelector(".titulo");
   const c = document.createElement("div"); c.className = "corpo"; res.appendChild(c);
+  botaoAmpliar(res);   /* depois do innerHTML acima, senão ele apaga o botão */
 
   /* Seletor do que aparece no resumo — mesmas pílulas do resto do painel */
   const sel = document.createElement("div");
@@ -5188,40 +5197,47 @@ async function imagemDaPagina(escala) {
   copia.querySelectorAll(".v-ampliar,.v-baixar").forEach(n => n.remove());
 
   let larg = LARGURA_EXPORT, alt = ALTURA_EXPORT;
-  if (ampl) {
-    /* Quadro ampliado tem tamanho próprio e conteúdo posicionado por
-       absolute: medir com height:auto devolvia 33px — só o título — e a
-       imagem saía uma tira. Aqui o tamanho é o que está na tela. */
+  if (soOQuadro) {
+    /* UM QUADRO (o ampliado, ou o resumo do PAINEL).
+
+       O tamanho é o que está na tela, e não uma medição com height:auto: o
+       conteúdo do quadro é posicionado por absolute, então altura automática
+       dava 25px — só o título — e o PNG do PAINEL saía uma tira. Defeito
+       antigo, achado em 02/09/2026 ao ampliar o resumo.
+
+       Ao tamanho da tela soma-se o que está fora da vista por rolagem: a
+       imagem cresce até o conteúdo inteiro e a barra de rolagem não vai
+       desenhada no arquivo. É o que faz a lista de polos sair completa e o
+       gráfico por dia sair com todos os dias.
+
+       A medida sai do elemento REAL: o clone está solto do documento e não
+       tem layout para medir. */
     larg = alvo.offsetWidth; alt = alvo.offsetHeight;
-
-    /* A barra de rolagem NÃO vai para o arquivo — ela saía desenhada no
-       rodapé do PNG, uma barra cinza inútil numa imagem que não rola. E
-       o que estava fora da vista sairia cortado, que é justamente o que
-       o gráfico por dia tem de mais: os dias que não couberam.
-
-       Então a imagem cresce até o conteúdo inteiro e a rolagem some. A
-       medida sai do elemento REAL, na tela: o clone está solto do
-       documento e não tem layout para medir. */
     const corpoTela = alvo.querySelector(".corpo");
     const corpoCopia = copia.querySelector(".corpo");
     if (corpoTela && corpoCopia) {
       larg += Math.max(0, corpoTela.scrollWidth - corpoTela.clientWidth);
       alt  += Math.max(0, corpoTela.scrollHeight - corpoTela.clientHeight);
       corpoCopia.style.overflow = "visible";
+      /* rolagem interna da lista também: sem isso a barra fina reaparece e
+         a lista sai cortada dentro de um quadro já do tamanho certo */
+      corpoCopia.querySelectorAll("*").forEach(n => {
+        n.style.maxHeight = "none";
+        if (n.style.overflow || n.style.overflowY) n.style.overflow = "visible";
+      });
     }
-    copia.style.position = "relative";
-    copia.style.left = copia.style.top = "0";
-    copia.style.width = larg + "px";
-    copia.style.height = alt + "px";
-  } else if (soOQuadro || marcado) {
-    larg = marcado ? 620 : alvo.offsetWidth;
     /* Tira o quadro da posição absoluta: no SVG ele começa em 0,0. */
     copia.style.position = "relative";
     copia.style.left = copia.style.top = "0";
     copia.style.width = larg + "px";
-    /* O quadro tem rolagem interna, e exportar só a parte visível cortaria o
-       conteúdo — foi para isso que o PDF foi pedido. Abre tudo e mede a
-       altura de verdade, num medidor fora da tela. */
+    copia.style.height = alt + "px";
+  } else if (marcado) {
+    larg = 620;
+    copia.style.position = "relative";
+    copia.style.left = copia.style.top = "0";
+    copia.style.width = larg + "px";
+    /* Aqui a altura automática VALE: a composição é uma coluna de pedaços
+       clonados, que fluem de verdade. */
     copia.style.height = "auto";
     copia.querySelectorAll("*").forEach(n => {
       const ov = getComputedStyle(n).overflowY;
@@ -5279,7 +5295,8 @@ function nomeDoArquivo(ext) {
   /* Com um gráfico ampliado o arquivo leva o nome DELE: baixar cinco
      visuais da mesma página geraria cinco "icit-2026-09-02.png". */
   const amp = document.querySelector(".pagina.ativa .v.ampliado .titulo");
-  if (amp) return `${semAcento(amp.textContent).replace(/[^a-z0-9]+/g, "-")}-${hoje}.${ext}`;
+  if (amp) return `${semAcento(amp.textContent).replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}-${hoje}.${ext}`;
   const p = PAGINAS.find(x => x.id === paginaAtual) || { nome: "painel" };
   return `${semAcento(p.nome).replace(/[^a-z0-9]+/g, "-")}-${hoje}.${ext}`;
 }
