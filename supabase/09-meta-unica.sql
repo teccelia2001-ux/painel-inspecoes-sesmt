@@ -10,10 +10,20 @@
 -- cada inspetor continua sendo exatamente a que já valia.
 --
 -- RODAR ANTES de publicar a versão nova do painel.
+-- Pode rodar de novo sem erro: o rename só acontece se ainda houver
+-- o que renomear.
 -- ============================================================
 
-alter table public.sesmt_inspetores
-  rename column meta_dinamica to meta;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'sesmt_inspetores'
+       and column_name = 'meta_dinamica'
+  ) then
+    alter table public.sesmt_inspetores rename column meta_dinamica to meta;
+  end if;
+end $$;
 
 alter table public.sesmt_inspetores
   drop column if exists meta_estatica;
