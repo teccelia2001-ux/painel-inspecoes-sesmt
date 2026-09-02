@@ -112,12 +112,57 @@ function box(pai, x, y, w, h, cls) {
   pai.appendChild(d);
   return d;
 }
+
+/* ---------- ampliar um visual ----------
+   Nada de imagem esticada: o painel passa a ocupar a página inteira e
+   render() redesenha. Os gráficos leem clientWidth/clientHeight, então
+   eles se refazem no tamanho novo — os rótulos que estavam apertados
+   voltam a caber, e as barras finas ficam legíveis.
+
+   Um por vez: abrir o segundo fecha o primeiro. */
+let vAmpliado = null;
+function fecharAmpliado() {
+  if (!vAmpliado) return;
+  const b = vAmpliado.querySelector(".v-ampliar");
+  if (b) { b.textContent = "⤢"; b.title = "Ampliar"; b.setAttribute("aria-label", "Ampliar"); }
+  vAmpliado.classList.remove("ampliado");
+  vAmpliado = null;
+  document.querySelectorAll(".v-fundo").forEach(f => f.remove());
+  document.removeEventListener("keydown", aoTeclarAmpliado);
+  render();
+}
+function aoTeclarAmpliado(e) { if (e.key === "Escape") fecharAmpliado(); }
+function alternarAmpliado(painel) {
+  const abrir = vAmpliado !== painel;
+  fecharAmpliado();
+  if (!abrir) return;
+  vAmpliado = painel;
+  painel.classList.add("ampliado");
+  const b = painel.querySelector(".v-ampliar");
+  if (b) { b.textContent = "✕"; b.title = "Reduzir (Esc)"; b.setAttribute("aria-label", "Reduzir"); }
+  const fundo = document.createElement("div");
+  fundo.className = "v-fundo";
+  fundo.onclick = fecharAmpliado;
+  painel.parentElement.insertBefore(fundo, painel);
+  document.addEventListener("keydown", aoTeclarAmpliado);
+  render();
+}
+
 function visual(pai, x, y, w, h, titulo) {
   const d = box(pai, x, y, w, h, "painel");
   if (titulo) d.appendChild(Object.assign(document.createElement("div"), { className: "titulo", textContent: titulo }));
   const c = document.createElement("div");
   c.className = "corpo" + (titulo ? "" : " semtitulo");
   d.appendChild(c);
+  /* Botão de ampliar em todo visual: os gráficos desta tela são pequenos por
+     necessidade — cabem 20 numa página só — e alguns rótulos só ficam
+     legíveis grandes. Aparece no hover, para não poluir. */
+  const amp = document.createElement("button");
+  amp.type = "button"; amp.className = "v-ampliar";
+  amp.textContent = "⤢"; amp.title = "Ampliar";
+  amp.setAttribute("aria-label", "Ampliar");
+  amp.onclick = e => { e.stopPropagation(); alternarAmpliado(d); };
+  d.appendChild(amp);
   return c;
 }
 function cartao(pai, x, y, w, h, rotulo, classe) {

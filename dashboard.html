@@ -53,6 +53,28 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .corpo{position:absolute;left:6px;right:6px;top:26px;bottom:6px}
 .corpo.semtitulo{top:6px}
 
+
+/* ---- ampliar um visual ----
+   O canvas é fixo em 1510x720 e cada visual tem seu retângulo. Ampliar é
+   fazer o retângulo virar a página inteira e mandar redesenhar: os gráficos
+   leem clientWidth/clientHeight na hora de desenhar, então eles nascem
+   grandes de verdade, e não uma imagem esticada. */
+.v-ampliar{position:absolute;right:5px;top:4px;z-index:2;width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;padding:0;
+  border:1px solid transparent;border-radius:6px;background:transparent;
+  color:var(--txt3);font-size:13px;line-height:1;cursor:pointer;opacity:0;
+  transition:opacity .12s}
+/* Só aparece no visual em que o mouse está — 20 botões acesos ao mesmo tempo
+   virariam ruído numa tela que já é densa. No teclado aparece ao focar. */
+.painel:hover .v-ampliar,.v-ampliar:focus-visible,.v.ampliado .v-ampliar{opacity:1}
+.v-ampliar:hover{background:var(--acento-suave);border-color:var(--acento);
+  color:var(--acento-forte)}
+.v-ampliar:focus-visible{outline:2px solid var(--acento);outline-offset:1px}
+.v.ampliado{left:10px!important;top:10px!important;
+  width:calc(100% - 20px)!important;height:calc(100% - 20px)!important;z-index:60;
+  box-shadow:0 12px 48px rgba(60,44,28,.28)}
+.v-fundo{position:absolute;inset:0;z-index:55;background:rgba(36,31,26,.35)}
+
 /* cards de KPI */
 .card{background:var(--painel);border:1px solid var(--linha-borda);border-radius:8px;
   box-shadow:var(--sombra);
@@ -1010,7 +1032,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260902-0838";
+const VERSAO = "20260902-0845";
 </script>
 <script>
 /* ============================================================
@@ -3867,12 +3889,57 @@ function box(pai, x, y, w, h, cls) {
   pai.appendChild(d);
   return d;
 }
+
+/* ---------- ampliar um visual ----------
+   Nada de imagem esticada: o painel passa a ocupar a página inteira e
+   render() redesenha. Os gráficos leem clientWidth/clientHeight, então
+   eles se refazem no tamanho novo — os rótulos que estavam apertados
+   voltam a caber, e as barras finas ficam legíveis.
+
+   Um por vez: abrir o segundo fecha o primeiro. */
+let vAmpliado = null;
+function fecharAmpliado() {
+  if (!vAmpliado) return;
+  const b = vAmpliado.querySelector(".v-ampliar");
+  if (b) { b.textContent = "⤢"; b.title = "Ampliar"; b.setAttribute("aria-label", "Ampliar"); }
+  vAmpliado.classList.remove("ampliado");
+  vAmpliado = null;
+  document.querySelectorAll(".v-fundo").forEach(f => f.remove());
+  document.removeEventListener("keydown", aoTeclarAmpliado);
+  render();
+}
+function aoTeclarAmpliado(e) { if (e.key === "Escape") fecharAmpliado(); }
+function alternarAmpliado(painel) {
+  const abrir = vAmpliado !== painel;
+  fecharAmpliado();
+  if (!abrir) return;
+  vAmpliado = painel;
+  painel.classList.add("ampliado");
+  const b = painel.querySelector(".v-ampliar");
+  if (b) { b.textContent = "✕"; b.title = "Reduzir (Esc)"; b.setAttribute("aria-label", "Reduzir"); }
+  const fundo = document.createElement("div");
+  fundo.className = "v-fundo";
+  fundo.onclick = fecharAmpliado;
+  painel.parentElement.insertBefore(fundo, painel);
+  document.addEventListener("keydown", aoTeclarAmpliado);
+  render();
+}
+
 function visual(pai, x, y, w, h, titulo) {
   const d = box(pai, x, y, w, h, "painel");
   if (titulo) d.appendChild(Object.assign(document.createElement("div"), { className: "titulo", textContent: titulo }));
   const c = document.createElement("div");
   c.className = "corpo" + (titulo ? "" : " semtitulo");
   d.appendChild(c);
+  /* Botão de ampliar em todo visual: os gráficos desta tela são pequenos por
+     necessidade — cabem 20 numa página só — e alguns rótulos só ficam
+     legíveis grandes. Aparece no hover, para não poluir. */
+  const amp = document.createElement("button");
+  amp.type = "button"; amp.className = "v-ampliar";
+  amp.textContent = "⤢"; amp.title = "Ampliar";
+  amp.setAttribute("aria-label", "Ampliar");
+  amp.onclick = e => { e.stopPropagation(); alternarAmpliado(d); };
+  d.appendChild(amp);
   return c;
 }
 function cartao(pai, x, y, w, h, rotulo, classe) {
