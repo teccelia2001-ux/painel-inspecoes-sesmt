@@ -73,6 +73,9 @@ let detalheResumo = null;
 /* Texto digitado na busca da lista do resumo. Some ao trocar de visão: é
    um recorte de leitura, não um filtro do painel. */
 let buscaResumo = "";
+/* Mês escolhido nas visões por polo e por equipe ("" = período todo). Não vale
+   para "Mês a mês", que já é a lista dos meses. */
+let mesResumo = "";
 
 /* Compara ignorando acento e maiúscula: "plantao" acha "PLANTÃO". */
 const semAcento = s => String(s || "").normalize("NFD")
@@ -736,8 +739,11 @@ function resumoPainel() {
   const v = VISOES_RESUMO.find(x => x.k === visaoResumo) || VISOES_RESUMO[0];
   R.painelSel.querySelectorAll("button").forEach(b =>
     b.classList.toggle("on", b.dataset.visao === v.k));
+  /* o mês só existe nas listas de polo e equipe */
+  if (v.k === "geral" || v.k === "mes") mesResumo = "";
+  const escopoTit = mesResumo ? nomeMes(mesResumo) : "sem filtros";
   R.painelTitulo.textContent = v.k === "geral"
-    ? "Resumo geral (sem filtros)" : `Resumo ${v.rot.toLowerCase()} (sem filtros)`;
+    ? "Resumo geral (sem filtros)" : `Resumo ${v.rot.toLowerCase()} (${escopoTit})`;
   R.painelTitulo.title = v.desc;
   // o detalhe só vale para a visão em que foi aberto
   if (detalheResumo && detalheResumo.visao !== v.k) detalheResumo = null;
@@ -769,15 +775,34 @@ function consolidar(linhas) {
 function resumoPainelLista(v) {
   const faixa = x => x === null || x === undefined ? "" : x >= 1 ? "bom" : x >= 0.8 ? "medio" : "ruim";
   const faixaIcit = x => x === null || x === undefined ? "" : x >= 0.85 ? "bom" : x >= 0.6 ? "medio" : "ruim";
-  const bruto = resumoMensal(FATO, DDATA, v.campo);
+  /* Por polo e por equipe dá para olhar um mês só: recorto os meses antes de
+     somar, para meta e ICIT saírem do mês escolhido, não do período todo. */
+  const temMes = v.k !== "mes";
+  const meses = DDATA.filter(d => !mesResumo || d[0] === mesResumo);
+  const bruto = resumoMensal(FATO, temMes ? meses : DDATA, v.campo);
 
   // por mês a ordem é o calendário; nas outras, quem mais inspecionou primeiro
   const itens = v.k === "mes"
     ? bruto.map(l => Object.assign({}, l, { chave: l.mes }))
     : consolidar(bruto).sort((a, b) => b.qtd - a.qtd);
 
+  const selMesHTML = !temMes ? "" : `<label class="rp-mes">Mês
+    <select aria-label="Mês do resumo">
+      <option value="">Todo o período</option>
+      ${DDATA.map(d => `<option value="${d[0]}"${d[0] === mesResumo ? " selected" : ""}>${nomeMes(d[0])}</option>`).join("")}
+    </select></label>`;
+
+  /* Liga o seletor de mês; fica fora do if de lista vazia para o usuário
+     conseguir voltar ao período todo quando o mês escolhido não tem nada. */
+  const ligarMes = () => {
+    const s = R.painelResumo.querySelector(".rp-mes select");
+    if (s) s.onchange = () => { mesResumo = s.value; buscaResumo = ""; resumoPainel(); };
+  };
+
   if (!itens.length) {
-    R.painelResumo.innerHTML = `<div class="rp-vazio">sem dados</div>`;
+    R.painelResumo.innerHTML = selMesHTML + `<div class="rp-vazio">sem dados${
+      mesResumo ? " em " + nomeMes(mesResumo) : ""}</div>`;
+    ligarMes();
     return;
   }
 
@@ -791,7 +816,7 @@ function resumoPainelLista(v) {
   const rotBusca = v.k === "equipe" ? "equipe ou supervisor"
     : v.k === "polo" ? "polo" : "mês";
 
-  R.painelResumo.innerHTML = `${temBusca ? `<label class="rp-busca">
+  R.painelResumo.innerHTML = `${selMesHTML}${temBusca ? `<label class="rp-busca">
     <input type="search" placeholder="Buscar ${rotBusca}…" value="${buscaResumo}"
       aria-label="Buscar na lista"><span class="rp-conta"></span></label>` : ""}
   <div class="rp-lista">${itens.map(l => {
@@ -825,6 +850,7 @@ function resumoPainelLista(v) {
 
   /* A busca esconde os blocos que não batem em vez de redesenhar a lista:
      redesenhar tiraria o foco do campo a cada tecla digitada. */
+  ligarMes();
   const cxBusca = R.painelResumo.querySelector(".rp-busca input");
   if (cxBusca) {
     const conta = R.painelResumo.querySelector(".rp-conta");
@@ -847,7 +873,8 @@ function resumoPainelLista(v) {
 
   R.painelResumo.querySelectorAll(".rp-item").forEach(b =>
     b.onclick = () => {
-      detalheResumo = { visao: v.k, chave: b.dataset.chave, mesAno: b.dataset.mes || null };
+      detalheResumo = { visao: v.k, chave: b.dataset.chave,
+        mesAno: b.dataset.mes || (temMes ? mesResumo || null : null) };
       resumoPainel();
     });
 }
@@ -870,10 +897,13 @@ function resumoPainelDetalhe() {
     k = kpis(f, ms);
     opt.rotuloDias = "no mês";
   } else {
-    ms = DDATA;
+    /* quando o resumo estava recortado num mês, o relatório segue nele */
+    ms = d.mesAno ? DDATA.filter(x => x[0] === d.mesAno) : DDATA;
     f = FATO.filter(igual);
+    if (d.mesAno) f = f.filter(x => x.mesAno === d.mesAno);
     k = Object.assign({}, kpis(f, ms));
-    const escopo = consolidar(resumoMensal(FATO, DDATA, campo))
+    if (d.mesAno) opt.rotuloDias = "no mês";
+    const escopo = consolidar(resumoMensal(FATO, ms, campo))
       .find(l => (l.chave || "(vazio)") === (d.chave || "(vazio)"));
     if (campo === "polo") {
       k.Meta_Insp = escopo ? escopo.meta : 0;
@@ -890,7 +920,8 @@ function resumoPainelDetalhe() {
   }
 
   const nome = d.visao === "mes" ? nomeMes(d.mesAno) : (d.chave || "(vazio)");
-  R.painelTitulo.textContent = `Relatório de ${nome} (sem filtros)`;
+  R.painelTitulo.textContent = `Relatório de ${nome} (${
+    d.visao !== "mes" && d.mesAno ? nomeMes(d.mesAno) : "sem filtros"})`;
   R.painelTitulo.title = `Os mesmos números do resumo geral, recortados para ${nome}.`;
 
   R.painelResumo.innerHTML =

@@ -192,6 +192,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
 /* lista de progresso: mês a mês, por polo ou por equipe */
 .rp-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 2px 8px}
+/* mês do resumo por polo/equipe: fica acima da busca, no mesmo tom discreto */
+.rp-mes{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;
+  padding:2px 2px 8px;background:var(--painel);font-size:11px;font-weight:700;
+  color:var(--txt3);text-transform:uppercase;letter-spacing:.4px}
+.rp-mes select{height:32px;border-radius:8px;padding:0 8px;border:1px solid var(--linha-borda);
+  background:var(--painel-alt);color:var(--txt);font:inherit;font-size:12px;font-weight:600;
+  text-transform:none;letter-spacing:0}
+.rp-mes select:focus{outline:2px solid var(--acento);outline-offset:-1px}
 /* busca da lista: campo discreto, colado no topo enquanto a lista rola */
 .rp-busca{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;
   padding:2px 2px 8px;background:var(--painel)}
@@ -199,6 +207,8 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   border:1px solid var(--linha-borda);background:var(--painel-alt);color:inherit;
   font:inherit;font-size:12px}
 .rp-busca input:focus{outline:2px solid var(--acento);outline-offset:-1px}
+/* com o seletor de mês em cima, a busca gruda logo abaixo dele */
+.rp-mes+.rp-busca{top:42px}
 .rp-conta{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--txt3);
   font-variant-numeric:tabular-nums}
 .rp-lista.vazia::after{content:"Nenhuma linha bate com a busca.";grid-column:1/-1;
