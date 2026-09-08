@@ -308,7 +308,28 @@ const Ajustes = {
   modoInsp: (() => { try { return localStorage.getItem("sesmt.modoInsp") || "inspecao"; }
                      catch (e) { return "inspecao"; } })(),
 
-  montar(pg) {
+  /* Duas páginas usam esta mesma tela, com seções diferentes:
+
+       Inspeções — o que o campo produziu (inspeções e rascunhos)
+       Ajustes   — o cadastro (equipes, inspetores, visualizadores)
+
+     Antes era tudo em Ajustes, e quem só queria consultar uma inspeção
+     entrava numa tela chamada "ajustes", ao lado dos botões que mexem no
+     cadastro. São coisas de rotinas diferentes, e agora são telas diferentes.
+
+     É a mesma instância, remontada quando a página abre: o estado de filtro
+     não atravessa de uma para a outra, e isso é o certo — filtro de equipe
+     não quer dizer nada na lista de inspeções. */
+  VISOES: {
+    inspecoes: ["inspecoes", "rascunhos"],
+    ajustes: ["equipes", "inspetores", "visualizadores"]
+  },
+
+  montar(pg, chaves) {
+    const usadas = chaves && chaves.length ? chaves : Object.keys(SECOES);
+    this.chaves = usadas;
+    /* Ao trocar de página, a seção aberta pode não existir na nova. */
+    if (usadas.indexOf(this.secao) < 0) { this.secao = usadas[0]; this.busca = ""; this.filtros = {}; }
     pg.innerHTML = "";
     const topo = document.createElement("div"); topo.className = "faixa-topo"; pg.appendChild(topo);
     const marca = document.createElement("div"); marca.className = "marca";
@@ -336,7 +357,7 @@ const Ajustes = {
     pg.appendChild(corpo);
     this.el = corpo;
 
-    Object.keys(SECOES).forEach(k => {
+    this.chaves.forEach(k => {
       const b = document.createElement("button");
       b.textContent = SECOES[k].titulo;
       b.dataset.sec = k;

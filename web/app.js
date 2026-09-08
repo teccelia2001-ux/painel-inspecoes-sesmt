@@ -12,7 +12,8 @@ const PAGINAS = [
   { id: "icit",    nome: "ICIT",              icone: "🛡️", desc: "Conformidade e inconformidades" },
   { id: "dia",     nome: "Inspeções por dia", icone: "📅", desc: "Volume diário de inspeções" },
   { id: "jornada", nome: "Jornada Segura",    icone: "🏆", desc: "Ranking de pontuação das equipes" },
-  { id: "ajustes", nome: "Ajustes",           icone: "⚙️", desc: "Cadastro de equipes e inspetores" }
+  { id: "insp",    nome: "Inspeções",         icone: "📋", desc: "Cada inspeção feita, e os rascunhos do app" },
+  { id: "ajustes", nome: "Ajustes",           icone: "⚙️", desc: "Cadastro de equipes, inspetores e visualizadores" }
 ];
 let paginaAtual = "painel";
 
@@ -489,19 +490,31 @@ function pgJornada() {
 }
 
 /* --- 8. Ajustes (cadastros) --- */
+/* Duas páginas com a mesma tela por baixo: uma lista o que o campo produziu,
+   a outra o cadastro. São remontadas quando abrem — ver Ajustes.montar. */
 function pgAjustes() {
   const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-ajustes";
-  return Ajustes.montar(pg);
+  return Ajustes.montar(pg, Ajustes.VISOES.ajustes);
+}
+function pgInspecoes() {
+  const pg = document.createElement("div"); pg.className = "pagina"; pg.id = "pg-insp";
+  return Ajustes.montar(pg, Ajustes.VISOES.inspecoes);
 }
 
 /* ---------- montagem ---------- */
-[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgAjustes()]
+[pgPainel(), pgTaxa(), pgRanking(), pgAvanco(), pgIcit(), pgDia(), pgJornada(), pgInspecoes(), pgAjustes()]
   .forEach(p => canvas.appendChild(p));
 canvas.appendChild(abas());
 
 function irPara(id) {
   if (!PAGINAS.some(p => p.id === id)) id = "painel";
   paginaAtual = id;
+  /* A tela de tabelas é uma só, usada por duas páginas: remonta na que abriu,
+     com as seções dela. */
+  if (id === "ajustes" || id === "insp") {
+    const alvo = canvas.querySelector(id === "insp" ? "#pg-insp" : "#pg-ajustes");
+    if (alvo) Ajustes.montar(alvo, id === "insp" ? Ajustes.VISOES.inspecoes : Ajustes.VISOES.ajustes);
+  }
   canvas.querySelectorAll(".pagina").forEach(p => p.classList.toggle("ativa", p.id === "pg-" + id));
   canvas.querySelectorAll(".abas button").forEach(b => b.classList.toggle("on", b.dataset.pg === id));
   marcarSiglas(canvas);
@@ -674,7 +687,7 @@ function render() {
       { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
 
-  if (paginaAtual === "ajustes") { Ajustes.render(); return; }
+  if (paginaAtual === "ajustes" || paginaAtual === "insp") { Ajustes.render(); return; }
 
   if (paginaAtual === "jornada") {
     const j = jornada(f, ms).filter(l => l.pontosIniciais !== null);
@@ -1201,7 +1214,7 @@ const Porta = {
     if (this.el) { this.el.remove(); this.el = null; }
     document.body.classList.remove("trancado");
     render();
-    if (paginaAtual === "ajustes") Ajustes.render();
+    if (paginaAtual === "ajustes" || paginaAtual === "insp") Ajustes.render();
     if (recado) this.avisarFalha(recado);
   },
 
