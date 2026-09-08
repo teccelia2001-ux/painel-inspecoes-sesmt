@@ -962,6 +962,51 @@ const Ajustes = {
     }
   },
 
+  /* As perguntas em planilha, com categoria e gravidade.
+
+     CSV, e não .xlsx: o painel é um arquivo só, sem biblioteca externa, e
+     escrever xlsx à mão é um zip com XML dentro. O que importa é abrir
+     limpo no Excel em português, e para isso valem duas coisas que o CSV
+     "padrão" não tem: separador ponto e vírgula (o Excel pt-BR usa a vírgula
+     como decimal e jogaria tudo numa coluna só) e o BOM no começo, sem o qual
+     "Gravíssimo" e "Veículos" chegam com acento quebrado.
+
+     Sai o que está na tela: com os filtros e a busca aplicados. Quem filtrou
+     por "Sem classificação" quer levar justamente essas. */
+  baixarPerguntas() {
+    const linhas = this.linhasVisiveis();
+    if (!linhas.length) return this.avisar("Não há perguntas para baixar com esses filtros.", true);
+
+    const col = [
+      ["Pergunta",            r => r.texto],
+      ["Categoria",           r => r.categoria],
+      ["Gravidade",           r => r.gravidade],
+      ["Pontos na N.C",       r => r.pontos_nc || 0],
+      ["N.C já registradas", r => r.usos || 0],
+      ["Código",             r => r.codigo]
+    ];
+    /* Aspas dobradas e campo entre aspas: pergunta tem ponto e vírgula, e
+       sem isto a linha se parte no meio. */
+    const cel = v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+    const csv = [col.map(c => cel(c[0])).join(";")]
+      .concat(linhas.map(r => col.map(c => cel(c[1](r))).join(";")))
+      .join("\r\n");
+
+    const nome = "perguntas-checklist-sesmt-"
+      + new Date().toISOString().slice(0, 10) + ".csv";
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+
+    const semClass = linhas.filter(r => !r.gravidade || r.gravidade === "Sem classificação").length;
+    this.avisar(`${linhas.length} pergunta(s) na planilha`
+      + (semClass ? ` — ${semClass} ainda sem classificação.` : "."));
+  },
+
   baixarPDF() {
     const s = SECOES[this.secao];
     const linhas = this.linhasVisiveis();
@@ -1135,6 +1180,13 @@ const Ajustes = {
     if (this.secao === "visualizadores") {
       btNovo.style.display = Banco.podeEditar() ? "" : "none";
       btNovo.onclick = () => this.novoVisualizador();
+    } else if (this.secao === "perguntas") {
+      /* Aqui o botão baixa a planilha, e vale para quem só olha também:
+         levar a classificação para o Excel não mexe em nada. */
+      btNovo.style.display = "";
+      btNovo.firstChild.textContent = "";
+      btNovo.querySelector("span").textContent = "⭳ Baixar Excel";
+      btNovo.onclick = () => this.baixarPerguntas();
     } else {
       btNovo.onclick = s.baixar ? () => this.baixarPDF() : () => this.abrirDialogo(null);
     }
