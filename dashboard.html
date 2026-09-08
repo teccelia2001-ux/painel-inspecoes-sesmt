@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Painel de Inspeções SESMT</title>
 <meta name="theme-color" content="#ffffff">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -350,7 +352,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   #canvas{width:100%;height:auto;min-height:100vh;transform:none;border-radius:0;box-shadow:none}
   .pagina{position:static;inset:auto}
   .pagina.ativa{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:10px;padding:10px 10px 66px;align-content:start}
+    gap:10px;padding:10px 10px 88px;align-content:start}
 
   .faixa-topo{display:none}
   .marca{position:static;grid-column:1/-1;padding:4px 0}
@@ -387,12 +389,26 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .tbl{font-size:12.5px;min-width:620px}
   .tbl td,.tbl thead th{padding:8px 9px;white-space:nowrap}
 
-  .abas{position:fixed;bottom:0;overflow-x:auto;flex-wrap:nowrap;
+  /* Barra de páginas no celular: alvo de dedo, não de mouse. Era 30px de
+     altura com texto de 11px — no telefone dava para errar o botão. */
+  .abas{position:fixed;bottom:0;height:54px;padding:0 2px;gap:2px;overflow-x:auto;flex-wrap:nowrap;
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
     box-shadow:0 -2px 10px rgba(60,44,28,.10)}
   .abas::-webkit-scrollbar{display:none}
-  .abas button{white-space:nowrap;flex:0 0 auto}
+  .abas button{white-space:nowrap;flex:0 0 auto;height:44px;padding:0 15px;
+    font-size:13.5px;font-weight:700;border-radius:9px}
   .abas .att{display:none}
+  .abas .exportar{margin-left:4px;padding-right:10px;align-items:center}
+  .abas .exportar button{height:38px;padding:0 12px;font-size:12px}
+
+  /* Menu da página PAINEL: cada destino ocupa a linha inteira e tem altura de
+     botão de celular. No fluido o visual perde a altura fixa, e o botão
+     herdava height:100% de um pai que virou "auto" — ficava com 32px. */
+  #pg-painel .v{grid-column:1/-1}
+  .menu-btn{height:auto;min-height:64px;padding:12px 16px;font-size:17px;gap:12px}
+  .menu-btn .ic{font-size:24px;width:30px}
+  .menu-btn .desc{font-size:12px;margin-top:2px}
+  .menu-btn:hover{transform:none}   /* sem cursor, o deslize só atrapalha */
 
   /* resumo geral: rola junto com a página, sem caixa de rolagem interna */
   .rg{height:auto;overflow:visible}
@@ -436,7 +452,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
 /* celular estreito: 2 cards por linha, visuais mais altos */
 @media (max-width:520px){
-  .pagina.ativa{padding:8px 8px 66px;gap:8px}
+  .pagina.ativa{padding:8px 8px 88px;gap:8px}
   .card{min-height:62px;padding:6px 4px}
   .card .valor{font-size:20px}
   .card .rot{font-size:8.5px}
@@ -753,6 +769,25 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .aj-cont{margin-left:0;width:100%}
   .aj-tabela{max-height:60vh;min-height:220px}
   .aj-fundo{position:fixed}
+
+  /* Alvos de toque na aba de cadastro: tudo o que se clica com o dedo passa
+     de ~30px para 44px, o mínimo que uma mão acerta em movimento. */
+  .aj-abas{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;gap:4px}
+  .aj-abas::-webkit-scrollbar{display:none}
+  .aj-abas button{flex:0 0 auto;height:42px;padding:0 14px;font-size:13.5px}
+  .aj-filtro .aj-mbotao{min-height:44px;font-size:13px}
+  .aj-modo{flex:1 1 100%}
+  .aj-modo-bts{height:46px}
+  .aj-modo-bts button{flex:1 1 0;font-size:13.5px;padding:0 8px}
+  .aj-mini{min-width:38px;min-height:38px;font-size:14px}
+  .aj-mlista label{padding:10px 8px;font-size:13.5px}
+
+  /* A ficha da inspeção ocupa a tela toda: no celular ela é a leitura
+     principal, não um cartão flutuante. */
+  .aj-ficha .aj-dialogo{width:100%;max-width:none;max-height:92vh}
+  .ficha-grade{grid-template-columns:1fr 1fr;gap:4px 12px}
+  .ficha-nc li{flex-direction:column;gap:4px}
+  .fotos-tira a{width:calc(50% - 4px);height:120px}
 }
 .podio .lugar b{font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .podio .lugar .detalhe + b{margin-left:0}
@@ -1145,7 +1180,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260908-1106";
+const VERSAO = "20260908-1334";
 </script>
 <script>
 /* ============================================================

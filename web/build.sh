@@ -3,6 +3,11 @@
 set -e
 out=../index.html
 {
+  # charset e viewport: sem eles o celular renderiza a página a 980px e
+  # encolhe tudo (era por isso que o painel "não era responsivo" no telefone),
+  # e o acento depende do header do servidor para não virar caractere estranho.
+  echo '<meta charset="utf-8">'
+  echo '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
   echo '<title>Painel de Inspeções SESMT</title>'
   echo '<meta name="theme-color" content="#ffffff">'
   echo '<link rel="preconnect" href="https://fonts.googleapis.com">'
