@@ -143,6 +143,36 @@ const SECOES = {
           return n ? "📷 " + n : "—"; }, num: true }
     ]
   },
+  /* Perguntas — a gravidade de cada item do checklist.
+
+     Quando a classificação saiu do painel para o banco (migração 08), foram
+     classificadas as 34 perguntas que algum dia tinham dado não conformidade,
+     e a 13 pegou mais 7. As demais ficaram vazias porque nunca haviam
+     reprovado — e no dia em que reprovam pela primeira vez, a N.C aparece no
+     painel como "Sem classificação" e vale ZERO ponto na Jornada Segura.
+
+     Foi o que aconteceu em 04/09/2026 com a amarração de escada. Esta tela
+     existe para isso não depender de uma migração nova a cada vez: o
+     administrador classifica na hora, e o painel recalcula.
+
+     Os pontos andam junto com a gravidade, e não são digitados: são a mesma
+     decisão vista de dois ângulos, e deixá-los divergir faria o painel mostrar
+     "Gravíssimo" descontando nada. */
+  perguntas: {
+    titulo: "Perguntas", desc: "A gravidade de cada item do checklist — é ela que "
+      + "desconta ponto na Jornada Segura quando o item reprova.",
+    somenteLeitura: true, chave: "codigo",
+    filtros: [["gravidade", "Gravidade", (a, b) => postoGravidade(a) - postoGravidade(b)],
+              ["categoria", "Categoria"]],
+    colunas: [
+      { t: "Pergunta", v: r => r.texto || "—", forte: true },
+      { t: "Categoria", v: r => r.categoria || "—" },
+      { t: "Gravidade", v: r => r.gravidade, etiqueta: true },
+      { t: "Pontos", v: r => r.pontos_nc ? String(r.pontos_nc) : "0", num: true },
+      { t: "N.C já registradas", v: r => String(r.usos || 0), num: true }
+    ]
+  },
+
   /* Visualizadores — contas que só OLHAM o painel.
 
      Quem precisa acompanhar os números sem mexer em nada: gerente, cliente,
@@ -196,6 +226,25 @@ const SECOES = {
     ]
   }
 };
+/* As perguntas do checklist, como vieram do banco, com a conta de quantas
+   não conformidades cada uma já gerou — é o que mostra quais valem
+   classificar primeiro. Sai da sincronização, não de consulta nova. */
+function listaPerguntas() {
+  const d = Sincronia.doBanco;
+  if (!d || !d.perguntas) return [];
+  const usos = {};
+  (d.respostas || []).forEach(r => { usos[r.pergunta] = (usos[r.pergunta] || 0) + 1; });
+  return d.perguntas.map(p => ({
+    codigo: p.codigo, texto: p.texto,
+    categoria: p.categoria || "",
+    gravidade: p.gravidade || "Sem classificação",
+    pontos_nc: p.pontos_nc || 0,
+    usos: usos[p.codigo] || 0
+  })).sort((a, b) => (b.usos - a.usos)
+    || (postoGravidade(a.gravidade) - postoGravidade(b.gravidade))
+    || String(a.texto).localeCompare(String(b.texto), "pt-BR"));
+}
+
 /* As não conformidades de uma inspeção: [id, pergunta, categoria, gravidade, pontos] */
 const ncDe = r => NC_BY_ID[r.id] || [];
 
@@ -322,7 +371,7 @@ const Ajustes = {
      não quer dizer nada na lista de inspeções. */
   VISOES: {
     inspecoes: ["inspecoes", "rascunhos"],
-    ajustes: ["equipes", "inspetores", "visualizadores"]
+    ajustes: ["equipes", "inspetores", "perguntas", "visualizadores"]
   },
 
   montar(pg, chaves) {
@@ -456,6 +505,46 @@ const Ajustes = {
     }
   },
 
+  /* Classificar uma pergunta do checklist.
+
+     Só gravidade e categoria: o texto da pergunta vem do checklist e mudar
+     por aqui faria a mesma pergunta virar duas histórias diferentes entre o
+     app e o painel. Os pontos seguem a gravidade, sem digitação. */
+  classificarPergunta(r) {
+    const PONTOS = { "": 0, "Leve": -1, "Grave": -5, "Gravíssimo": -10 };
+    const atual = PONTOS[r.gravidade] !== undefined ? r.gravidade : "";
+    this.dialogo("Classificar pergunta",
+      `<p class="aj-dtexto">${esc(r.texto)}</p>
+       <label class="aj-campo"><span>Gravidade</span>
+         <select name="gravidade">
+           ${["", "Leve", "Grave", "Gravíssimo"].map(g =>
+             `<option value="${esc(g)}"${g === atual ? " selected" : ""}>${
+               g ? esc(g) + " (" + PONTOS[g] + " ponto" + (PONTOS[g] === -1 ? "" : "s") + ")"
+                 : "Sem classificação (0)"}</option>`).join("")}
+         </select></label>
+       <label class="aj-campo"><span>Categoria</span>
+         <input name="categoria" value="${esc(r.categoria || "")}"
+                placeholder="ex.: EPI/EPC, Veículos, Procedimento"></label>
+       <p class="aj-dtexto">A gravidade decide quantos pontos a equipe perde na
+         Jornada Segura quando este item reprova. Já há
+         <b>${r.usos || 0}</b> não conformidade(s) registrada(s) nele — elas
+         passam a valer a nova pontuação.</p>`,
+      "Salvar",
+      async form => {
+        const g = form.gravidade.value;
+        await Banco.classificarPergunta(r.codigo, {
+          gravidade: g, pontos_nc: PONTOS[g] || 0,
+          categoria: form.categoria.value.trim()
+        });
+        /* Rebaixa tudo: a pontuação muda indicador, e recalcular na memória
+           sem reler o banco arriscaria divergir. */
+        await Sincronia.sincronizar();
+        this.render(); render();
+        this.avisar(g ? `Pergunta classificada como ${g}.`
+                      : "Pergunta ficou sem classificação.");
+      });
+  },
+
   /* Os rascunhos não moram no Cadastros: são buscados quando a aba abre. */
   rascunhos: [],
   rascunhosEm: null,
@@ -481,6 +570,7 @@ const Ajustes = {
   },
 
   fonte(secao) {
+    if (secao === "perguntas") return listaPerguntas();
     if (secao === "visualizadores") return this.visualizadores;
     if (secao === "rascunhos") return this.rascunhos;
     if (secao === "inspecoes")
@@ -1100,6 +1190,15 @@ const Ajustes = {
         return d;
       } }];
 
+      const acaoPerg = podeEditar && this.secao === "perguntas" ? [{ titulo: "Ações", valor: r => {
+        const b = document.createElement("button");
+        b.className = "aj-mini";
+        b.textContent = "✎";
+        b.title = "Classificar esta pergunta";
+        b.onclick = e => { e.stopPropagation(); this.classificarPergunta(r); };
+        return b;
+      } }] : [];
+
       const acaoVis = podeEditar && this.secao === "visualizadores" ? [{ titulo: "Ações", valor: r => {
         const d = document.createElement("div");
         d.className = "aj-acoes-linha";
@@ -1124,7 +1223,7 @@ const Ajustes = {
         return b;
       } }] : [];
       const cols = this.secao === "inspecoes" ? this.colunasInsp() : s.colunas;
-      tabela(host, acao.concat(acaoVis).concat(acaoInsp).concat(cols.map(c => ({
+      tabela(host, acao.concat(acaoPerg).concat(acaoVis).concat(acaoInsp).concat(cols.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
           ? Object.assign(document.createElement("span"), {
@@ -1142,7 +1241,9 @@ const Ajustes = {
       if (cont) {
         const total = this.fonte(this.secao).length;
         // na aba Inspeções cada linha é um desvio, não uma inspeção
-        const nome = this.secao === "visualizadores"
+        const nome = this.secao === "perguntas"
+          ? (linhas.length === 1 ? "pergunta" : "perguntas")
+          : this.secao === "visualizadores"
           ? (linhas.length === 1 ? "visualizador" : "visualizadores")
           : this.secao === "inspecoes"
           ? (this.modoInsp === "nc" ? (linhas.length === 1 ? "linha" : "linhas")

@@ -330,7 +330,16 @@ const Banco = {
 
   criar(tabela, linha)      { return this.pedir(tabela, { method: "POST", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
   atualizar(tabela, id, linha) { return this.pedir(`${tabela}?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(linha), headers: { Prefer: "return=representation" } }); },
-  excluir(tabela, id)       { return this.pedir(`${tabela}?id=eq.${id}`, { method: "DELETE" }); }
+  excluir(tabela, id)       { return this.pedir(`${tabela}?id=eq.${id}`, { method: "DELETE" }); },
+
+  /* A chave de sesmt_perguntas é o código, não um id — por isso não dá para
+     usar atualizar() aqui. A escrita já era permitida ao administrador desde
+     a migração 03; o que faltava era uma tela. */
+  classificarPergunta(codigo, dados) {
+    return this.pedir("sesmt_perguntas?codigo=eq." + encodeURIComponent(codigo),
+      { method: "PATCH", body: JSON.stringify(dados),
+        headers: { Prefer: "return=representation" } });
+  }
 };
 
 /* ============================================================
