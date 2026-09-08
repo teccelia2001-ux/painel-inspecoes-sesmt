@@ -1121,13 +1121,14 @@ const Ajustes = {
     const linhas = this.linhasVisiveis();
     if (!linhas.length) return this.avisar("Não há perguntas para baixar com esses filtros.", true);
 
+    /* Tres colunas, só o que se preenche. Pontos, N.C registradas e o código
+       da pergunta ficam na tela: na planilha eram ruído para quem está ali
+       para classificar, e coluna a mais é coluna que alguém apaga sem querer.
+       O casamento na volta é pelo TEXTO da pergunta, que é único. */
     const colunas = [
-      { titulo: "Pergunta",           largura: 90, valor: r => r.texto },
-      { titulo: "Categoria",          largura: 18, valor: r => r.categoria },
-      { titulo: "Gravidade",          largura: 18, valor: r => r.gravidade },
-      { titulo: "Pontos na N.C",      largura: 13, valor: r => r.pontos_nc || 0, numero: true },
-      { titulo: "N.C já registradas", largura: 17, valor: r => r.usos || 0, numero: true },
-      { titulo: "Código",             largura: 46, valor: r => r.codigo }
+      { titulo: "Pergunta",  largura: 95, valor: r => r.texto },
+      { titulo: "Categoria", largura: 22, valor: r => r.categoria },
+      { titulo: "Gravidade", largura: 22, valor: r => r.gravidade }
     ];
     /* A gravidade vira lista suspensa na coluna C: digitada à mão ela viraria
        "Gravissimo" e "grave", que não casam com o cadastro na hora de voltar. */
