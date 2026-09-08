@@ -1201,7 +1201,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260908-1451";
+const VERSAO = "20260908-1544";
 </script>
 <script>
 /* ============================================================
@@ -2846,6 +2846,151 @@ const SECOES = {
     ]
   }
 };
+/* ============================================================
+   PLANILHA .XLSX ESCRITA À MÃO
+
+   O CSV serve para ler, mas não para trabalhar: guarda só texto, e quem
+   formata a planilha (cor no cabeçalho, largura de coluna) perde tudo ao
+   salvar — o Excel avisa, mas a impressão que fica é a de que as alterações
+   não foram salvas. Foi o que aconteceu aqui em 08/09/2026.
+
+   .xlsx é um zip com alguns XML dentro. Não há biblioteca neste painel e não
+   vale trazer uma: o zip é montado aqui, sem compressão (método "stored"), o
+   que dispensa implementar deflate e custa alguns KB a mais num arquivo de 68
+   linhas. O que precisa ser feito à mão é o CRC-32 de cada arquivo — sem ele
+   batendo, o Excel recusa o pacote inteiro.
+
+   A planilha sai pronta para o trabalho: cabeçalho em negrito e congelado,
+   colunas na largura certa, filtro ligado e, na coluna Gravidade, uma LISTA
+   SUSPENSA com as opções válidas. É a lista que evita o "Gravissimo" sem
+   acento e o "grave" minúsculo, que depois não casam com o cadastro.
+   ============================================================ */
+const TABELA_CRC = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = TABELA_CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* Zip com os arquivos guardados sem compressão. Formato clássico: para cada
+   arquivo, um cabeçalho local seguido dos bytes; no fim, o diretório central e
+   o registro de fim, que é por onde o leitor começa. */
+function zipar(arquivos) {
+  const enc = new TextEncoder();
+  const partes = [], central = [];
+  let deslocamento = 0;
+  const u16 = n => [n & 0xFF, (n >>> 8) & 0xFF];
+  const u32 = n => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
+
+  arquivos.forEach(f => {
+    const nome = enc.encode(f.nome);
+    const dados = enc.encode(f.texto);
+    const crc = crc32(dados);
+    /* Bit 11 do sinalizador: os nomes estão em UTF-8. */
+    const comum = [].concat(u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+      u32(crc), u32(dados.length), u32(dados.length), u16(nome.length));
+    const local = new Uint8Array([].concat(u32(0x04034B50), comum, u16(0), [...nome]));
+    partes.push(local, dados);
+    /* No diretorio central vem, depois dos campos comuns: extra, comentario,
+       disco, atributos internos (2 bytes) e externos (4) e o deslocamento.
+       Faltava um u16 aqui e o zip inteiro ficava ilegivel: o leitor procura o
+       diretorio pelo tamanho declarado e caia no meio de outro registro. */
+    central.push(new Uint8Array([].concat(u32(0x02014B50), u16(20), comum,
+      u16(0), u16(0), u16(0), u16(0), u32(0), u32(deslocamento), [...nome])));
+    deslocamento += local.length + dados.length;
+  });
+
+  const dirTam = central.reduce((a, c) => a + c.length, 0);
+  const fim = new Uint8Array([].concat(u32(0x06054B50), u16(0), u16(0),
+    u16(arquivos.length), u16(arquivos.length), u32(dirTam), u32(deslocamento), u16(0)));
+  return new Blob(partes.concat(central, [fim]),
+    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+const escXml = v => String(v == null ? "" : v)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&apos;")
+  /* Caractere de controle quebra o XML, e o Excel recusa o arquivo inteiro. */
+  .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
+/* colunas: [{titulo, largura, valor(r), numero}] · listas: { "C": ["Leve", …] } */
+function planilhaXlsx(nomeAba, colunas, linhas, listas) {
+  const letra = i => String.fromCharCode(65 + i);
+  const cel = (c, i, n, v) => c.numero
+    ? `<c r="${letra(i)}${n}" t="n"><v>${Number(v) || 0}</v></c>`
+    : `<c r="${letra(i)}${n}" t="inlineStr"><is><t xml:space="preserve">${escXml(v)}</t></is></c>`;
+
+  const cabecalho = `<row r="1">${colunas.map((c, i) =>
+    `<c r="${letra(i)}1" t="inlineStr" s="1"><is><t>${escXml(c.titulo)}</t></is></c>`).join("")}</row>`;
+  const corpo = linhas.map((r, k) => `<row r="${k + 2}">${
+    colunas.map((c, i) => cel(c, i, k + 2, c.valor(r))).join("")}</row>`).join("");
+
+  const chaves = Object.keys(listas || {});
+  const validacoes = chaves.map(col =>
+    `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" ` +
+    `errorTitle="Valor fora da lista" error="Use uma das opções da lista." ` +
+    `sqref="${col}2:${col}${linhas.length + 1}">` +
+    `<formula1>"${listas[col].join(",")}"</formula1></dataValidation>`).join("");
+
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetViews><sheetView tabSelected="1" workbookViewId="0">
+<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<cols>${colunas.map((c, i) =>
+  `<col min="${i + 1}" max="${i + 1}" width="${c.largura || 20}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${cabecalho}${corpo}</sheetData>
+<autoFilter ref="A1:${letra(colunas.length - 1)}${linhas.length + 1}"/>${
+  validacoes ? `<dataValidations count="${chaves.length}">${validacoes}</dataValidations>` : ""}
+</worksheet>`;
+
+  /* Dois estilos: o 0 é o normal (obrigatório) e o 1 é o do cabeçalho. */
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFB4513"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="1"><border/></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>
+</styleSheet>`;
+
+  return zipar([
+    { nome: "[Content_Types].xml", texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>` },
+    { nome: "_rels/.rels", texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>` },
+    { nome: "xl/workbook.xml", texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="${escXml(nomeAba)}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+    { nome: "xl/_rels/workbook.xml.rels", texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>` },
+    { nome: "xl/styles.xml", texto: styles },
+    { nome: "xl/worksheets/sheet1.xml", texto: sheet }
+  ]);
+}
+
 /* As perguntas do checklist, como vieram do banco, com a conta de quantas
    não conformidades cada uma já gerou — é o que mostra quais valem
    classificar primeiro. Sai da sincronização, não de consulta nova. */
@@ -3584,12 +3729,11 @@ const Ajustes = {
 
   /* As perguntas em planilha, com categoria e gravidade.
 
-     CSV, e não .xlsx: o painel é um arquivo só, sem biblioteca externa, e
-     escrever xlsx à mão é um zip com XML dentro. O que importa é abrir
-     limpo no Excel em português, e para isso valem duas coisas que o CSV
-     "padrão" não tem: separador ponto e vírgula (o Excel pt-BR usa a vírgula
-     como decimal e jogaria tudo numa coluna só) e o BOM no começo, sem o qual
-     "Gravíssimo" e "Veículos" chegam com acento quebrado.
+     Sai em .xlsx, não em CSV. O CSV abre no Excel, mas não se deixa
+     trabalhar: guarda só texto, e a formatação some ao salvar — quem
+     classificou 35 perguntas em 08/09/2026 reabriu o arquivo cru e achou que
+     nada tinha sido salvo. O .xlsx guarda o que o Excel mostra, e o Ctrl+S
+     não faz pergunta nenhuma.
 
      Sai o que está na tela: com os filtros e a busca aplicados. Quem filtrou
      por "Sem classificação" quer levar justamente essas. */
@@ -3597,24 +3741,21 @@ const Ajustes = {
     const linhas = this.linhasVisiveis();
     if (!linhas.length) return this.avisar("Não há perguntas para baixar com esses filtros.", true);
 
-    const col = [
-      ["Pergunta",            r => r.texto],
-      ["Categoria",           r => r.categoria],
-      ["Gravidade",           r => r.gravidade],
-      ["Pontos na N.C",       r => r.pontos_nc || 0],
-      ["N.C já registradas", r => r.usos || 0],
-      ["Código",             r => r.codigo]
+    const colunas = [
+      { titulo: "Pergunta",           largura: 90, valor: r => r.texto },
+      { titulo: "Categoria",          largura: 18, valor: r => r.categoria },
+      { titulo: "Gravidade",          largura: 18, valor: r => r.gravidade },
+      { titulo: "Pontos na N.C",      largura: 13, valor: r => r.pontos_nc || 0, numero: true },
+      { titulo: "N.C já registradas", largura: 17, valor: r => r.usos || 0, numero: true },
+      { titulo: "Código",             largura: 46, valor: r => r.codigo }
     ];
-    /* Aspas dobradas e campo entre aspas: pergunta tem ponto e vírgula, e
-       sem isto a linha se parte no meio. */
-    const cel = v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
-    const csv = [col.map(c => cel(c[0])).join(";")]
-      .concat(linhas.map(r => col.map(c => cel(c[1](r))).join(";")))
-      .join("\r\n");
+    /* A gravidade vira lista suspensa na coluna C: digitada à mão ela viraria
+       "Gravissimo" e "grave", que não casam com o cadastro na hora de voltar. */
+    const blob = planilhaXlsx("Perguntas", colunas, linhas,
+      { C: ["Sem classificação", "Leve", "Grave", "Gravíssimo"] });
 
     const nome = "perguntas-checklist-sesmt-"
-      + new Date().toISOString().slice(0, 10) + ".csv";
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+      + new Date().toISOString().slice(0, 10) + ".xlsx";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = nome;
@@ -3624,7 +3765,8 @@ const Ajustes = {
 
     const semClass = linhas.filter(r => !r.gravidade || r.gravidade === "Sem classificação").length;
     this.avisar(`${linhas.length} pergunta(s) na planilha`
-      + (semClass ? ` — ${semClass} ainda sem classificação.` : "."));
+      + (semClass ? ` — ${semClass} ainda sem classificação.` : ".")
+      + " A coluna Gravidade tem lista suspensa: escolha por ela.");
   },
 
   baixarPDF() {
