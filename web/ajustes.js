@@ -463,6 +463,7 @@ const Ajustes = {
       const nc = ncDe(linha);
       const fotos = FOTOS_POR_INSPECAO[linha.id] || [];
       const texto = TEXTO_DESVIOS[linha.id] || "";
+      const placa = PLACA_POR_INSPECAO[linha.id] || "";
 
       let embutidas = [];
       if (fotos.length) {
@@ -529,6 +530,7 @@ const Ajustes = {
           <div><b>Supervisor</b>${esc(linha.supervisor || "—")}</div>
           <div><b>Não conformidades</b>${nc.length} · ${
             nc.reduce((a, x) => a + (x[4] || 0), 0)} ponto(s)</div>
+          ${placa ? `<div><b>Placa do veículo</b>${esc(placa)}</div>` : ""}
         </div>
 
         <h2>Não conformidades</h2>

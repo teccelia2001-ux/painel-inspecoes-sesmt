@@ -73,6 +73,7 @@ let MESES_COM_INSPECAO;
    e nunca entraram aqui. */
 let FOTOS_POR_INSPECAO = {};
 let TEXTO_DESVIOS = {};
+let PLACA_POR_INSPECAO = {};
 let UUID_POR_ID = {};
 reconstruirModelo();
 
@@ -169,6 +170,10 @@ const Sincronia = {
        do modelo se não for guardado aqui, e o relatório individual perderia
        justamente a parte escrita por gente. */
     TEXTO_DESVIOS = {};
+    /* A placa do veículo inspecionado. Só as inspeções de veículo têm, e o
+       relatório de uma delas sem a placa não identifica o que foi inspecionado —
+       "CONST 12" é a equipe, não o carro. */
+    PLACA_POR_INSPECAO = {};
     /* O caminho de volta: do id curto do painel para o uuid do banco. É o que
        permite editar ou excluir uma inspeção a partir da tela — sem ele, o
        painel sabe mostrar mas não sabe apontar. */
@@ -178,6 +183,7 @@ const Sincronia = {
       idPorUuid[x.id] = idDe(x);
       UUID_POR_ID[idDe(x)] = x.id;
       if (x.desvios) TEXTO_DESVIOS[idDe(x)] = x.desvios;
+      if (x.placa) PLACA_POR_INSPECAO[idDe(x)] = x.placa;
     });
     (d.fotos || []).forEach(f => {
       const id = idPorUuid[f.inspecao];
@@ -198,6 +204,7 @@ const Sincronia = {
     this.bancoTemHistorico = false; this.ncContadas = 0;
     FOTOS_POR_INSPECAO = {};      // foto não é pública: sai da tela com a sessão
     TEXTO_DESVIOS = {};
+    PLACA_POR_INSPECAO = {};
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();

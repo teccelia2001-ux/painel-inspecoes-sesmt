@@ -1116,7 +1116,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260902-1423";
+const VERSAO = "20260908-1045";
 </script>
 <script>
 /* ============================================================
@@ -1194,6 +1194,7 @@ let MESES_COM_INSPECAO;
    e nunca entraram aqui. */
 let FOTOS_POR_INSPECAO = {};
 let TEXTO_DESVIOS = {};
+let PLACA_POR_INSPECAO = {};
 let UUID_POR_ID = {};
 reconstruirModelo();
 
@@ -1290,6 +1291,10 @@ const Sincronia = {
        do modelo se não for guardado aqui, e o relatório individual perderia
        justamente a parte escrita por gente. */
     TEXTO_DESVIOS = {};
+    /* A placa do veículo inspecionado. Só as inspeções de veículo têm, e o
+       relatório de uma delas sem a placa não identifica o que foi inspecionado —
+       "CONST 12" é a equipe, não o carro. */
+    PLACA_POR_INSPECAO = {};
     /* O caminho de volta: do id curto do painel para o uuid do banco. É o que
        permite editar ou excluir uma inspeção a partir da tela — sem ele, o
        painel sabe mostrar mas não sabe apontar. */
@@ -1299,6 +1304,7 @@ const Sincronia = {
       idPorUuid[x.id] = idDe(x);
       UUID_POR_ID[idDe(x)] = x.id;
       if (x.desvios) TEXTO_DESVIOS[idDe(x)] = x.desvios;
+      if (x.placa) PLACA_POR_INSPECAO[idDe(x)] = x.placa;
     });
     (d.fotos || []).forEach(f => {
       const id = idPorUuid[f.inspecao];
@@ -1319,6 +1325,7 @@ const Sincronia = {
     this.bancoTemHistorico = false; this.ncContadas = 0;
     FOTOS_POR_INSPECAO = {};      // foto não é pública: sai da tela com a sessão
     TEXTO_DESVIOS = {};
+    PLACA_POR_INSPECAO = {};
     INSPECOES = HISTORICO.inspecoes;
     NC = HISTORICO.nc;
     reconstruirModelo();
@@ -1923,7 +1930,7 @@ const Banco = {
   async baixarInspecoes() {
     if (!this.autenticado()) return { inspecoes: [], nc: [], motivo: "sem-login" };
     const [insp, respostas, perguntas, fotos] = await Promise.all([
-      this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios"
+      this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios,placa"
                  + "&enviada_em=not.is.null&order=data"),
       /* Só as não conformes: é o que vira linha de N.C no painel. As
          conformes e as N/A não entram em conta nenhuma. */
@@ -2943,6 +2950,7 @@ const Ajustes = {
       const nc = ncDe(linha);
       const fotos = FOTOS_POR_INSPECAO[linha.id] || [];
       const texto = TEXTO_DESVIOS[linha.id] || "";
+      const placa = PLACA_POR_INSPECAO[linha.id] || "";
 
       let embutidas = [];
       if (fotos.length) {
@@ -3009,6 +3017,7 @@ const Ajustes = {
           <div><b>Supervisor</b>${esc(linha.supervisor || "—")}</div>
           <div><b>Não conformidades</b>${nc.length} · ${
             nc.reduce((a, x) => a + (x[4] || 0), 0)} ponto(s)</div>
+          ${placa ? `<div><b>Placa do veículo</b>${esc(placa)}</div>` : ""}
         </div>
 
         <h2>Não conformidades</h2>

@@ -235,7 +235,7 @@ const Banco = {
   async baixarInspecoes() {
     if (!this.autenticado()) return { inspecoes: [], nc: [], motivo: "sem-login" };
     const [insp, respostas, perguntas, fotos] = await Promise.all([
-      this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios"
+      this.pedir("sesmt_inspecoes?select=id,origem,origem_id,departamento,inspetor,equipe,data,desvios,placa"
                  + "&enviada_em=not.is.null&order=data"),
       /* Só as não conformes: é o que vira linha de N.C no painel. As
          conformes e as N/A não entram em conta nenhuma. */
