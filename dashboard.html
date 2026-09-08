@@ -415,9 +415,16 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .rg-pct{font-size:30px}
   #pg-painel .corpo{display:block}
   .rp-conteudo{overflow:visible;min-height:0}
-  .rp-sel{margin-bottom:9px;display:flex;overflow-x:auto;scrollbar-width:none}
-  .rp-sel::-webkit-scrollbar{display:none}
-  .rp-sel button{flex:1 0 auto;white-space:nowrap}
+  /* Seletor do resumo: as quatro visões não cabem numa linha de celular, e
+     rolando na horizontal a última ficava cortada na borda — parecia
+     defeito, e ninguém descobre que dá para arrastar. Vira grade 2x2, com
+     tudo à vista e cada botão do tamanho do dedo. */
+  /* .pilulas.rp-sel, e nao so .rp-sel: a regra base das pilulas
+     (display:inline-flex) vem depois na folha e venceria por ordem. */
+  .pilulas.rp-sel{margin-bottom:9px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:4px;width:100%;align-self:stretch;overflow:visible}
+  .pilulas.rp-sel button{width:100%;height:42px;padding:0 8px;font-size:13px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* no fluido o painel cresce, então o pódio precisa de altura mínima própria */
   .podio{min-height:250px}
@@ -1180,7 +1187,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260908-1406";
+const VERSAO = "20260908-1418";
 </script>
 <script>
 /* ============================================================
