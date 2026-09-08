@@ -200,7 +200,17 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .export-composto>.v.painel:last-child{margin-bottom:0}
 
 /* exportar: discreto na barra, mas com alvo de clique de verdade */
+/* Botão de atualizar: pequeno no computador, e no celular só o ⟳ — mas
+   sempre visível, porque é o único jeito de sair de uma versão em cache. */
+.att-bt{margin-left:auto;display:flex;align-items:center;gap:5px;border:1px solid var(--linha-borda);
+  background:var(--painel);color:var(--txt2);border-radius:7px;padding:0 9px;height:22px;
+  font-size:10px;font-weight:700;cursor:pointer}
+.att-bt:hover{border-color:var(--acento);color:var(--acento-forte);background:var(--acento-suave)}
+.att-bt:disabled{opacity:.6;cursor:progress}
+.att-bt .ic{font-size:12px;line-height:1}
+.att-bt+.att{margin-left:8px}
 .abas .exportar{margin-left:auto;display:flex;gap:4px;padding-right:8px}
+.abas .exportar~.att-bt{margin-left:4px}
 .abas .exportar+.att{margin-left:0}
 .abas .exportar button{font-size:10px;font-weight:700;color:var(--txt2);
   border:1px solid var(--linha-borda);background:var(--painel);
@@ -398,6 +408,10 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   .abas button{white-space:nowrap;flex:0 0 auto;height:44px;padding:0 15px;
     font-size:13.5px;font-weight:700;border-radius:9px}
   .abas .att{display:none}
+  /* no celular o botão fica só com o ⟳, do tamanho do dedo */
+  .att-bt{height:38px;padding:0 12px;font-size:15px;margin-left:4px}
+  .att-bt .tx{display:none}
+  .att-bt .ic{font-size:17px}
   .abas .exportar{margin-left:4px;padding-right:10px;align-items:center}
   .abas .exportar button{height:38px;padding:0 12px;font-size:12px}
 
@@ -1187,7 +1201,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260908-1418";
+const VERSAO = "20260908-1421";
 </script>
 <script>
 /* ============================================================
@@ -4713,6 +4727,29 @@ function abas() {
   exp.querySelector(".exp-png").onclick = e => baixarPNG(e.target);
   exp.querySelector(".exp-pdf").onclick = e => baixarPDFPagina(e.target);
   d.appendChild(exp);
+
+  /* Botão de atualizar — e a versão, que diz se ele já fez efeito.
+
+     O painel não tem service worker: quem manda é o cache do navegador, e o
+     GitHub Pages responde com max-age=600. No celular isso significa abrir a
+     versão de dez minutos atrás — ou a de ontem, se a página ficou aberta
+     numa aba. Recarregar "normal" muitas vezes não resolve, porque a URL é a
+     mesma; por isso aqui a página é pedida com um endereço novo (?v=agora),
+     que o cache não tem como responder de memória.
+
+     No celular o texto da versao fica escondido por falta de espaço, mas o
+     botão continua à mão: era justamente lá que dava para ficar preso numa
+     versão velha sem nenhum jeito óbvio de sair dela. */
+  const att = document.createElement("button");
+  att.className = "att-bt";
+  att.innerHTML = `<span class="ic">⟳</span><span class="tx">Atualizar</span>`;
+  att.title = "Buscar a versão mais nova do painel no servidor";
+  att.onclick = () => {
+    att.disabled = true;
+    att.querySelector(".tx").textContent = "Buscando…";
+    location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+  };
+  d.appendChild(att);
 
   const s = document.createElement("span");
   s.className = "att";

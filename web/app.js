@@ -321,6 +321,29 @@ function abas() {
   exp.querySelector(".exp-pdf").onclick = e => baixarPDFPagina(e.target);
   d.appendChild(exp);
 
+  /* Botão de atualizar — e a versão, que diz se ele já fez efeito.
+
+     O painel não tem service worker: quem manda é o cache do navegador, e o
+     GitHub Pages responde com max-age=600. No celular isso significa abrir a
+     versão de dez minutos atrás — ou a de ontem, se a página ficou aberta
+     numa aba. Recarregar "normal" muitas vezes não resolve, porque a URL é a
+     mesma; por isso aqui a página é pedida com um endereço novo (?v=agora),
+     que o cache não tem como responder de memória.
+
+     No celular o texto da versao fica escondido por falta de espaço, mas o
+     botão continua à mão: era justamente lá que dava para ficar preso numa
+     versão velha sem nenhum jeito óbvio de sair dela. */
+  const att = document.createElement("button");
+  att.className = "att-bt";
+  att.innerHTML = `<span class="ic">⟳</span><span class="tx">Atualizar</span>`;
+  att.title = "Buscar a versão mais nova do painel no servidor";
+  att.onclick = () => {
+    att.disabled = true;
+    att.querySelector(".tx").textContent = "Buscando…";
+    location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+  };
+  d.appendChild(att);
+
   const s = document.createElement("span");
   s.className = "att";
   // A versão ajuda a saber se o navegador está mostrando o build atual
