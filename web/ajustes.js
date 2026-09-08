@@ -362,6 +362,11 @@ const Ajustes = {
     fundo.className = "aj-fundo aj-fotos aj-ficha";
     const campo = (rot, val) => val
       ? `<div><b>${esc(rot)}</b>${esc(val)}</div>` : "";
+    /* A placa aparece MESMO vazia, com um traço: sumir o campo faz parecer
+       que o painel não mostra a placa, quando o que houve é que o inspetor
+       não digitou. Assim fica claro o que falta — e é editável. */
+    const campoPlaca = `<div><b>Placa do veículo</b>${
+      placa ? esc(placa) : '<span class="ficha-limpa">não informada pelo inspetor</span>'}</div>`;
     fundo.innerHTML = `<div class="aj-dialogo">
       <div class="aj-dcab">
         <h3>${esc(linha.equipe || linha.equipeBruta || "—")} · ${esc(linha.dataStr)}</h3>
@@ -373,7 +378,7 @@ const Ajustes = {
           ${campo("Polo", linha.polo)}
           ${campo("Departamento", linha.tipo)}
           ${campo("Supervisor", linha.supervisor)}
-          ${campo("Placa do veículo", placa)}
+          ${campoPlaca}
           <div><b>Não conformidades</b>${nc.length} · ${pontos} ponto(s)</div>
         </div>
 
@@ -493,7 +498,13 @@ const Ajustes = {
        <label class="aj-campo"><span>Departamento</span>
          <select name="departamento">${dep.map(([cod, nome]) =>
            `<option value="${cod}"${nome === linha.tipo ? " selected" : ""}>${esc(nome)}</option>`
-         ).join("")}</select></label>`,
+         ).join("")}</select></label>
+       <label class="aj-campo"><span>Placa do veículo</span>
+         <input name="placa" maxlength="7" placeholder="AAA1A11"
+                value="${esc(PLACA_POR_INSPECAO[linha.id] || "")}"
+                style="text-transform:uppercase"></label>
+       <p class="aj-dtexto">A placa é digitada pelo inspetor no app e costuma
+         faltar nas inspeções antigas — dá para preencher aqui.</p>`,
       "Salvar",
       async form => {
         const equipe = form.equipe.value.trim();
@@ -506,8 +517,13 @@ const Ajustes = {
             + "A inspeção casa com a equipe pelo nome — um nome fora do cadastro "
             + "faria ela sumir dos números.");
         }
+        /* Placa normalizada como o app faz: só letra e número, maiúsculas —
+           "qfd 8e92" e "QFD8E92" contavam como veículos diferentes. */
+        const placa = String(form.placa.value || "").toUpperCase()
+          .replace(/[^A-Z0-9]/g, "").slice(0, 7);
         await Banco.atualizar("sesmt_inspecoes", uuid, {
-          equipe, data: form.data.value, departamento: form.departamento.value
+          equipe, data: form.data.value, departamento: form.departamento.value,
+          placa: placa || null
         });
         /* Rebaixa tudo: mudar equipe ou data mexe em quase todo indicador,
            e recalcular na memória sem reler o banco arriscaria divergir. */
