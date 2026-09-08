@@ -225,6 +225,45 @@ const Banco = {
     return j;
   },
 
+  /* ---------- acesso de visualizador ----------
+
+     Conta que só OLHA o painel: não é inspetor (não entra em número nenhum)
+     e não é administrador (não edita cadastro). Não precisou de regra nova no
+     banco — desde a migração 10 quem tem conta lê tudo, e escrever depende de
+     estar em sesmt_admins ou de ser dono da inspeção. O visualizador não é
+     nenhum dos dois, então ele já é, por construção, só leitura.
+
+     Passa pela mesma função de servidor do acesso do inspetor: criar conta
+     exige a chave de serviço, que não pode morar num painel público. */
+  async visualizadores(acao, dados) {
+    if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
+    const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
+      method: "POST",
+      headers: {
+        apikey: SERVIDOR.chave,
+        Authorization: "Bearer " + this.token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(Object.assign({ acao: "visualizador-" + acao }, dados || {}))
+    });
+    let j = null;
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) {
+      if (r.status === 404 && !j) {
+        throw new Error("A função de acesso não respondeu. Confira, no Supabase, "
+          + `se o slug dela ainda é ${SERVIDOR.funcaoAcesso}.`);
+      }
+      /* Função antiga, publicada antes desta tela existir: o pedido chega,
+         mas ela não conhece a ação e cai no "Falta o nome do inspetor". */
+      if (j && /nome do inspetor/i.test(j.erro || "")) {
+        throw new Error("A função de acesso no Supabase ainda é a versão antiga, "
+          + "que não conhece visualizadores. Publique a versão nova de criar-acesso.");
+      }
+      throw new Error((j && j.erro) || ("erro " + r.status));
+    }
+    return j;
+  },
+
   /* ---------- inspeções feitas pelo app ----------
      Ficam no banco, não no data.js. Só quem tem login enxerga: foi a
      decisão de 26/08/2026, e o RLS é quem manda — para anônimo estas

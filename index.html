@@ -1180,7 +1180,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260908-1334";
+const VERSAO = "20260908-1346";
 </script>
 <script>
 /* ============================================================
@@ -1984,6 +1984,45 @@ const Banco = {
     return j;
   },
 
+  /* ---------- acesso de visualizador ----------
+
+     Conta que só OLHA o painel: não é inspetor (não entra em número nenhum)
+     e não é administrador (não edita cadastro). Não precisou de regra nova no
+     banco — desde a migração 10 quem tem conta lê tudo, e escrever depende de
+     estar em sesmt_admins ou de ser dono da inspeção. O visualizador não é
+     nenhum dos dois, então ele já é, por construção, só leitura.
+
+     Passa pela mesma função de servidor do acesso do inspetor: criar conta
+     exige a chave de serviço, que não pode morar num painel público. */
+  async visualizadores(acao, dados) {
+    if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
+    const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
+      method: "POST",
+      headers: {
+        apikey: SERVIDOR.chave,
+        Authorization: "Bearer " + this.token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(Object.assign({ acao: "visualizador-" + acao }, dados || {}))
+    });
+    let j = null;
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) {
+      if (r.status === 404 && !j) {
+        throw new Error("A função de acesso não respondeu. Confira, no Supabase, "
+          + `se o slug dela ainda é ${SERVIDOR.funcaoAcesso}.`);
+      }
+      /* Função antiga, publicada antes desta tela existir: o pedido chega,
+         mas ela não conhece a ação e cai no "Falta o nome do inspetor". */
+      if (j && /nome do inspetor/i.test(j.erro || "")) {
+        throw new Error("A função de acesso no Supabase ainda é a versão antiga, "
+          + "que não conhece visualizadores. Publique a versão nova de criar-acesso.");
+      }
+      throw new Error((j && j.erro) || ("erro " + r.status));
+    }
+    return j;
+  },
+
   /* ---------- inspeções feitas pelo app ----------
      Ficam no banco, não no data.js. Só quem tem login enxerga: foi a
      decisão de 26/08/2026, e o RLS é quem manda — para anônimo estas
@@ -2694,6 +2733,34 @@ const SECOES = {
           return n ? "📷 " + n : "—"; }, num: true }
     ]
   },
+  /* Visualizadores — contas que só OLHAM o painel.
+
+     Quem precisa acompanhar os números sem mexer em nada: gerente, cliente,
+     alguém do escritório. Não é inspetor (não abre inspeção no app nem entra
+     em indicador nenhum) e não é administrador (não edita cadastro).
+
+     Não precisou de regra nova no banco: desde a migração 10, quem tem conta
+     lê tudo, e gravar depende de estar em sesmt_admins ou de ser dono da
+     inspeção — o visualizador não é nenhum dos dois. A lista sai da própria
+     conta (user_metadata.tipo), pela mesma função de servidor que cria o
+     acesso do inspetor. */
+  visualizadores: {
+    titulo: "Visualizadores", desc: "Contas que entram no painel só para olhar: "
+      + "veem tudo, não mudam nada e não aparecem em indicador nenhum.",
+    somenteLeitura: true, chave: "id", novo: "Novo visualizador",
+    filtros: [],
+    colunas: [
+      { t: "Nome", v: r => r.nome || "—", forte: true },
+      { t: "E-mail (login)", v: r => r.email || "—" },
+      { t: "Criado em", v: r => r.criado_em
+          ? new Date(r.criado_em).toLocaleDateString("pt-BR") : "—" },
+      { t: "Último acesso", v: r => r.ultimo_acesso
+          ? new Date(r.ultimo_acesso).toLocaleString("pt-BR",
+              { day: "2-digit", month: "2-digit", year: "2-digit",
+                hour: "2-digit", minute: "2-digit" })
+          : "nunca entrou" }
+    ]
+  },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
      do cadastro. Fica aqui, e não numa página do painel, porque é
      manutenção do sistema e não indicador: rascunho NÃO conta como
@@ -2869,11 +2936,93 @@ const Ajustes = {
         /* Rascunho muda o tempo todo, e é pouca linha: busca a cada
            abertura da aba, em vez de guardar e mostrar coisa velha. */
         if (k === "rascunhos") this.carregarRascunhos();
+        if (k === "visualizadores") this.carregarVisualizadores();
       };
       corpo.querySelector(".aj-abas").appendChild(b);
     });
     corpo.querySelector(".aj-novo").onclick = () => this.abrirDialogo(null);
     return pg;
+  },
+
+  /* Visualizadores também não moram no Cadastros: a lista vem da função de
+     servidor, que é quem enxerga as contas. */
+  visualizadores: [],
+  visualizadoresEm: null,
+  buscandoVis: false,
+
+  async carregarVisualizadores() {
+    if (this.buscandoVis) return;
+    if (!Banco.podeEditar()) { this.visualizadores = []; this.render(); return; }
+    this.buscandoVis = true;
+    try {
+      const r = await Banco.visualizadores("listar");
+      this.visualizadores = (r && r.lista) || [];
+      this.visualizadoresEm = new Date();
+    } catch (e) {
+      this.visualizadores = [];
+      this.avisar("Não deu para buscar os visualizadores: " + e.message, true);
+    } finally {
+      this.buscandoVis = false;
+      this.render();
+    }
+  },
+
+  /* Criar a conta: e-mail e senha escolhidos pelo administrador, como no
+     acesso do inspetor. A senha não fica guardada em lugar nenhum — o
+     Supabase grava só o hash —, então é preciso combiná-la com a pessoa. */
+  novoVisualizador() {
+    this.dialogo("Novo visualizador",
+      `<p class="aj-dtexto">Cria uma conta que <b>só olha</b> o painel: vê todos os
+         números, as inspeções e as fotos, e não pode alterar nada. Ela não é
+         inspetor — não aparece em ranking, meta nem Jornada Segura.</p>
+       <label class="aj-campo"><span>Nome</span>
+         <input name="nome" placeholder="Quem vai usar" required></label>
+       <label class="aj-campo"><span>E-mail (será o login)</span>
+         <input name="email" type="email" required autocomplete="off"
+                autocapitalize="none" spellcheck="false"></label>
+       <label class="aj-campo"><span>Senha</span>
+         <input name="senha" type="text" minlength="6" required autocomplete="off"
+                placeholder="pelo menos 6 caracteres"></label>
+       <p class="aj-dtexto">Anote a senha antes de salvar: ela não fica guardada
+         aqui, e só dá para trocar por outra.</p>`,
+      "Criar acesso",
+      async form => {
+        await Banco.visualizadores("criar", {
+          nome: form.nome.value.trim(),
+          email: form.email.value.trim().toLowerCase(),
+          senha: form.senha.value
+        });
+        await this.carregarVisualizadores();
+        this.avisar(`Acesso criado para ${form.email.value.trim().toLowerCase()}.`);
+      });
+  },
+
+  trocarSenhaVisualizador(r) {
+    this.dialogo(`Nova senha de ${r.nome || r.email}`,
+      `<p class="aj-dtexto">A senha atual não pode ser consultada — só substituída.
+         Combine a nova com a pessoa.</p>
+       <label class="aj-campo"><span>Nova senha</span>
+         <input name="senha" type="text" minlength="6" required autocomplete="off"></label>`,
+      "Trocar senha",
+      async form => {
+        await Banco.visualizadores("senha", { id: r.id, senha: form.senha.value });
+        this.avisar(`Senha trocada para ${r.email}.`);
+      });
+  },
+
+  async removerVisualizador(r) {
+    if (!confirm(`Remover o acesso de ${r.nome || r.email}?
+
+`
+        + "A conta será apagada e a pessoa deixa de entrar no painel. "
+        + "Nenhum dado de inspeção é afetado.")) return;
+    try {
+      await Banco.visualizadores("remover", { id: r.id });
+      await this.carregarVisualizadores();
+      this.avisar(`Acesso de ${r.email} removido.`);
+    } catch (e) {
+      this.avisar("Não deu para remover: " + e.message, true);
+    }
   },
 
   /* Os rascunhos não moram no Cadastros: são buscados quando a aba abre. */
@@ -2901,6 +3050,7 @@ const Ajustes = {
   },
 
   fonte(secao) {
+    if (secao === "visualizadores") return this.visualizadores;
     if (secao === "rascunhos") return this.rascunhos;
     if (secao === "inspecoes")
       return this.modoInsp === "nc" ? inspecoesPorNC() : inspecoesAgrupadas();
@@ -3436,7 +3586,12 @@ const Ajustes = {
     this.el.querySelectorAll(".aj-abas button").forEach(b =>
       b.classList.toggle("on", b.dataset.sec === this.secao));
     this.el.querySelector(".aj-tit").textContent = s.titulo;
-    this.el.querySelector(".aj-desc").textContent = this.secao === "inspecoes"
+    this.el.querySelector(".aj-desc").textContent = this.secao === "visualizadores"
+      ? (Banco.podeEditar()
+         ? SECOES.visualizadores.desc
+         : "Só administrador vê e cria estes acessos. Se você entrou como "
+           + "visualizador, é esta a sua conta: o painel inteiro, sem edição.")
+      : this.secao === "inspecoes"
       ? (this.modoInsp === "nc"
          ? "Uma linha por não conformidade — para filtrar por gravidade, contar desvio "
            + "e imprimir. Clique numa linha para ver a inspeção inteira."
@@ -3447,10 +3602,21 @@ const Ajustes = {
        Rascunho não se cria pelo painel (nasce no app) e inspeção também não —
        nela o botão vira o download. */
     const btNovo = this.el.querySelector(".aj-novo");
-    btNovo.style.display = s.somenteLeitura && !s.baixar ? "none" : "";
+    /* Botão de criar só para quem pode gravar: quem entra como visualizador
+       via um "+ Nova equipe" que o banco recusaria, e o erro parecia defeito. */
+    btNovo.style.display = (s.somenteLeitura && !s.baixar && !s.novo)
+      || (!s.baixar && !Banco.podeEditar()) ? "none" : "";
     btNovo.querySelector("span").textContent = s.baixar || s.novo || "";
     btNovo.firstChild.textContent = s.baixar ? "" : "+ ";
-    btNovo.onclick = s.baixar ? () => this.baixarPDF() : () => this.abrirDialogo(null);
+    /* A aba de visualizadores é só-leitura no sentido do cadastro (não mexe em
+       tabela do banco), mas tem criação própria: a conta nasce na função de
+       servidor, não aqui. */
+    if (this.secao === "visualizadores") {
+      btNovo.style.display = Banco.podeEditar() ? "" : "none";
+      btNovo.onclick = () => this.novoVisualizador();
+    } else {
+      btNovo.onclick = s.baixar ? () => this.baixarPDF() : () => this.abrirDialogo(null);
+    }
 
     this.renderEstado();
     this.renderFiltros();
@@ -3465,6 +3631,10 @@ const Ajustes = {
       if (this.secao === "rascunhos" && !this.rascunhosEm
           && !this.buscandoRascunhos && Banco.autenticado()) {
         this.carregarRascunhos();
+      }
+      if (this.secao === "visualizadores" && !this.visualizadoresEm
+          && !this.buscandoVis && Banco.podeEditar()) {
+        this.carregarVisualizadores();
       }
       /* Uma lixeira por linha, e não o menu ⋮: aqui só há uma ação.
          Aparece para administrador — a política do banco recusaria de
@@ -3499,6 +3669,21 @@ const Ajustes = {
         return d;
       } }];
 
+      const acaoVis = podeEditar && this.secao === "visualizadores" ? [{ titulo: "Ações", valor: r => {
+        const d = document.createElement("div");
+        d.className = "aj-acoes-linha";
+        const bt = (txt, dica, fn, classe) => {
+          const b = document.createElement("button");
+          b.className = "aj-mini " + (classe || "");
+          b.textContent = txt; b.title = dica;
+          b.onclick = e => { e.stopPropagation(); fn(); };
+          d.appendChild(b);
+        };
+        bt("•••", "Trocar a senha desta conta", () => this.trocarSenhaVisualizador(r));
+        bt("🗑", "Remover este acesso", () => this.removerVisualizador(r), "perigo");
+        return d;
+      } }] : [];
+
       const acao = podeEditar && this.secao === "rascunhos" ? [{ titulo: "Ações", valor: r => {
         const b = document.createElement("button");
         b.className = "aj-lixeira";
@@ -3508,7 +3693,7 @@ const Ajustes = {
         return b;
       } }] : [];
       const cols = this.secao === "inspecoes" ? this.colunasInsp() : s.colunas;
-      tabela(host, acao.concat(acaoInsp).concat(cols.map(c => ({
+      tabela(host, acao.concat(acaoVis).concat(acaoInsp).concat(cols.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
           ? Object.assign(document.createElement("span"), {
@@ -3526,7 +3711,9 @@ const Ajustes = {
       if (cont) {
         const total = this.fonte(this.secao).length;
         // na aba Inspeções cada linha é um desvio, não uma inspeção
-        const nome = this.secao === "inspecoes"
+        const nome = this.secao === "visualizadores"
+          ? (linhas.length === 1 ? "visualizador" : "visualizadores")
+          : this.secao === "inspecoes"
           ? (this.modoInsp === "nc" ? (linhas.length === 1 ? "linha" : "linhas")
                                     : (linhas.length === 1 ? "inspeção" : "inspeções"))
           : (linhas.length === 1 ? "rascunho" : "rascunhos");
