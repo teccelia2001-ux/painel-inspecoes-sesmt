@@ -588,6 +588,15 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   font-size:12px;text-transform:none;letter-spacing:0}
 .aj-filtro select:focus,.aj-filtro input:focus{outline:2px solid var(--acento);outline-offset:-1px}
 .aj-busca input{min-width:190px}
+
+/* Alternador de modo da aba Inspeções: por visita ou por desvio. */
+.aj-modo-bts{display:flex;height:32px;border:1px solid var(--linha-borda);border-radius:7px;
+  overflow:hidden;background:var(--painel)}
+.aj-modo-bts button{border:0;background:transparent;color:var(--txt2);cursor:pointer;
+  font-size:12px;font-weight:600;padding:0 11px;text-transform:none;letter-spacing:0}
+.aj-modo-bts button+button{border-left:1px solid var(--linha-borda)}
+.aj-modo-bts button:hover{background:var(--acento-suave);color:var(--acento-forte)}
+.aj-modo-bts button.on{background:var(--acento);color:#fff}
 .aj-cont{margin-left:auto;font-size:11.5px;color:var(--txt2);align-self:center}
 
 .aj-tabela{flex:1 1 auto;border:1px solid var(--linha-borda);border-radius:8px;background:var(--painel)}
@@ -1136,7 +1145,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260908-1102";
+const VERSAO = "20260908-1106";
 </script>
 <script>
 /* ============================================================
@@ -2635,6 +2644,19 @@ const SECOES = {
          inspeção, e abrir mostra todas de uma vez. */
       { t: "Fotos", v: r => { const n = (FOTOS_POR_INSPECAO[r.id] || []).length;
           return n ? "📷 " + n : "—"; }, num: true }
+    ],
+    /* As colunas do modo "por inspeção": a visita inteira numa linha só. */
+    colunasAgrupado: [
+      { t: "Data", v: r => r.dataStr },
+      { t: "Equipe", v: r => r.equipe || r.equipeBruta || "—", forte: true },
+      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
+      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
+      { t: "Departamento", v: r => r.tipo || "—" },
+      { t: "Não conformidades", v: r => r.qtdNC ? String(r.qtdNC) : "—", num: true },
+      { t: "Pior gravidade", v: r => r.gravidade, etiqueta: true },
+      { t: "Pontos", v: r => r.pontosNC ? String(r.pontosNC) : "—", num: true },
+      { t: "Fotos", v: r => { const n = (FOTOS_POR_INSPECAO[r.id] || []).length;
+          return n ? "📷 " + n : "—"; }, num: true }
     ]
   },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
@@ -2695,6 +2717,38 @@ function inspecoesPorNC() {
   });
   return linhas;
 }
+/* A mesma base, agora com UMA LINHA POR INSPEÇÃO (08/09/2026).
+
+   A tabela desdobrada por desvio repete a visita em várias linhas — três
+   desvios, três linhas iguais em data, equipe, inspetor e polo —, e quem lê a
+   tela pergunta "quantas inspeções foram feitas?", não "quantas linhas". Aqui
+   cada visita é uma linha, com a contagem dos desvios; clicar abre a ficha com
+   todos eles e a gravidade de cada um.
+
+   Os dois modos convivem: o desdobrado continua sendo o que serve para
+   filtrar por gravidade, contar desvio e imprimir a planilha. */
+function inspecoesAgrupadas() {
+  return FATO.map(r => {
+    const nc = ncDe(r);
+    const gravs = nc.map(x => x[3] || "Sem classificação");
+    /* A gravidade da inspeção é a PIOR que ela encontrou: é assim que se lê
+       uma lista de segurança — o gravíssimo não pode ficar escondido atrás de
+       dois leves. O filtro, esse, casa com qualquer uma das encontradas. */
+    const pior = gravs.slice().sort((a, b) => postoGravidade(a) - postoGravidade(b))[0];
+    return Object.assign({}, r, {
+      mesNome: MESES_NOME[+r.mes],
+      qtdNC: nc.length,
+      temNC: nc.length > 0,
+      gravidade: nc.length ? pior : "Sem desvio",
+      gravidades: nc.length ? [...new Set(gravs)] : ["Sem desvio"],
+      pontosNC: nc.reduce((a, x) => a + (x[4] || 0), 0),
+      descricao: nc.length
+        ? nc.map(x => x[1]).join(" · ")     /* entra na busca por texto */
+        : "—"
+    });
+  });
+}
+
 const ORDEM_MES = MESES_NOME.slice(1);   // jan…dez, sem o vazio da posição 0
 
 /* Da mais grave para a mais leve — é a ordem em que se lê um relatório de
@@ -2737,6 +2791,10 @@ const Ajustes = {
   secao: "equipes",
   busca: "",
   filtros: {},
+  /* "inspecao" = uma linha por visita (padrão, e o que a tela pede);
+     "nc" = a lista desdobrada, uma linha por desvio, para planilha e papel. */
+  modoInsp: (() => { try { return localStorage.getItem("sesmt.modoInsp") || "inspecao"; }
+                     catch (e) { return "inspecao"; } })(),
 
   montar(pg) {
     pg.innerHTML = "";
@@ -2809,8 +2867,15 @@ const Ajustes = {
 
   fonte(secao) {
     if (secao === "rascunhos") return this.rascunhos;
-    if (secao === "inspecoes") return inspecoesPorNC();
+    if (secao === "inspecoes")
+      return this.modoInsp === "nc" ? inspecoesPorNC() : inspecoesAgrupadas();
     return Cadastros.lista(secao);
+  },
+
+  /* Quais colunas a aba Inspeções usa agora — depende do modo. */
+  colunasInsp() {
+    const s = SECOES.inspecoes;
+    return this.modoInsp === "nc" ? s.colunas : s.colunasAgrupado;
   },
 
 
@@ -3204,7 +3269,9 @@ const Ajustes = {
 
     /* Cada linha é uma N.C — menos as "Sem desvio". E como a inspeção se
        repete a cada desvio, contar inspeção é contar id distinto. */
-    const totalNC = linhas.filter(r => r.temNC).length;
+    const agrupado = this.secao === "inspecoes" && this.modoInsp !== "nc";
+    const totalNC = agrupado ? linhas.reduce((a, r) => a + (r.qtdNC || 0), 0)
+                             : linhas.filter(r => r.temNC).length;
     const inspecoes = new Set(linhas.map(r => r.id)).size;
     const semNC = linhas.filter(r => !r.temNC).length;
     const pontos = linhas.reduce((a, r) => a + (r.pontosNC || 0), 0);
@@ -3214,10 +3281,11 @@ const Ajustes = {
        é o que dá sentido ao relatório: a visita e o que ela encontrou. */
     /* Tabela plana, igual à da tela: uma linha por não conformidade. A
        gravidade ganha cor no papel — é o que se procura primeiro. */
+    const colsPDF = this.secao === "inspecoes" ? this.colunasInsp() : s.colunas;
     const corpo = linhas.map(r => {
       const classe = semAcentoAj(r.gravidade || "").replace(/[^a-z]/g, "");
-      return `<tr class="${r.temNC ? "insp" : "insp limpa"}">` + s.colunas.map(c =>
-        `<td${c.t === "Gravidade" ? ` class="grav ${classe}"` : ""}>${esc(c.v(r))}</td>`
+      return `<tr class="${r.temNC ? "insp" : "insp limpa"}">` + colsPDF.map(c =>
+        `<td${/gravidade/i.test(c.t) ? ` class="grav ${classe}"` : ""}>${esc(c.v(r))}</td>`
       ).join("") + "</tr>";
     }).join("");
 
@@ -3254,7 +3322,7 @@ const Ajustes = {
         totalNC === 1 ? "não conformidade" : "não conformidades"} · <b>${semNC}</b>
         sem nenhum desvio · <b>${pontos}</b> ${
         Math.abs(pontos) === 1 ? "ponto" : "pontos"} na Jornada Segura</p>
-      <table><thead><tr>${s.colunas.map(c => `<th>${esc(c.t)}</th>`).join("")}</tr></thead>
+      <table><thead><tr>${colsPDF.map(c => `<th>${esc(c.t)}</th>`).join("")}</tr></thead>
         <tbody>${corpo}</tbody></table>
       <p class="rodape">Painel de Inspeções SESMT — os mesmos números da tela.</p>
       </body></html>`;
@@ -3300,6 +3368,13 @@ const Ajustes = {
         // lista vazia (ou ausente) = todos; várias marcadas = qualquer uma serve
         const sel = this.filtros[campo];
         if (!sel || !sel.length) continue;
+        /* No modo "por inspeção" a linha tem VÁRIAS gravidades: filtrar por
+           Gravíssimo tem de trazer a visita que encontrou um gravíssimo e dois
+           leves. Por isso a comparação aceita lista, não só valor único. */
+        if (campo === "gravidade" && Array.isArray(r.gravidades)) {
+          if (!r.gravidades.some(g => sel.includes(String(g)))) return false;
+          continue;
+        }
         const val = campo === s.statusK ? (r[campo] ? "Ativo" : "Inativo") : (r[campo] || "");
         if (!sel.includes(String(val))) return false;
       }
@@ -3326,7 +3401,13 @@ const Ajustes = {
     this.el.querySelectorAll(".aj-abas button").forEach(b =>
       b.classList.toggle("on", b.dataset.sec === this.secao));
     this.el.querySelector(".aj-tit").textContent = s.titulo;
-    this.el.querySelector(".aj-desc").textContent = s.desc;
+    this.el.querySelector(".aj-desc").textContent = this.secao === "inspecoes"
+      ? (this.modoInsp === "nc"
+         ? "Uma linha por não conformidade — para filtrar por gravidade, contar desvio "
+           + "e imprimir. Clique numa linha para ver a inspeção inteira."
+         : "Uma linha por inspeção. Clique nela para ver todas as não conformidades "
+           + "encontradas, com a gravidade de cada uma, o relato e as fotos.")
+      : s.desc;
     /* O mesmo botão do canto serve a três propósitos: criar, baixar, ou nada.
        Rascunho não se cria pelo painel (nasce no app) e inspeção também não —
        nela o botão vira o download. */
@@ -3391,14 +3472,15 @@ const Ajustes = {
         b.onclick = () => this.excluirRascunho(r);
         return b;
       } }] : [];
-      tabela(host, acao.concat(acaoInsp).concat(s.colunas.map(c => ({
+      const cols = this.secao === "inspecoes" ? this.colunasInsp() : s.colunas;
+      tabela(host, acao.concat(acaoInsp).concat(cols.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
           ? Object.assign(document.createElement("span"), {
               /* A gravidade ganha cor pela própria classe: é o que se procura
                  primeiro numa lista de desvios, e etiqueta cinza obrigava a
                  ler palavra por palavra. */
-              className: "etiqueta" + (c.t === "Gravidade"
+              className: "etiqueta" + (/gravidade/i.test(c.t)
                 ? " gr-" + semAcentoAj(c.v(r)).replace(/[^a-z]/g, "") : ""),
               textContent: c.v(r) })
           : c.v(r),
@@ -3410,7 +3492,8 @@ const Ajustes = {
         const total = this.fonte(this.secao).length;
         // na aba Inspeções cada linha é um desvio, não uma inspeção
         const nome = this.secao === "inspecoes"
-          ? (linhas.length === 1 ? "linha" : "linhas")
+          ? (this.modoInsp === "nc" ? (linhas.length === 1 ? "linha" : "linhas")
+                                    : (linhas.length === 1 ? "inspeção" : "inspeções"))
           : (linhas.length === 1 ? "rascunho" : "rascunhos");
         cont.textContent = linhas.length === total
           ? `${linhas.length} ${nome}`
@@ -3566,9 +3649,36 @@ const Ajustes = {
     const s = SECOES[this.secao];
     const host = this.el.querySelector(".aj-filtros");
     host.innerHTML = "";
+
+    /* Alternador de modo — só na aba Inspeções. Os dois jeitos de olhar a
+       mesma coisa: a visita (o que a tela pede) e o desvio (o que a planilha
+       e o papel pedem). */
+    if (this.secao === "inspecoes") {
+      const d = document.createElement("div");
+      d.className = "aj-filtro aj-modo";
+      d.innerHTML = `<span>Ver</span>
+        <div class="aj-modo-bts">
+          <button type="button" data-m="inspecao"${this.modoInsp !== "nc" ? ' class="on"' : ""}
+            title="Uma linha por inspeção; clique nela para ver as não conformidades">Por inspeção</button>
+          <button type="button" data-m="nc"${this.modoInsp === "nc" ? ' class="on"' : ""}
+            title="Uma linha por não conformidade — para filtrar, contar e imprimir">Por não conformidade</button>
+        </div>`;
+      d.querySelectorAll("button").forEach(b => b.onclick = () => {
+        this.modoInsp = b.dataset.m;
+        try { localStorage.setItem("sesmt.modoInsp", this.modoInsp); } catch (e) {}
+        /* Gravidade muda de significado entre os modos: o que estava marcado
+           num não vale no outro. */
+        this.filtros = {};
+        this.render();
+      });
+      host.appendChild(d);
+    }
     s.filtros.forEach(([campo, rot, ordenar]) => {
+      const fonte = this.fonte(this.secao);
       const brutos = campo === s.statusK ? ["Ativo", "Inativo"]
-        : [...new Set(this.fonte(this.secao).map(r => r[campo]).filter(Boolean))];
+        : campo === "gravidade" && fonte.length && Array.isArray(fonte[0].gravidades)
+        ? [...new Set(fonte.flatMap(r => r.gravidades).filter(Boolean))]
+        : [...new Set(fonte.map(r => r[campo]).filter(Boolean))];
       const vals = ordenar ? brutos.sort(ordenar) : brutos.sort(ordemNatural);
       const escolhidos = this.filtros[campo] || [];
 

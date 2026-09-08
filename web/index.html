@@ -590,6 +590,15 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   font-size:12px;text-transform:none;letter-spacing:0}
 .aj-filtro select:focus,.aj-filtro input:focus{outline:2px solid var(--acento);outline-offset:-1px}
 .aj-busca input{min-width:190px}
+
+/* Alternador de modo da aba Inspeções: por visita ou por desvio. */
+.aj-modo-bts{display:flex;height:32px;border:1px solid var(--linha-borda);border-radius:7px;
+  overflow:hidden;background:var(--painel)}
+.aj-modo-bts button{border:0;background:transparent;color:var(--txt2);cursor:pointer;
+  font-size:12px;font-weight:600;padding:0 11px;text-transform:none;letter-spacing:0}
+.aj-modo-bts button+button{border-left:1px solid var(--linha-borda)}
+.aj-modo-bts button:hover{background:var(--acento-suave);color:var(--acento-forte)}
+.aj-modo-bts button.on{background:var(--acento);color:#fff}
 .aj-cont{margin-left:auto;font-size:11.5px;color:var(--txt2);align-self:center}
 
 .aj-tabela{flex:1 1 auto;border:1px solid var(--linha-borda);border-radius:8px;background:var(--painel)}
