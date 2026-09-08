@@ -97,7 +97,8 @@ const SECOES = {
      ninguém saberia qual das duas está certa. */
   inspecoes: {
     titulo: "Inspeções", desc: "Uma linha por não conformidade encontrada. "
-      + "Use os filtros e baixe em PDF o que ficar na tela.",
+      + "Clique numa linha para ver a inspeção inteira — todos os desvios dela, "
+      + "o relato e as fotos. Use os filtros e baixe em PDF o que ficar na tela.",
     somenteLeitura: true, chave: "id", baixar: "⭳ Baixar PDF",
     /* O terceiro item da tupla é a ordem das opções, quando alfabética não
        serve: mês tem de sair jan→dez, e gravidade da pior para a mais leve. */
@@ -325,13 +326,110 @@ const Ajustes = {
   ligarFotos(host, linhas) {
     [...host.querySelectorAll("tbody tr")].forEach((tr, i) => {
       const r = linhas[i];
-      const fotos = r && FOTOS_POR_INSPECAO[r.id];
+      if (!r) return;
+
+      /* A tabela é uma linha por DESVIO, o que é certo para filtrar e para o
+         papel — mas quem olha um desvio quase sempre quer ver a inspeção
+         inteira: os outros desvios da mesma visita, o relato e as fotos.
+         Clicar na linha junta tudo isso num lugar só. */
+      tr.classList.add("aj-clicavel");
+      tr.title = "Ver a inspeção inteira: todos os desvios, o relato e as fotos";
+      tr.onclick = () => this.verInspecao(r);
+
+      const fotos = FOTOS_POR_INSPECAO[r.id];
       if (!fotos || !fotos.length) return;
       const td = tr.cells[tr.cells.length - 1];
       td.classList.add("tem-fotos");
       td.title = `${fotos.length} foto${fotos.length > 1 ? "s" : ""} — clique para ver`;
       td.onclick = e => { e.stopPropagation(); this.verFotos(r, fotos); };
     });
+  },
+
+  /* A inspeção inteira num lugar só: cabeçalho, TODOS os desvios dela, o
+     relato escrito pelo inspetor e as fotos.
+
+     A tabela continua desdobrada por desvio (é o que serve para filtrar,
+     contar e imprimir); esta ficha é o caminho contrário — do desvio de volta
+     para a visita que o encontrou. */
+  async verInspecao(linha) {
+    const nc = ncDe(linha);
+    const fotos = FOTOS_POR_INSPECAO[linha.id] || [];
+    const texto = TEXTO_DESVIOS[linha.id] || "";
+    const placa = PLACA_POR_INSPECAO[linha.id] || "";
+    const pontos = nc.reduce((a, x) => a + (x[4] || 0), 0);
+
+    const fundo = document.createElement("div");
+    fundo.className = "aj-fundo aj-fotos aj-ficha";
+    const campo = (rot, val) => val
+      ? `<div><b>${esc(rot)}</b>${esc(val)}</div>` : "";
+    fundo.innerHTML = `<div class="aj-dialogo">
+      <div class="aj-dcab">
+        <h3>${esc(linha.equipe || linha.equipeBruta || "—")} · ${esc(linha.dataStr)}</h3>
+        <button type="button" class="aj-x" aria-label="Fechar">✕</button>
+      </div>
+      <div class="aj-dcorpo">
+        <div class="ficha-grade">
+          ${campo("Inspetor", linha.inspetor || linha.inspetorBruto)}
+          ${campo("Polo", linha.polo)}
+          ${campo("Departamento", linha.tipo)}
+          ${campo("Supervisor", linha.supervisor)}
+          ${campo("Placa do veículo", placa)}
+          <div><b>Não conformidades</b>${nc.length} · ${pontos} ponto(s)</div>
+        </div>
+
+        <div class="ficha-bloco">
+          <div class="fotos-rot">Não conformidades</div>
+          ${nc.length ? `<ul class="ficha-nc">${nc.map(x => `<li>
+              <span class="etiqueta gr-${semAcentoAj(x[3] || "").replace(/[^a-z]/g, "")}">${
+                esc(x[3] || "Sem classificação")}</span>
+              <span class="ficha-txt">${esc(x[1] || "—")}${
+                x[2] ? ` <i>${esc(x[2])}</i>` : ""}</span></li>`).join("")}</ul>`
+            : `<p class="aj-dtexto ficha-limpa">Nenhuma não conformidade nesta inspeção.</p>`}
+        </div>
+
+        ${texto ? `<div class="ficha-bloco">
+          <div class="fotos-rot">Desvios encontrados (relato do inspetor)</div>
+          <p class="ficha-livre">${esc(texto)}</p></div>` : ""}
+
+        <div class="ficha-bloco" id="ficha-fotos">${fotos.length
+          ? `<div class="fotos-rot">Fotos</div><p class="aj-dtexto">Carregando…</p>`
+          : `<div class="fotos-rot">Fotos</div>
+             <p class="aj-dtexto ficha-limpa">Nenhuma foto nesta inspeção.</p>`}</div>
+
+        <div class="ficha-pe">
+          <button type="button" class="aj-mini" id="ficha-pdf"
+            title="Baixar esta inspeção em PDF, com as fotos">⭳ Baixar em PDF</button>
+        </div>
+      </div>
+    </div>`;
+    canvas.appendChild(fundo);
+    const fechar = () => fundo.remove();
+    fundo.querySelector(".aj-x").onclick = fechar;
+    fundo.onclick = e => { if (e.target === fundo) fechar(); };
+    fundo.querySelector("#ficha-pdf").onclick = e =>
+      this.baixarInspecao(linha, e.currentTarget);
+
+    /* As fotos são assinadas só aqui, ao abrir a ficha — assinar ao desenhar
+       a tabela seria uma assinatura por linha para imagem que ninguém olha. */
+    if (fotos.length) {
+      const host = fundo.querySelector("#ficha-fotos");
+      try {
+        const urls = await Banco.assinarFotos(fotos.map(f => f.caminho));
+        host.innerHTML = ["desvio", "boa_pratica"].map(t => {
+          const minhas = fotos.filter(f => f.tipo === t);
+          if (!minhas.length) return "";
+          return `<div class="fotos-bloco">
+            <div class="fotos-rot">${t === "desvio" ? "Fotos dos desvios" : "Fotos de boas práticas"}</div>
+            <div class="fotos-tira">${minhas.map(f => urls[f.caminho]
+              ? `<a href="${urls[f.caminho]}" target="_blank" rel="noopener"
+                    title="Abrir em tamanho original"><img src="${urls[f.caminho]}" alt=""></a>`
+              : `<span class="foto-erro">indisponível</span>`).join("")}</div></div>`;
+        }).join("");
+      } catch (e) {
+        host.innerHTML = `<div class="fotos-rot">Fotos</div>
+          <p class="aj-dtexto">Não deu para abrir as fotos: ${esc(e.message)}</p>`;
+      }
+    }
   },
 
   async verFotos(linha, fotos) {
