@@ -616,7 +616,18 @@ function render() {
   if (paginaAtual === "ranking") {
     setCards(R.rkCards, base);
     // sem a linha "(vazio)": inspeções sem inspetor cadastrado não entram no ranking
-    const linhas = porInspetor(f, ms).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+
+    /* Ordem: quem fez MAIS INSPEÇÕES vem primeiro (09/09/2026).
+
+       Antes era pela "% atingida", que é limitada a 100%: quem fazia 3 com meta
+       de 1,3 empatava com quem fazia 10 com meta de 3,8, e o desempate acabava
+       sendo a ordem do cadastro. Agora o volume decide.
+
+       A % continua como 2º critério, para que entre dois com o mesmo número de
+       inspeções fique à frente quem tinha a meta mais exigente; o nome fecha o
+       desempate para a lista não mudar de ordem sozinha a cada carregamento. */
+    const linhas = porInspetor(f, ms).sort((a, b) =>
+      (b.qtd - a.qtd) || ((b.pct ?? -1) - (a.pct ?? -1)) || String(a.chave).localeCompare(String(b.chave), "pt-BR"));
     tabela(R.rkTabela, [
       { titulo: "#", valor: (l, i) => "", num: true },
       { titulo: "Inspetor", valor: l => l.chave },
