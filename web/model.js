@@ -547,7 +547,7 @@ function ncPorCampo(f, i) {
   })).sort((a, b) => b.qtd - a.qtd);
 }
 function gravidades(f) {
-  const g = { "Leve": 0, "Grave": 0, "Gravíssimo": 0, "": 0 };
+  const g = { "Leve": 0, "Média": 0, "Gravíssimo": 0, "": 0 };
   linhasNC(f).forEach(r => g[r[3]] = (g[r[3]] || 0) + 1);
   return g;
 }

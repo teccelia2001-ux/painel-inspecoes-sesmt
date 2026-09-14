@@ -459,7 +459,7 @@ const ORDEM_MES = MESES_NOME.slice(1);   // jan…dez, sem o vazio da posição 
 
 /* Da mais grave para a mais leve — é a ordem em que se lê um relatório de
    segurança. "Sem desvio" fica por último, e não no meio do alfabeto. */
-const ORDEM_GRAVIDADE = ["Gravíssimo", "Grave", "Leve", "Sem classificação", "Sem desvio"];
+const ORDEM_GRAVIDADE = ["Gravíssimo", "Média", "Leve", "Sem classificação", "Sem desvio"];
 const postoGravidade = g => {
   const i = ORDEM_GRAVIDADE.findIndex(o =>
     o.toLowerCase() === String(g || "").trim().toLowerCase());
@@ -656,13 +656,13 @@ const Ajustes = {
      por aqui faria a mesma pergunta virar duas histórias diferentes entre o
      app e o painel. Os pontos seguem a gravidade, sem digitação. */
   classificarPergunta(r) {
-    const PONTOS = { "": 0, "Leve": -1, "Grave": -5, "Gravíssimo": -10 };
+    const PONTOS = { "": 0, "Leve": -1, "Média": -5, "Gravíssimo": -10 };
     const atual = PONTOS[r.gravidade] !== undefined ? r.gravidade : "";
     this.dialogo("Classificar pergunta",
       `<p class="aj-dtexto">${esc(r.texto)}</p>
        <label class="aj-campo"><span>Gravidade</span>
          <select name="gravidade">
-           ${["", "Leve", "Grave", "Gravíssimo"].map(g =>
+           ${["", "Leve", "Média", "Gravíssimo"].map(g =>
              `<option value="${esc(g)}"${g === atual ? " selected" : ""}>${
                g ? esc(g) + " (" + PONTOS[g] + " ponto" + (PONTOS[g] === -1 ? "" : "s") + ")"
                  : "Sem classificação (0)"}</option>`).join("")}
@@ -1045,7 +1045,7 @@ const Ajustes = {
           ul { margin: 0; padding-left: 16px }
           li { margin: 4px 0; line-height: 1.45; break-inside: avoid }
           .g { font-weight: 800 }
-          .gravissimo { color: #b3261e } .grave { color: #8a4b00 } .leve { color: #31536e }
+          .gravissimo { color: #b3261e } .media { color: #8a4b00 } .leve { color: #31536e }
           .livre { white-space: pre-wrap; line-height: 1.5;
                    background: #fbf8f4; padding: 9px 11px; border-radius: 7px }
           .fotos { display: flex; flex-wrap: wrap; gap: 8px }
@@ -1133,7 +1133,7 @@ const Ajustes = {
     /* A gravidade vira lista suspensa na coluna C: digitada à mão ela viraria
        "Gravissimo" e "grave", que não casam com o cadastro na hora de voltar. */
     const blob = planilhaXlsx("Perguntas", colunas, linhas,
-      { C: ["Sem classificação", "Leve", "Grave", "Gravíssimo"] });
+      { C: ["Sem classificação", "Leve", "Média", "Gravíssimo"] });
 
     const nome = "perguntas-checklist-sesmt-"
       + new Date().toISOString().slice(0, 10) + ".xlsx";
@@ -1201,7 +1201,7 @@ const Ajustes = {
         tr.limpa td { color: #a49a90 }         /* inspeção sem desvio: discreta */
         td.grav { font-weight: 700; white-space: nowrap }
         td.gravissimo { color: #b3261e }
-        td.grave { color: #8a4b00 }
+        td.media { color: #8a4b00 }
         td.leve { color: #31536e }
         td.semdesvio, td.semclassificacao { color: #a49a90; font-weight: 400 }
         tr { break-inside: avoid }             /* não parte a linha ao meio */

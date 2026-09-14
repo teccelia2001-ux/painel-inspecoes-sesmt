@@ -745,7 +745,7 @@ function render() {
         dica: "Pontos que a equipe recebe no começo de cada mês avaliado." },
       { titulo: "Pts N.C", valor: l => fmtN(l.pontosNC), num: true, classe: () => "nok",
         dica: "Pontos descontados pelas não conformidades, conforme a gravidade: "
-          + "Leve −1, Grave −5, Gravíssimo −10." },
+          + "Leve −1, Média −5, Gravíssimo −10." },
       { titulo: "Pts final", valor: l => fmtN(l.pontosFinal), num: true, classe: () => "ok",
         dica: "Pontos iniciais menos os descontos. É por ele que o pódio é montado." },
       { titulo: "Desempate", valor: l => fmtD(l.desempate, 1), num: true,
@@ -1077,7 +1077,7 @@ function blocosResumo(k, g, opt) {
      linha a soma das barras fica menor que o total de N.C apontadas. */
   const desvios = [
     ["Gravíssimo", g["Gravíssimo"], "var(--ruim)", ""],
-    ["Grave", g["Grave"], "var(--medio)", ""],
+    ["Média", g["Média"], "var(--medio)", ""],
     ["Leve", g["Leve"], "var(--c2)", ""],
     ["Sem classificação", g[""], "var(--txt3)",
       "Não conformidades que vieram sem gravidade preenchida na origem"]
