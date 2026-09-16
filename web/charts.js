@@ -16,6 +16,29 @@ const fmtP  = (v, d = 1) => v === null || v === undefined ? "—" : (v * 100).to
 const fmtD  = (v, d = 1) => v === null || v === undefined ? "—" : v.toFixed(d).replace(".", ",");
 const corta = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
 
+/* ---------- Legenda de cores ----------
+
+   Quem desenha a cor escreve a legenda. Estava solta em app.js, chamada à
+   mão depois de cada gráfico, e por isso só quatro dos onze tinham: no
+   "ICIT por inspetor" as duas colunas laranja e a linha azul não diziam o
+   que eram. Aqui dentro, gráfico novo já nasce com legenda.
+
+   É REFEITA a cada render — a legenda é irmã do host no mesmo quadro, e sem
+   apagar a anterior o painel acumularia uma por filtro aplicado. */
+function legenda(host, itens) {
+  const pai = host && host.parentElement;
+  if (!pai) return;
+  const velha = pai.querySelector(".legenda");
+  if (velha) velha.remove();
+  itens = (itens || []).filter(i => i && i.txt);
+  if (!itens.length) return;
+  const l = document.createElement("div");
+  l.className = "legenda";
+  l.innerHTML = itens.map(i =>
+    `<span><i style="background:${i.cor}"></i>${i.txt}</span>`).join("");
+  pai.appendChild(l);
+}
+
 /* ---------- Combo: colunas agrupadas + linha (o visual mais usado) ---------- */
 function comboChart(host, dados, opt) {
   opt = Object.assign({
@@ -68,6 +91,8 @@ function comboChart(host, dados, opt) {
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = "";
   host.appendChild(svg);
+  legenda(host, opt.series.map(s => ({ cor: s.cor, txt: s.label })).concat(
+    opt.linha ? [{ cor: opt.linha.cor || "var(--c-linha)", txt: opt.linha.label }] : []));
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
 
   const maxV = Math.max(1, ...dados.flatMap(d => opt.series.map(s => d[s.key] || 0)));
@@ -213,6 +238,16 @@ function gauge(host, valor, opt) {
   };
   const lim = [opt.min, ...opt.faixas, opt.max];
   const cores = ["var(--ruim)", "var(--medio)", "var(--bom)"];
+  /* A legenda diz ONDE cada cor começa. Vermelho e verde num velocímetro
+     todo mundo lê, mas "a partir de quanto fica verde" só o desenho sabia. */
+  if (opt.faixas.length === 2) {
+    const r = v => opt.formato(v, 0);
+    legenda(host, [
+      { cor: cores[0], txt: `Ruim < ${r(opt.faixas[0])}` },
+      { cor: cores[1], txt: `Atenção ${r(opt.faixas[0])}–${r(opt.faixas[1])}` },
+      { cor: cores[2], txt: `Bom ≥ ${r(opt.faixas[1])}` }
+    ]);
+  } else legenda(host, []);
   for (let i = 0; i < lim.length - 1; i++) svg.appendChild(arco(ang(lim[i]), ang(lim[i + 1]), cores[i] || "var(--bom)"));
 
   if (valor !== null && valor !== undefined) {
@@ -237,6 +272,8 @@ function waterfall(host, dados) {
   host.innerHTML = ""; host.appendChild(svg);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
 
+  legenda(host, [{ cor: "var(--ruim)", txt: "Por categoria" },
+                 { cor: "var(--c-total)", txt: "Total" }]);
   const total = dados.reduce((a, d) => a + d.qtd, 0);
   const passos = [...dados, { chave: "Total", qtd: total, total: true }];
   const max = total;
@@ -275,12 +312,13 @@ function waterfall(host, dados) {
 
 /* ---------- Barras horizontais (TOP 5 inconformidades) ---------- */
 function barrasH(host, dados, opt) {
-  opt = Object.assign({ cor: "var(--ruim)", maxRot: 46 }, opt);
+  opt = Object.assign({ cor: "var(--ruim)", maxRot: 46, legenda: "Ocorrências" }, opt);
   const W = host.clientWidth, H = host.clientHeight;
   // mesmo fator de ampliação do comboChart — ver o comentário de lá
   const amp = host.closest && host.closest(".ampliado") ? 1.6 : 1;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
+  legenda(host, [{ cor: opt.cor, txt: opt.legenda }]);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
   /* A descrição vai ACIMA da barra, não dentro dela.
 

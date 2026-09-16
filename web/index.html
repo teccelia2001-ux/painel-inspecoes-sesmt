@@ -94,7 +94,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 /* A legenda divide a faixa do título com o ✕ e os ⤓ PNG / ⤓ PDF. Sem abrir
    espaço para eles, os botões caíam em cima dela — "Meta" e "Realizado"
    ficavam por baixo do PDF. */
-.v.ampliado .legenda{font-size:14px;gap:16px;right:175px}
+.v.ampliado .legenda{font-size:14px;gap:6px 16px;right:175px;max-width:45%}
 .v.ampliado .tbl{font-size:16px}
 .v.ampliado .tbl th{font-size:13.5px}
 .v.ampliado .medalha{font-size:20px}
@@ -255,7 +255,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .ponteiro{stroke:var(--txt);stroke-width:3;stroke-linecap:round}
 .pivo{fill:var(--txt)}
 .gauge-valor{fill:var(--txt);font-size:22px;font-weight:800}
-.legenda{position:absolute;right:8px;top:6px;display:flex;gap:10px;font-size:9px;color:var(--txt2)}
+/* A legenda divide a faixa do título com ele e com o botão de ampliar.
+   Por isso: recuada dos 22px do botão, limitada a pouco mais da metade do
+   quadro e com quebra de linha — o velocímetro tem três faixas escritas
+   ("Atenção 70%–95%") e num quadro estreito elas passariam por cima do
+   título. pointer-events:none deixa o clique chegar ao quadro por baixo. */
+.legenda{position:absolute;right:30px;top:6px;display:flex;flex-wrap:wrap;
+  justify-content:flex-end;max-width:60%;gap:4px 10px;font-size:9px;
+  line-height:1.5;color:var(--txt2);pointer-events:none}
 .legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 
 /* ============================================================

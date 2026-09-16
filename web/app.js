@@ -190,12 +190,6 @@ function cartao(pai, x, y, w, h, rotulo, classe) {
   if (EXPLICACAO[rotulo]) { d.title = EXPLICACAO[rotulo]; d.classList.add("comdica"); }
   return d.querySelector(".valor");
 }
-function legenda(host, itens) {
-  const l = document.createElement("div");
-  l.className = "legenda";
-  l.innerHTML = itens.map(i => `<span><i style="background:${i.cor}"></i>${i.txt}</span>`).join("");
-  host.parentElement.appendChild(l);
-}
 
 /* ---------- cabeçalho comum (marca + cards + slicers) ---------- */
 function cabecalho(pg, cards) {
@@ -610,7 +604,6 @@ function render() {
     };
     bloco(R.taxaSesmt, R.taxaResumo, ["Técnico Segurança", "Engenheiro Segurança"]);
     bloco(R.taxaOper, R.taxaOperR, ["Supervisor", "Coordenador Operacional", "Gerente Operacional"]);
-    legendaUnica(R.taxaSesmt, [{ cor: "var(--c2)", txt: "Meta" }, { cor: "var(--c1)", txt: "Realizado" }, { cor: "var(--c-linha)", txt: "% meta" }]);
   }
 
   if (paginaAtual === "ranking") {
@@ -668,12 +661,10 @@ function render() {
       series: [{ key: "meta", label: "Meta", cor: "var(--c2)" }, { key: "qtd", label: "Realizado", cor: "var(--c1)" }],
       linha: { key: "pct", label: "% atingido" }, rotacionar: false
     });
-    legendaUnica(R.avTaxa, [{ cor: "var(--c2)", txt: "Meta" }, { cor: "var(--c1)", txt: "Realizado" }, { cor: "var(--c-linha)", txt: "% atingido" }]);
     comboChart(R.avIcit, meses, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
       linha: { key: "icit", label: "ICIT" }, rotacionar: false
     });
-    legendaUnica(R.avIcit, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" }, { cor: "var(--c-linha)", txt: "ICIT" }]);
     gauge(R.avG1, k.pctInspecao, { max: 1.2, faixas: [0.7, 0.95] });
     gauge(R.avG2, k.ICIT, { max: 1, faixas: [0.6, 0.85] });
   }
@@ -717,8 +708,6 @@ function render() {
       linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22,
       larguraRotuloLinha: 14, casasLinha: 0
     });
-    legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
-      { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
 
   if (paginaAtual === "ajustes" || paginaAtual === "insp") { Ajustes.render(); return; }
@@ -837,13 +826,6 @@ function podioHTML(linhas) {
             >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
     </div>
   </div>`;
-}
-
-function legendaUnica(host, itens) {
-  const pai = host.parentElement;
-  const velha = pai.querySelector(".legenda");
-  if (velha) velha.remove();
-  legenda(host, itens);
 }
 
 /* Resumo geral — mesmo desenho do painel de obras: um bloco de progresso em

@@ -94,7 +94,7 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 /* A legenda divide a faixa do título com o ✕ e os ⤓ PNG / ⤓ PDF. Sem abrir
    espaço para eles, os botões caíam em cima dela — "Meta" e "Realizado"
    ficavam por baixo do PDF. */
-.v.ampliado .legenda{font-size:14px;gap:16px;right:175px}
+.v.ampliado .legenda{font-size:14px;gap:6px 16px;right:175px;max-width:45%}
 .v.ampliado .tbl{font-size:16px}
 .v.ampliado .tbl th{font-size:13.5px}
 .v.ampliado .medalha{font-size:20px}
@@ -255,7 +255,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .ponteiro{stroke:var(--txt);stroke-width:3;stroke-linecap:round}
 .pivo{fill:var(--txt)}
 .gauge-valor{fill:var(--txt);font-size:22px;font-weight:800}
-.legenda{position:absolute;right:8px;top:6px;display:flex;gap:10px;font-size:9px;color:var(--txt2)}
+/* A legenda divide a faixa do título com ele e com o botão de ampliar.
+   Por isso: recuada dos 22px do botão, limitada a pouco mais da metade do
+   quadro e com quebra de linha — o velocímetro tem três faixas escritas
+   ("Atenção 70%–95%") e num quadro estreito elas passariam por cima do
+   título. pointer-events:none deixa o clique chegar ao quadro por baixo. */
+.legenda{position:absolute;right:30px;top:6px;display:flex;flex-wrap:wrap;
+  justify-content:flex-end;max-width:60%;gap:4px 10px;font-size:9px;
+  line-height:1.5;color:var(--txt2);pointer-events:none}
 .legenda i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 
 /* ============================================================
@@ -1201,7 +1208,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260914-1359";
+const VERSAO = "20260916-1428";
 </script>
 <script>
 /* ============================================================
@@ -2263,6 +2270,29 @@ const fmtP  = (v, d = 1) => v === null || v === undefined ? "—" : (v * 100).to
 const fmtD  = (v, d = 1) => v === null || v === undefined ? "—" : v.toFixed(d).replace(".", ",");
 const corta = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
 
+/* ---------- Legenda de cores ----------
+
+   Quem desenha a cor escreve a legenda. Estava solta em app.js, chamada à
+   mão depois de cada gráfico, e por isso só quatro dos onze tinham: no
+   "ICIT por inspetor" as duas colunas laranja e a linha azul não diziam o
+   que eram. Aqui dentro, gráfico novo já nasce com legenda.
+
+   É REFEITA a cada render — a legenda é irmã do host no mesmo quadro, e sem
+   apagar a anterior o painel acumularia uma por filtro aplicado. */
+function legenda(host, itens) {
+  const pai = host && host.parentElement;
+  if (!pai) return;
+  const velha = pai.querySelector(".legenda");
+  if (velha) velha.remove();
+  itens = (itens || []).filter(i => i && i.txt);
+  if (!itens.length) return;
+  const l = document.createElement("div");
+  l.className = "legenda";
+  l.innerHTML = itens.map(i =>
+    `<span><i style="background:${i.cor}"></i>${i.txt}</span>`).join("");
+  pai.appendChild(l);
+}
+
 /* ---------- Combo: colunas agrupadas + linha (o visual mais usado) ---------- */
 function comboChart(host, dados, opt) {
   opt = Object.assign({
@@ -2315,6 +2345,8 @@ function comboChart(host, dados, opt) {
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = "";
   host.appendChild(svg);
+  legenda(host, opt.series.map(s => ({ cor: s.cor, txt: s.label })).concat(
+    opt.linha ? [{ cor: opt.linha.cor || "var(--c-linha)", txt: opt.linha.label }] : []));
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
 
   const maxV = Math.max(1, ...dados.flatMap(d => opt.series.map(s => d[s.key] || 0)));
@@ -2460,6 +2492,16 @@ function gauge(host, valor, opt) {
   };
   const lim = [opt.min, ...opt.faixas, opt.max];
   const cores = ["var(--ruim)", "var(--medio)", "var(--bom)"];
+  /* A legenda diz ONDE cada cor começa. Vermelho e verde num velocímetro
+     todo mundo lê, mas "a partir de quanto fica verde" só o desenho sabia. */
+  if (opt.faixas.length === 2) {
+    const r = v => opt.formato(v, 0);
+    legenda(host, [
+      { cor: cores[0], txt: `Ruim < ${r(opt.faixas[0])}` },
+      { cor: cores[1], txt: `Atenção ${r(opt.faixas[0])}–${r(opt.faixas[1])}` },
+      { cor: cores[2], txt: `Bom ≥ ${r(opt.faixas[1])}` }
+    ]);
+  } else legenda(host, []);
   for (let i = 0; i < lim.length - 1; i++) svg.appendChild(arco(ang(lim[i]), ang(lim[i + 1]), cores[i] || "var(--bom)"));
 
   if (valor !== null && valor !== undefined) {
@@ -2484,6 +2526,8 @@ function waterfall(host, dados) {
   host.innerHTML = ""; host.appendChild(svg);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
 
+  legenda(host, [{ cor: "var(--ruim)", txt: "Por categoria" },
+                 { cor: "var(--c-total)", txt: "Total" }]);
   const total = dados.reduce((a, d) => a + d.qtd, 0);
   const passos = [...dados, { chave: "Total", qtd: total, total: true }];
   const max = total;
@@ -2522,12 +2566,13 @@ function waterfall(host, dados) {
 
 /* ---------- Barras horizontais (TOP 5 inconformidades) ---------- */
 function barrasH(host, dados, opt) {
-  opt = Object.assign({ cor: "var(--ruim)", maxRot: 46 }, opt);
+  opt = Object.assign({ cor: "var(--ruim)", maxRot: 46, legenda: "Ocorrências" }, opt);
   const W = host.clientWidth, H = host.clientHeight;
   // mesmo fator de ampliação do comboChart — ver o comentário de lá
   const amp = host.closest && host.closest(".ampliado") ? 1.6 : 1;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart" });
   host.innerHTML = ""; host.appendChild(svg);
+  legenda(host, [{ cor: opt.cor, txt: opt.legenda }]);
   if (!dados.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, class: "vazio", "text-anchor": "middle" }, "sem dados")); return; }
   /* A descrição vai ACIMA da barra, não dentro dela.
 
@@ -4902,12 +4947,6 @@ function cartao(pai, x, y, w, h, rotulo, classe) {
   if (EXPLICACAO[rotulo]) { d.title = EXPLICACAO[rotulo]; d.classList.add("comdica"); }
   return d.querySelector(".valor");
 }
-function legenda(host, itens) {
-  const l = document.createElement("div");
-  l.className = "legenda";
-  l.innerHTML = itens.map(i => `<span><i style="background:${i.cor}"></i>${i.txt}</span>`).join("");
-  host.parentElement.appendChild(l);
-}
 
 /* ---------- cabeçalho comum (marca + cards + slicers) ---------- */
 function cabecalho(pg, cards) {
@@ -5322,7 +5361,6 @@ function render() {
     };
     bloco(R.taxaSesmt, R.taxaResumo, ["Técnico Segurança", "Engenheiro Segurança"]);
     bloco(R.taxaOper, R.taxaOperR, ["Supervisor", "Coordenador Operacional", "Gerente Operacional"]);
-    legendaUnica(R.taxaSesmt, [{ cor: "var(--c2)", txt: "Meta" }, { cor: "var(--c1)", txt: "Realizado" }, { cor: "var(--c-linha)", txt: "% meta" }]);
   }
 
   if (paginaAtual === "ranking") {
@@ -5380,12 +5418,10 @@ function render() {
       series: [{ key: "meta", label: "Meta", cor: "var(--c2)" }, { key: "qtd", label: "Realizado", cor: "var(--c1)" }],
       linha: { key: "pct", label: "% atingido" }, rotacionar: false
     });
-    legendaUnica(R.avTaxa, [{ cor: "var(--c2)", txt: "Meta" }, { cor: "var(--c1)", txt: "Realizado" }, { cor: "var(--c-linha)", txt: "% atingido" }]);
     comboChart(R.avIcit, meses, {
       series: [{ key: "qtd", label: "Inspeções", cor: "var(--c1)" }, { key: "nc", label: "Com N.C", cor: "var(--ruim)" }],
       linha: { key: "icit", label: "ICIT" }, rotacionar: false
     });
-    legendaUnica(R.avIcit, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" }, { cor: "var(--c-linha)", txt: "ICIT" }]);
     gauge(R.avG1, k.pctInspecao, { max: 1.2, faixas: [0.7, 0.95] });
     gauge(R.avG2, k.ICIT, { max: 1, faixas: [0.6, 0.85] });
   }
@@ -5429,8 +5465,6 @@ function render() {
       linha: { key: "pctNC", label: "% com N.C" }, maxRot: 6, minColuna: 22,
       larguraRotuloLinha: 14, casasLinha: 0
     });
-    legendaUnica(R.diChart, [{ cor: "var(--c1)", txt: "Inspeções" }, { cor: "var(--ruim)", txt: "Com N.C" },
-      { cor: "var(--c-linha)", txt: "% com N.C" }]);
   }
 
   if (paginaAtual === "ajustes" || paginaAtual === "insp") { Ajustes.render(); return; }
@@ -5549,13 +5583,6 @@ function podioHTML(linhas) {
             >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
     </div>
   </div>`;
-}
-
-function legendaUnica(host, itens) {
-  const pai = host.parentElement;
-  const velha = pai.querySelector(".legenda");
-  if (velha) velha.remove();
-  legenda(host, itens);
 }
 
 /* Resumo geral — mesmo desenho do painel de obras: um bloco de progresso em
