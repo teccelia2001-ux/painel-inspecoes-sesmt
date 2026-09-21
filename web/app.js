@@ -791,9 +791,9 @@ function podioPioresHTML(linhas) {
         <div class="lugar${i === 0 ? " pior" : ""}" title="${lug.equipes.map(e =>
             `${e.equipe} — ${e.ncLinhas} N.C, ICIT ${fmtP(e.icit, 0)}`).join(" | ")}">
           <span class="medalha">${marcas[i]}</span>
-          <span class="nomes">${lug.equipes.length > 1
-            ? `${lug.equipes.length} equipes empatadas`
-            : lug.equipes[0].equipe}</span>
+          <span class="nomes">${lug.equipes.map(e => e.equipe).join(" · ")}${
+            lug.equipes.length > 1
+              ? `<i class="empatadas">${lug.equipes.length} empatadas</i>` : ""}</span>
           <span class="detalhe">${fmtN(lug.equipes.reduce((a, e) => a + e.ncLinhas, 0))} N.C</span>
           <b>${fmtN(lug.pontos)}</b></div>`).join("")}
     </div>

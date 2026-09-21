@@ -780,7 +780,12 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio .lugar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
   background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);font-size:12.5px;
   color:#fff;backdrop-filter:blur(3px)}
-.podio .lugar .nomes{text-align:left;line-height:1.25}
+/* min-width:0 para o nome quebrar linha em vez de espremer N.C e pontos:
+   com empate a lista traz todas as equipes do lugar, não só a contagem. */
+.podio .lugar .nomes{text-align:left;line-height:1.25;flex:1 1 auto;min-width:0;
+  overflow-wrap:anywhere}
+.podio .lugar .nomes .empatadas{display:block;font-style:normal;font-size:9.5px;
+  opacity:.75;letter-spacing:.02em}
 .podio .lugar .detalhe{margin-left:auto;font-size:10.5px;opacity:.85;white-space:nowrap}
 /* ============================================================
    Ajustes no modo fluido — precisa vir DEPOIS das regras base
@@ -1208,7 +1213,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260916-1428";
+const VERSAO = "20260921-1427";
 </script>
 <script>
 /* ============================================================
@@ -5548,9 +5553,9 @@ function podioPioresHTML(linhas) {
         <div class="lugar${i === 0 ? " pior" : ""}" title="${lug.equipes.map(e =>
             `${e.equipe} — ${e.ncLinhas} N.C, ICIT ${fmtP(e.icit, 0)}`).join(" | ")}">
           <span class="medalha">${marcas[i]}</span>
-          <span class="nomes">${lug.equipes.length > 1
-            ? `${lug.equipes.length} equipes empatadas`
-            : lug.equipes[0].equipe}</span>
+          <span class="nomes">${lug.equipes.map(e => e.equipe).join(" · ")}${
+            lug.equipes.length > 1
+              ? `<i class="empatadas">${lug.equipes.length} empatadas</i>` : ""}</span>
           <span class="detalhe">${fmtN(lug.equipes.reduce((a, e) => a + e.ncLinhas, 0))} N.C</span>
           <b>${fmtN(lug.pontos)}</b></div>`).join("")}
     </div>

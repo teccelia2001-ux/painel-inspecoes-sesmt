@@ -780,7 +780,12 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio .lugar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
   background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);font-size:12.5px;
   color:#fff;backdrop-filter:blur(3px)}
-.podio .lugar .nomes{text-align:left;line-height:1.25}
+/* min-width:0 para o nome quebrar linha em vez de espremer N.C e pontos:
+   com empate a lista traz todas as equipes do lugar, não só a contagem. */
+.podio .lugar .nomes{text-align:left;line-height:1.25;flex:1 1 auto;min-width:0;
+  overflow-wrap:anywhere}
+.podio .lugar .nomes .empatadas{display:block;font-style:normal;font-size:9.5px;
+  opacity:.75;letter-spacing:.02em}
 .podio .lugar .detalhe{margin-left:auto;font-size:10.5px;opacity:.85;white-space:nowrap}
 /* ============================================================
    Ajustes no modo fluido — precisa vir DEPOIS das regras base
