@@ -1213,7 +1213,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260921-1519";
+const VERSAO = "20260921-1522";
 </script>
 <script>
 /* ============================================================
@@ -1230,6 +1230,21 @@ let NC_BY_ID;
    inspetores podem ser editados na aba Ajustes, tudo isto é reconstruído
    por reconstruirModelo() a cada alteração. */
 let IDX_INSPETOR, IDX_EQUIPE, FATO;
+
+/* O departamento chega escrito de mais de um jeito conforme a origem: a
+   planilha antiga trouxe "DCMD LV", o app manda "DCMD_LV" e o cadastro diz
+   "DCMD LINHA VIVA". Sem juntar, o MESMO departamento vira duas ou três
+   opções no filtro e cada uma conta uma parte das inspeções. */
+const DEPARTAMENTO_CANONICO = {
+  "DCMD LV": "DCMD LINHA VIVA", "DCMD_LV": "DCMD LINHA VIVA",
+  "DCMD CM": "DCMD C&M", "DCMD_CM": "DCMD C&M", "DCMD C&M": "DCMD C&M",
+  "DCMD_PODA": "DCMD PODA", "DCMD PODA": "DCMD PODA",
+  "DECP": "DECP", "DEOP": "DEOP"
+};
+const nomeDepartamento = d => {
+  const t = String(d || "").trim().toUpperCase().replace(/\s+/g, " ");
+  return DEPARTAMENTO_CANONICO[t] || String(d || "").trim();
+};
 
 function reconstruirModelo() {
   NC_BY_ID = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
@@ -1270,7 +1285,7 @@ function reconstruirModelo() {
          num grupo só. O nome original fica em inspetorBruto/equipeBruta. */
       id: r[0], inspetor: insp ? insp[0] : "", inspetorBruto: r[1],
       equipe: eq ? eq[0] : "", equipeBruta: r[2],
-      tipo: r[3], data: new Date(y, m - 1, d),
+      tipo: nomeDepartamento(r[3]), data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
       ano: "" + y, mes: "" + m,
       polo: insp ? insp[1] : "", funcao: insp ? insp[2] : "",
@@ -2779,7 +2794,10 @@ const SECOES = {
     filtros: [["ano", "Ano"], ["mesNome", "Mês", (a, b) => ORDEM_MES.indexOf(a) - ORDEM_MES.indexOf(b)],
               ["polo", "Polo"], ["equipe", "Equipe"], ["inspetor", "Inspetor"],
               ["gravidade", "Gravidade", (a, b) => postoGravidade(a) - postoGravidade(b)],
-              ["tipo", "Departamento"]],
+              /* Departamento é o da inspeção ("tipo", no fato); tipo de equipe
+                 é o da equipe visitada, e sai por extenso, não como código. */
+              ["tipo", "Departamento"],
+              ["tipoEquipe", "Tipo de equipe", null, v => TIPOS_EQUIPE[v] || v]],
     /* UMA LINHA POR NÃO CONFORMIDADE, não por inspeção (27/08/2026).
 
        A inspeção com três desvios ocupa três linhas, repetindo data, equipe,
@@ -2883,7 +2901,10 @@ const SECOES = {
     titulo: "Rascunhos", desc: "Inspeções começadas no app e ainda não enviadas. "
       + "Não entram em nenhum número do painel.",
     somenteLeitura: true, chave: "id",
-    filtros: [["inspetor", "Inspetor"], ["departamento", "Departamento"]],
+    /* O rascunho guarda o departamento como o app o escreve (DCMD_CM); no
+       filtro sai o nome, igual ao da coluna. */
+    filtros: [["inspetor", "Inspetor"],
+      ["departamento", "Departamento", null, v => NOME_DEPARTAMENTO[v] || v]],
     colunas: [
       { t: "Equipe", v: r => r.equipe || "—", forte: true },
       { t: "Inspetor", v: r => r.inspetor || "—" },

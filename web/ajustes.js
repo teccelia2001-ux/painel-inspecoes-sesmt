@@ -109,7 +109,10 @@ const SECOES = {
     filtros: [["ano", "Ano"], ["mesNome", "Mês", (a, b) => ORDEM_MES.indexOf(a) - ORDEM_MES.indexOf(b)],
               ["polo", "Polo"], ["equipe", "Equipe"], ["inspetor", "Inspetor"],
               ["gravidade", "Gravidade", (a, b) => postoGravidade(a) - postoGravidade(b)],
-              ["tipo", "Departamento"]],
+              /* Departamento é o da inspeção ("tipo", no fato); tipo de equipe
+                 é o da equipe visitada, e sai por extenso, não como código. */
+              ["tipo", "Departamento"],
+              ["tipoEquipe", "Tipo de equipe", null, v => TIPOS_EQUIPE[v] || v]],
     /* UMA LINHA POR NÃO CONFORMIDADE, não por inspeção (27/08/2026).
 
        A inspeção com três desvios ocupa três linhas, repetindo data, equipe,
@@ -213,7 +216,10 @@ const SECOES = {
     titulo: "Rascunhos", desc: "Inspeções começadas no app e ainda não enviadas. "
       + "Não entram em nenhum número do painel.",
     somenteLeitura: true, chave: "id",
-    filtros: [["inspetor", "Inspetor"], ["departamento", "Departamento"]],
+    /* O rascunho guarda o departamento como o app o escreve (DCMD_CM); no
+       filtro sai o nome, igual ao da coluna. */
+    filtros: [["inspetor", "Inspetor"],
+      ["departamento", "Departamento", null, v => NOME_DEPARTAMENTO[v] || v]],
     colunas: [
       { t: "Equipe", v: r => r.equipe || "—", forte: true },
       { t: "Inspetor", v: r => r.inspetor || "—" },

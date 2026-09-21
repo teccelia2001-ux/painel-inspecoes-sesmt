@@ -13,6 +13,21 @@ let NC_BY_ID;
    por reconstruirModelo() a cada alteração. */
 let IDX_INSPETOR, IDX_EQUIPE, FATO;
 
+/* O departamento chega escrito de mais de um jeito conforme a origem: a
+   planilha antiga trouxe "DCMD LV", o app manda "DCMD_LV" e o cadastro diz
+   "DCMD LINHA VIVA". Sem juntar, o MESMO departamento vira duas ou três
+   opções no filtro e cada uma conta uma parte das inspeções. */
+const DEPARTAMENTO_CANONICO = {
+  "DCMD LV": "DCMD LINHA VIVA", "DCMD_LV": "DCMD LINHA VIVA",
+  "DCMD CM": "DCMD C&M", "DCMD_CM": "DCMD C&M", "DCMD C&M": "DCMD C&M",
+  "DCMD_PODA": "DCMD PODA", "DCMD PODA": "DCMD PODA",
+  "DECP": "DECP", "DEOP": "DEOP"
+};
+const nomeDepartamento = d => {
+  const t = String(d || "").trim().toUpperCase().replace(/\s+/g, " ");
+  return DEPARTAMENTO_CANONICO[t] || String(d || "").trim();
+};
+
 function reconstruirModelo() {
   NC_BY_ID = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
 
@@ -52,7 +67,7 @@ function reconstruirModelo() {
          num grupo só. O nome original fica em inspetorBruto/equipeBruta. */
       id: r[0], inspetor: insp ? insp[0] : "", inspetorBruto: r[1],
       equipe: eq ? eq[0] : "", equipeBruta: r[2],
-      tipo: r[3], data: new Date(y, m - 1, d),
+      tipo: nomeDepartamento(r[3]), data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
       ano: "" + y, mes: "" + m,
       polo: insp ? insp[1] : "", funcao: insp ? insp[2] : "",
