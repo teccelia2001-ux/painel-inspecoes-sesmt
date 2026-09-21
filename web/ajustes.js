@@ -58,7 +58,11 @@ const SECOES = {
   equipes: {
     titulo: "Equipes", desc: "Equipes de campo avaliadas na Jornada Segura.",
     novo: "Nova equipe", chave: "equipe", campos: CAMPOS_EQUIPE, statusK: "ativa",
-    filtros: [["supervisor", "Supervisor"], ["tipo", "Tipo"], ["ativa", "Situação"]],
+    /* "LM", "LV" e "MAN" são o que o banco guarda, não o que se lê: o filtro
+       mostra o nome por extenso e continua marcando o código. Departamento
+       não é coluna do banco — sai do tipo, por CAMPO_DERIVADO. */
+    filtros: [["supervisor", "Supervisor"], ["tipo", "Tipo", null, v => TIPOS_EQUIPE[v] || v],
+      ["departamento", "Departamento"], ["ativa", "Situação"]],
     /* "departamento" não é campo do banco: vem do tipo, pela mesma regra
        que o app usa. Ver DEPARTAMENTO_DO_TIPO. */
     colunas: [
@@ -480,6 +484,15 @@ const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
    só para rotular a tela do painel. Mudou lá, mude aqui. */
 const DEPARTAMENTO_DO_TIPO = { LM: "DCMD C&M", MAN: "DCMD C&M", LV: "DCMD LINHA VIVA",
   POD: "DCMD PODA", PER: "DECP", REA: "DECP", PLA: "DEOP" };
+
+/* Campos que a linha não guarda: o valor sai de uma conta. Só entram quando
+   a linha não tem o campo — a aba Inspeções já traz departamento pronto e
+   continua usando o dela. */
+const CAMPO_DERIVADO = {
+  departamento: r => DEPARTAMENTO_DO_TIPO[r.tipo] || ""
+};
+const valorDoCampo = (r, campo) =>
+  r[campo] === undefined && CAMPO_DERIVADO[campo] ? CAMPO_DERIVADO[campo](r) : r[campo];
 
 /* Ordem de exibição dos inspetores: hierarquia de campo, não alfabeto.
    Quem não estiver na lista vai para o fim. */
@@ -1158,7 +1171,11 @@ const Ajustes = {
     /* Quais filtros valiam. Sem isso o relatório vira um número solto, e
        ninguém lembra depois se aquilo era o ano todo ou um polo só. */
     const usados = Object.entries(this.filtros).filter(([, v]) => v && v.length)
-      .map(([k, v]) => `${(s.filtros.find(f => f[0] === k) || [k, k])[1]}: ${v.join(", ")}`);
+      .map(([k, v]) => {
+        const f = s.filtros.find(x => x[0] === k) || [k, k];
+        /* Pelo código ninguém entende o relatório: sai por extenso, como na tela. */
+        return `${f[1]}: ${v.map(x => f[3] ? f[3](x) : x).join(", ")}`;
+      });
     if (this.busca.trim()) usados.push(`busca: "${this.busca.trim()}"`);
 
     /* Cada linha é uma N.C — menos as "Sem desvio". E como a inspeção se
@@ -1269,7 +1286,8 @@ const Ajustes = {
           if (!r.gravidades.some(g => sel.includes(String(g)))) return false;
           continue;
         }
-        const val = campo === s.statusK ? (r[campo] ? "Ativo" : "Inativo") : (r[campo] || "");
+        const val = campo === s.statusK ? (r[campo] ? "Ativo" : "Inativo")
+          : (valorDoCampo(r, campo) || "");
         if (!sel.includes(String(val))) return false;
       }
       if (!busca) return true;
@@ -1622,13 +1640,17 @@ const Ajustes = {
       });
       host.appendChild(d);
     }
-    s.filtros.forEach(([campo, rot, ordenar]) => {
+    s.filtros.forEach(([campo, rot, ordenar, rotular]) => {
       const fonte = this.fonte(this.secao);
+      /* O código continua sendo o valor marcado; o rótulo é só o que se lê. */
+      const rotulo = v => rotular ? rotular(v) : v;
       const brutos = campo === s.statusK ? ["Ativo", "Inativo"]
         : campo === "gravidade" && fonte.length && Array.isArray(fonte[0].gravidades)
         ? [...new Set(fonte.flatMap(r => r.gravidades).filter(Boolean))]
-        : [...new Set(fonte.map(r => r[campo]).filter(Boolean))];
-      const vals = ordenar ? brutos.sort(ordenar) : brutos.sort(ordemNatural);
+        : [...new Set(fonte.map(r => valorDoCampo(r, campo)).filter(Boolean))];
+      const vals = ordenar ? brutos.sort(ordenar)
+        : rotular ? brutos.sort((a, b) => ordemNatural(rotulo(a), rotulo(b)))
+        : brutos.sort(ordemNatural);
       const escolhidos = this.filtros[campo] || [];
 
       const d = document.createElement("div");
@@ -1636,13 +1658,13 @@ const Ajustes = {
       d.innerHTML = `<span>${rot}</span>
         <button type="button" class="aj-mbotao">${
           !escolhidos.length ? "Todos"
-          : escolhidos.length === 1 ? esc(escolhidos[0])
+          : escolhidos.length === 1 ? esc(rotulo(escolhidos[0]))
           : escolhidos.length + " selecionados"}</button>
         <div class="aj-mlista">
           <label class="aj-mtodos"><input type="checkbox"${
             !escolhidos.length ? " checked" : ""}> <b>Todos</b></label>
           ${vals.map(v => `<label><input type="checkbox" value="${esc(v)}"${
-            escolhidos.includes(String(v)) ? " checked" : ""}> ${esc(v)}</label>`).join("")}
+            escolhidos.includes(String(v)) ? " checked" : ""}> ${esc(rotulo(v))}</label>`).join("")}
         </div>`;
 
       const lista = d.querySelector(".aj-mlista");
