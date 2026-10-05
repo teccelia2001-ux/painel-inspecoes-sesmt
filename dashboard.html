@@ -1213,7 +1213,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20260921-1522";
+const VERSAO = "20261005-1637";
 </script>
 <script>
 /* ============================================================
@@ -3597,7 +3597,7 @@ const Ajustes = {
     }
   },
 
-  /* Editar a inspeção — só o cabeçalho: equipe, data e departamento.
+  /* Editar a inspeção — só o cabeçalho: equipe, inspetor, data e departamento.
 
      As RESPOSTAS não se editam aqui, de propósito. Quem respondeu foi o
      inspetor em campo, olhando a turma; mudar isso de escritório apagaria a
@@ -3605,11 +3605,14 @@ const Ajustes = {
      de resposta se corrige refazendo a inspeção.
 
      O que se corrige aqui é o que se erra ao começar: escolher a equipe
-     errada na lista, ou a data. */
+     errada na lista, a data, ou a inspeção enviada pela conta de outro
+     inspetor — e esta última desloca meta e taxa de contato de dois. */
   editarInspecao(linha) {
     const uuid = UUID_POR_ID[linha.id];
     if (!uuid) return this.avisar("Esta inspeção não está no banco — não dá para editar.", true);
     const equipes = Cadastros.equipes.filter(e => e.ativa).map(e => e.equipe).sort(ordemNatural);
+    const inspetores = Cadastros.inspetores.filter(i => i.ativo)
+      .map(i => i.inspetor).sort(ordemNatural);
     const dep = Object.entries(Sincronia.DEPARTAMENTO);
     const [d, m, a] = String(linha.dataStr).split("/");
 
@@ -3620,6 +3623,11 @@ const Ajustes = {
          <input name="equipe" list="lista-eq-insp" value="${esc(linha.equipe)}" required>
          <datalist id="lista-eq-insp">${equipes.map(e =>
            `<option value="${esc(e)}">`).join("")}</datalist></label>
+       <label class="aj-campo"><span>Inspetor</span>
+         <input name="inspetor" list="lista-insp-insp" required
+                value="${esc(linha.inspetor || linha.inspetorBruto || "")}">
+         <datalist id="lista-insp-insp">${inspetores.map(i =>
+           `<option value="${esc(i)}">`).join("")}</datalist></label>
        <label class="aj-campo"><span>Data</span>
          <input name="data" type="date" required value="${a}-${m}-${d}"></label>
        <label class="aj-campo"><span>Departamento</span>
@@ -3644,13 +3652,23 @@ const Ajustes = {
             + "A inspeção casa com a equipe pelo nome — um nome fora do cadastro "
             + "faria ela sumir dos números.");
         }
+        /* Mesma conferência do nome da equipe, e pela mesma razão: a inspeção
+           casa com o inspetor pelo nome. Fora do cadastro, ela deixaria de
+           contar na meta e na taxa de contato de qualquer um. */
+        const inspetor = form.inspetor.value.trim();
+        if (!inspetor) throw new Error("Informe o inspetor.");
+        if (inspetores.length && !inspetores.includes(inspetor)) {
+          throw new Error(`"${inspetor}" não está no cadastro de inspetores. `
+            + "A inspeção casa com o inspetor pelo nome — um nome fora do "
+            + "cadastro faria ela sumir da meta e da taxa de contato.");
+        }
         /* Placa normalizada como o app faz: só letra e número, maiúsculas —
            "qfd 8e92" e "QFD8E92" contavam como veículos diferentes. */
         const placa = String(form.placa.value || "").toUpperCase()
           .replace(/[^A-Z0-9]/g, "").slice(0, 7);
         await Banco.atualizar("sesmt_inspecoes", uuid, {
-          equipe, data: form.data.value, departamento: form.departamento.value,
-          placa: placa || null
+          equipe, inspetor, data: form.data.value,
+          departamento: form.departamento.value, placa: placa || null
         });
         /* Rebaixa tudo: mudar equipe ou data mexe em quase todo indicador,
            e recalcular na memória sem reler o banco arriscaria divergir. */
