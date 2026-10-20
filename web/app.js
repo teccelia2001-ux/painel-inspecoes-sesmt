@@ -229,8 +229,10 @@ function cabecalho(pg, cards) {
      e eram 8 filtros disputando a mesma linha. O CAMPO continua no modelo
      (a coluna Supervisor da Jornada Segura o usa); apenas não há mais como
      acioná-lo pela tela, e por isso ele nunca fica ativo. */
-  [["ano", "Ano"], ["mes", "Mês"], ["tipo", "Departamento"], ["polo", "Polo"],
-   ["inspetor", "Inspetor"], ["funcao", "Função"], ["equipe", "Equipe"]]
+  /* "Semana" entrou em 20/10/2026, junto com o pódio por período: a
+     premiação é semanal, e sem ela só dava para recortar o mês inteiro. */
+  [["ano", "Ano"], ["mes", "Mês"], ["semana", "Semana"], ["tipo", "Departamento"],
+   ["polo", "Polo"], ["inspetor", "Inspetor"], ["funcao", "Função"], ["equipe", "Equipe"]]
     .forEach(([campo, rot]) => faixa.appendChild(montarSlicer(campo, rot)));
 
   const lim = document.createElement("button");
@@ -267,7 +269,8 @@ function preencherLista(d, campo) {
       d.classList.add("aberto");
     };
     lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(campo === "mes" ? MESES_NOME[+v] : v));
+    lab.appendChild(document.createTextNode(
+      campo === "mes" ? MESES_NOME[+v] : campo === "semana" ? rotuloSemana(v) : v));
     lista.appendChild(lab);
   });
 }
@@ -550,7 +553,8 @@ function marcarSlicers() {
     const c = s.dataset.campo, sel = [...filtros[c]];
     s.classList.toggle("on", sel.length > 0);
     s.querySelector(".vl").textContent = !sel.length ? "Tudo"
-      : sel.length === 1 ? (c === "mes" ? MESES_NOME[+sel[0]] : sel[0])
+      : sel.length === 1 ? (c === "mes" ? MESES_NOME[+sel[0]]
+                            : c === "semana" ? rotuloSemana(sel[0]) : sel[0])
       : sel.length + " selecionados";
   });
   const n = CAMPOS.filter(c => filtros[c].size > 0).length;
@@ -800,10 +804,43 @@ function podioPioresHTML(linhas) {
   </div>`;
 }
 
+/* QUEM PODE SER PREMIADA (20/10/2026).
+
+   Pontuação cheia não é mérito: a equipe começa o mês com 100 pontos e só
+   perde ao ser inspecionada. Quem recebeu uma visita e saiu limpa empatava,
+   no topo, com quem não recebeu visita nenhuma — e com quem só foi vista
+   pelo próprio supervisor.
+
+   Para subir ao pódio a equipe precisa de inspeção no período, e pelo menos
+   uma delas tem de ser do SESMT (técnico ou engenheiro de segurança). A
+   TABELA ao lado continua mostrando todas: ali o assunto é acompanhar, aqui
+   é premiar. */
+const podeSerPremiada = l => l.qtd > 0 && l.qtdSesmt > 0;
+
+/* O período que está valendo, escrito como se lê. Premiação sem período na
+   tela é convite a discussão: a mesma equipe campeã da semana não é a
+   campeã do mês, e quem olha precisa saber qual das duas está vendo. */
+function periodoFiltrado() {
+  const sem = [...filtros.semana], mes = [...filtros.mes], ano = [...filtros.ano];
+  if (sem.length === 1) return "semana de " + rotuloSemana(sem[0]);
+  if (sem.length) return sem.length + " semanas escolhidas";
+  const p = [];
+  if (mes.length === 1) p.push(MESES_NOME[+mes[0]]);
+  else if (mes.length) p.push(mes.length + " meses");
+  if (ano.length === 1) p.push(ano[0]);
+  else if (ano.length) p.push(ano.length + " anos");
+  return p.join("/") || "todo o período";
+}
+
 /* Pódio: só o primeiro lugar. Havendo empate em pontos, vence quem lidera
    no critério de desempate — a mesma ordem da tabela ao lado. */
-function podioHTML(linhas) {
-  if (!linhas.length) return `<div class="podio"><div class="tit">sem dados</div></div>`;
+function podioHTML(todas) {
+  const linhas = todas.filter(podeSerPremiada);
+  if (!linhas.length) return `<div class="podio"><div class="tit">🏆 Equipe campeã</div>
+    <div class="empate">${todas.length
+      ? "Nenhuma equipe do período recebeu inspeção do SESMT — sem isso não há "
+        + "premiação. A tabela ao lado continua mostrando todas."
+      : "Sem inspeções no período escolhido."}</div></div>`;
 
   const lugares = agruparPorPontos(linhas);
   const campea = lugares[0].equipes[0];        // já vêm ordenadas pelo desempate
@@ -813,9 +850,11 @@ function podioHTML(linhas) {
     <img class="marca-podio" src="${LOGO_TECCEL}" alt="Teccel Energia">
     <div class="coroa">
       <div class="tit">🏆 Equipe campeã</div>
+      <div class="periodo" title="Período em que esta premiação vale — mude em Ano, Mês e Semana, na faixa de filtros">${periodoFiltrado()}</div>
       <div class="eq">${campea.equipe}</div>
       <div class="pts">${fmtN(campea.pontosFinal)} pontos · ICIT ${fmtP(campea.icit, 1)}
-        · ${campea.qtd} inspeç${campea.qtd === 1 ? "ão" : "ões"}</div>
+        · ${campea.qtd} inspeç${campea.qtd === 1 ? "ão" : "ões"}
+        <span class="sesmt" title="Só concorre a equipe inspecionada pelo SESMT no período">(${campea.qtdSesmt} do SESMT)</span></div>
       ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
       ${empatadas > 1 ? `
         <div class="empate">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
@@ -824,6 +863,7 @@ function podioHTML(linhas) {
           `<span class="chip${i === 0 ? " lider" : ""}"
             title="${e.equipe} — ${e.qtd} inspeç${e.qtd === 1 ? "ão" : "ões"}, ${e.ncLinhas} N.C, desempate ${fmtD(e.desempate, 1)}"
             >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
+      <div class="criterio" title="Para concorrer, a equipe precisa de pelo menos uma inspeção do SESMT (técnico ou engenheiro de segurança) no período. As demais continuam na tabela ao lado.">Concorrem ${fmtN(linhas.length)} de ${fmtN(todas.length)} — com inspeção do SESMT</div>
     </div>
   </div>`;
 }

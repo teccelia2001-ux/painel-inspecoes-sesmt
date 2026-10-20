@@ -28,6 +28,45 @@ const nomeDepartamento = d => {
   return DEPARTAMENTO_CANONICO[t] || String(d || "").trim();
 };
 
+/* ---------- Semana ----------
+   Semana de SEGUNDA a DOMINGO, que é como a turma enxerga a semana de
+   trabalho. A chave é a data da segunda-feira ("2026-10-19"): ordenar texto
+   assim já sai em ordem de calendário, e duas semanas de anos diferentes
+   nunca se confundem. O rótulo é o que vai à tela. */
+function segundaDaSemana(data) {
+  const d = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+  /* getDay(): 0 = domingo. Domingo pertence à semana que começou na segunda
+     anterior, seis dias atrás — não à que começa no dia seguinte. */
+  const recuo = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - recuo);
+  return d;
+}
+const chaveSemana = data => {
+  const s = segundaDaSemana(data);
+  return s.getFullYear() + "-" + String(s.getMonth() + 1).padStart(2, "0")
+    + "-" + String(s.getDate()).padStart(2, "0");
+};
+/* "19–25/out/26", e "28/set–04/out/26" quando a semana vira o mês. */
+function rotuloSemana(chave) {
+  const [y, m, d] = String(chave).split("-").map(Number);
+  if (!y) return chave;
+  const ini = new Date(y, m - 1, d), fim = new Date(y, m - 1, d + 6);
+  const dia = x => String(x.getDate()).padStart(2, "0");
+  const mes = x => MESES_NOME[x.getMonth() + 1];
+  const ano = String(fim.getFullYear()).slice(2);
+  return ini.getMonth() === fim.getMonth()
+    ? `${dia(ini)}–${dia(fim)}/${mes(fim)}/${ano}`
+    : `${dia(ini)}/${mes(ini)}–${dia(fim)}/${mes(fim)}/${ano}`;
+}
+
+/* Quem é SESMT e quem é OPERAÇÃO — pela FUNÇÃO do inspetor, a mesma divisão
+   que a página Taxa de Contato usa nos dois blocos. Serve ao pódio: a
+   premiação exige ter sido inspecionada pelo SESMT, e não só pelo próprio
+   supervisor da equipe. */
+const FUNCOES_SESMT = ["Técnico Segurança", "Engenheiro Segurança"];
+const ehSesmt = f => FUNCOES_SESMT.some(x =>
+  x.toLowerCase() === String(f || "").trim().toLowerCase());
+
 function reconstruirModelo() {
   NC_BY_ID = NC.reduce((a, r) => ((a[r[0]] = a[r[0]] || []).push(r), a), {});
 
@@ -69,7 +108,7 @@ function reconstruirModelo() {
       equipe: eq ? eq[0] : "", equipeBruta: r[2],
       tipo: nomeDepartamento(r[3]), data: new Date(y, m - 1, d),
       dataStr: r[4], mesAno, serial: "" + y + String(m).padStart(2, "0"),
-      ano: "" + y, mes: "" + m,
+      ano: "" + y, mes: "" + m, semana: chaveSemana(new Date(y, m - 1, d)),
       polo: insp ? insp[1] : "", funcao: insp ? insp[2] : "",
       supervisor: eq ? eq[2] : "", tipoEquipe: eq ? eq[1] : ""
     };
@@ -241,7 +280,8 @@ const Sincronia = {
 /* ---------- Filtros ---------- */
 /* "tipo" é o DEPARTAMENTO da inspeção (DCMD C&M, DEOP…). Entrou em
    27/08/2026: sem ele não dava para olhar o ICIT de um departamento só. */
-const CAMPOS = ["ano", "mes", "polo", "inspetor", "funcao", "supervisor", "equipe", "tipo"];
+const CAMPOS = ["ano", "mes", "semana", "polo", "inspetor", "funcao", "supervisor",
+                "equipe", "tipo"];
 const filtros = Object.fromEntries(CAMPOS.map(c => [c, new Set()]));
 
 const ativo = c => filtros[c].size > 0;
@@ -260,7 +300,7 @@ function fatoFiltrado(ignorar) {
   const ig = new Set(ignorar || []);
   const ok = (c, v) => ig.has(c) || bate(c, v);
   return FATO.filter(f =>
-    ok("ano", f.ano) && ok("mes", f.mes) && ok("polo", f.polo) &&
+    ok("ano", f.ano) && ok("mes", f.mes) && ok("semana", f.semana) && ok("polo", f.polo) &&
     ok("inspetor", f.inspetor) && ok("funcao", f.funcao) &&
     ok("supervisor", f.supervisor) && ok("equipe", f.equipe) && ok("tipo", f.tipo));
 }
@@ -410,14 +450,24 @@ function porInspetor(f, ms, comVazio) {
 function jornada(f, ms) {
   ms = ms || mesesAtivos();
   // pontua todo mês que teve inspeção — o mesmo conjunto que gera os descontos
-  const mesesPonto = ms.map(d => d[0]).filter(m => MESES_COM_INSPECAO.has(m)).length;
+  const mesesPonto = ativo("semana")
+    /* PREMIAÇÃO SEMANAL (20/10/2026): escolhida uma semana, a equipe começa
+       com os pontos de UM mês, não com os de todos os meses já inspecionados
+       — "500 pontos" para uma semana de agosto não quer dizer nada. A base é
+       a mesma para todas, então a ordem do pódio não muda; o que muda é o
+       número ficar legível ao lado do nome da semana. */
+    ? 1
+    : ms.map(d => d[0]).filter(m => MESES_COM_INSPECAO.has(m)).length;
   const linhas = agrupar(f, "equipe", ms).map(g => {
     const eq = IDX_EQUIPE[g.chave];
     const ini = eq ? eq[3] * mesesPonto : null;
     const fim = ini === null ? null : ini + g.pontosNC;
+    /* Quantas destas visitas foram do SESMT. É o que decide se a equipe pode
+       subir ao pódio: ver podioHTML, em app.js. */
+    const qtdSesmt = g.fato.filter(x => ehSesmt(x.funcao)).length;
     return {
       equipe: g.chave, supervisor: eq ? eq[2] : "", tipo: eq ? eq[1] : "",
-      qtd: g.qtd, nc: g.nc, ncLinhas: g.ncLinhas, icit: g.icit,
+      qtd: g.qtd, qtdSesmt, nc: g.nc, ncLinhas: g.ncLinhas, icit: g.icit,
       pontosIniciais: ini, pontosNC: g.pontosNC, pontosFinal: fim,
       // Critério Desempate = Pontos Final + (inspeções sem N.C)/10  — confirmado no relatório original
       desempate: fim === null ? null : fim + (g.qtd - g.nc) / 10
@@ -582,6 +632,10 @@ function opcoes(campo) {
     if (campo === "polo")     INSPETORES.forEach(i => vals.add(i[1]));
     if (campo === "funcao")   INSPETORES.forEach(i => vals.add(i[2]));
   }
+  /* Semana sai em ordem de calendário, da mais recente para a mais antiga:
+     quem procura a semana do prêmio quer a última, não a de abril. A chave é
+     a data da segunda-feira, então ordenar texto já basta. */
+  if (campo === "semana") return [...vals].sort().reverse();
   return [...vals].sort((a, b) =>
     campo === "mes" ? a - b : String(a).localeCompare(String(b), "pt-BR", { numeric: true }));
 }
