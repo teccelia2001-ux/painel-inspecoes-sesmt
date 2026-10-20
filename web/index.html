@@ -773,6 +773,16 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio .chip{font-size:10.5px;font-weight:600;color:#fff;padding:3px 8px;border-radius:20px;
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.30);white-space:nowrap;cursor:help}
 .podio .chip.lider{background:#fff;color:var(--acento-forte);border-color:#fff}
+/* Balão de dica desenhado pelo painel — ver Dica, em app.js. Fica no body e
+   em position:fixed de propósito: dentro do canvas ele herdaria o scale e
+   sairia menor e fora de lugar. */
+.dica-flutuante{position:fixed;z-index:9999;max-width:330px;display:none;
+  background:#241a17;color:#fff;border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;padding:9px 11px;font-size:11.5px;line-height:1.45;
+  white-space:pre-line;box-shadow:0 10px 26px rgba(0,0,0,.38);pointer-events:none;
+  font-family:inherit;letter-spacing:0;text-transform:none}
+.dica-flutuante.on{display:block}
+.empate[data-dica],[data-dica]{cursor:help}
 .podio .sup{font-size:11px;color:#ffeee8;opacity:.9}
 /* O período da premiação fica logo abaixo do título, antes do nome: é a
    primeira pergunta de quem olha um pódio ("campeã de quando?"). */

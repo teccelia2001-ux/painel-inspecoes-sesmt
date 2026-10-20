@@ -832,6 +832,76 @@ function periodoFiltrado() {
   return p.join("/") || "todo o período";
 }
 
+/* ============================================================
+   DICA FLUTUANTE — a dica do navegador não serve aqui
+
+   O painel inteiro usa o title do HTML, e em quase todo lugar basta. Nas
+   etiquetas do pódio não aparecia: o cursor virava "?" e nada mais. A dica
+   nativa é do navegador, não da página — não dá para depurar nem garantir, e
+   no celular ela simplesmente não existe, porque não há "passar o mouse".
+
+   Então o painel desenha a sua: um balão nosso, que abre na hora (sem o
+   segundo de espera), respeita a quebra de linha e, no toque, abre e fecha
+   no clique. Vale para qualquer elemento com data-dica.
+
+   Posição em coordenadas de tela (position:fixed + getBoundingClientRect):
+   o canvas é escalado por transform, e só assim o balão cai sobre o elemento
+   em vez de ao lado dele. Ver escalar().
+   ============================================================ */
+const Dica = {
+  el: null,
+  alvo: null,
+
+  caixa() {
+    if (!this.el) {
+      this.el = document.createElement("div");
+      this.el.className = "dica-flutuante";
+      document.body.appendChild(this.el);
+    }
+    return this.el;
+  },
+
+  mostrar(alvo) {
+    const txt = alvo.dataset.dica;
+    if (!txt) return;
+    const d = this.caixa();
+    this.alvo = alvo;
+    d.textContent = txt;
+    d.classList.add("on");
+
+    /* Mede depois de preencher: o balão quebra linha, e a altura só existe
+       com o texto dentro. Acima do alvo, e abaixo quando não couber. */
+    const r = alvo.getBoundingClientRect();
+    const c = d.getBoundingClientRect();
+    const margem = 8;
+    let x = r.left + r.width / 2 - c.width / 2;
+    x = Math.max(margem, Math.min(x, window.innerWidth - c.width - margem));
+    let y = r.top - c.height - 6;
+    if (y < margem) y = Math.min(r.bottom + 6, window.innerHeight - c.height - margem);
+    d.style.left = Math.round(x) + "px";
+    d.style.top = Math.round(y) + "px";
+  },
+
+  esconder() {
+    this.alvo = null;
+    if (this.el) this.el.classList.remove("on");
+  }
+};
+document.addEventListener("mouseover", e => {
+  const alvo = e.target.closest && e.target.closest("[data-dica]");
+  if (alvo) Dica.mostrar(alvo);
+  else if (Dica.alvo && !(e.target.closest && e.target.closest(".dica-flutuante"))) Dica.esconder();
+});
+/* Toque: o celular não tem "passar o mouse", então o toque abre — e o
+   próximo toque, em qualquer lugar, fecha. */
+document.addEventListener("click", e => {
+  const alvo = e.target.closest && e.target.closest("[data-dica]");
+  if (alvo) { alvo === Dica.alvo ? Dica.esconder() : Dica.mostrar(alvo); }
+  else Dica.esconder();
+});
+window.addEventListener("scroll", () => Dica.esconder(), true);
+window.addEventListener("resize", () => Dica.esconder());
+
 /* O resumo que aparece ao passar o mouse em cada equipe empatada.
 
    Empate de 12 equipes com a mesma pontuação é o caso normal aqui, e a
@@ -889,11 +959,13 @@ function podioHTML(todas) {
         <span class="sesmt" title="Só concorre a equipe inspecionada pelo SESMT no período">(${campea.qtdSesmt} do SESMT)</span></div>
       ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
       ${empatadas > 1 ? `
-        <div class="empate" title="Critério de desempate: pontos finais + (visitas sem N.C ÷ 10).&#10;Empatadas na pontuação, fica à frente quem recebeu mais visita sem nenhuma não conformidade.&#10;Passe o mouse em cada equipe para ver a conta dela.">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
+        <div class="empate" data-dica="${esc("Critério de desempate: pontos finais + (visitas sem N.C ÷ 10)."
+          + "\nEmpatadas na pontuação, fica à frente quem recebeu mais visita sem nenhuma não conformidade."
+          + "\n\nPasse o mouse (ou toque) em cada equipe para ver a conta dela.")}">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
           — a ordem abaixo segue o critério de desempate</div>
         <div class="chips">${lugares[0].equipes.map((e, i) =>
           `<span class="chip${i === 0 ? " lider" : ""}"
-            title="${esc(dicaDesempate(e, lugares[0].equipes))}"
+            data-dica="${esc(dicaDesempate(e, lugares[0].equipes))}"
             >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
       <div class="criterio" title="Para concorrer, a equipe precisa de pelo menos uma inspeção do SESMT (técnico ou engenheiro de segurança) no período. As demais continuam na tabela ao lado.">Concorrem ${fmtN(linhas.length)} de ${fmtN(todas.length)} — com inspeção do SESMT</div>
     </div>

@@ -773,6 +773,16 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .podio .chip{font-size:10.5px;font-weight:600;color:#fff;padding:3px 8px;border-radius:20px;
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.30);white-space:nowrap;cursor:help}
 .podio .chip.lider{background:#fff;color:var(--acento-forte);border-color:#fff}
+/* Balão de dica desenhado pelo painel — ver Dica, em app.js. Fica no body e
+   em position:fixed de propósito: dentro do canvas ele herdaria o scale e
+   sairia menor e fora de lugar. */
+.dica-flutuante{position:fixed;z-index:9999;max-width:330px;display:none;
+  background:#241a17;color:#fff;border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;padding:9px 11px;font-size:11.5px;line-height:1.45;
+  white-space:pre-line;box-shadow:0 10px 26px rgba(0,0,0,.38);pointer-events:none;
+  font-family:inherit;letter-spacing:0;text-transform:none}
+.dica-flutuante.on{display:block}
+.empate[data-dica],[data-dica]{cursor:help}
 .podio .sup{font-size:11px;color:#ffeee8;opacity:.9}
 /* O período da premiação fica logo abaixo do título, antes do nome: é a
    primeira pergunta de quem olha um pódio ("campeã de quando?"). */
@@ -1220,7 +1230,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261020-1118";
+const VERSAO = "20261020-1125";
 </script>
 <script>
 /* ============================================================
@@ -5716,6 +5726,76 @@ function periodoFiltrado() {
   return p.join("/") || "todo o período";
 }
 
+/* ============================================================
+   DICA FLUTUANTE — a dica do navegador não serve aqui
+
+   O painel inteiro usa o title do HTML, e em quase todo lugar basta. Nas
+   etiquetas do pódio não aparecia: o cursor virava "?" e nada mais. A dica
+   nativa é do navegador, não da página — não dá para depurar nem garantir, e
+   no celular ela simplesmente não existe, porque não há "passar o mouse".
+
+   Então o painel desenha a sua: um balão nosso, que abre na hora (sem o
+   segundo de espera), respeita a quebra de linha e, no toque, abre e fecha
+   no clique. Vale para qualquer elemento com data-dica.
+
+   Posição em coordenadas de tela (position:fixed + getBoundingClientRect):
+   o canvas é escalado por transform, e só assim o balão cai sobre o elemento
+   em vez de ao lado dele. Ver escalar().
+   ============================================================ */
+const Dica = {
+  el: null,
+  alvo: null,
+
+  caixa() {
+    if (!this.el) {
+      this.el = document.createElement("div");
+      this.el.className = "dica-flutuante";
+      document.body.appendChild(this.el);
+    }
+    return this.el;
+  },
+
+  mostrar(alvo) {
+    const txt = alvo.dataset.dica;
+    if (!txt) return;
+    const d = this.caixa();
+    this.alvo = alvo;
+    d.textContent = txt;
+    d.classList.add("on");
+
+    /* Mede depois de preencher: o balão quebra linha, e a altura só existe
+       com o texto dentro. Acima do alvo, e abaixo quando não couber. */
+    const r = alvo.getBoundingClientRect();
+    const c = d.getBoundingClientRect();
+    const margem = 8;
+    let x = r.left + r.width / 2 - c.width / 2;
+    x = Math.max(margem, Math.min(x, window.innerWidth - c.width - margem));
+    let y = r.top - c.height - 6;
+    if (y < margem) y = Math.min(r.bottom + 6, window.innerHeight - c.height - margem);
+    d.style.left = Math.round(x) + "px";
+    d.style.top = Math.round(y) + "px";
+  },
+
+  esconder() {
+    this.alvo = null;
+    if (this.el) this.el.classList.remove("on");
+  }
+};
+document.addEventListener("mouseover", e => {
+  const alvo = e.target.closest && e.target.closest("[data-dica]");
+  if (alvo) Dica.mostrar(alvo);
+  else if (Dica.alvo && !(e.target.closest && e.target.closest(".dica-flutuante"))) Dica.esconder();
+});
+/* Toque: o celular não tem "passar o mouse", então o toque abre — e o
+   próximo toque, em qualquer lugar, fecha. */
+document.addEventListener("click", e => {
+  const alvo = e.target.closest && e.target.closest("[data-dica]");
+  if (alvo) { alvo === Dica.alvo ? Dica.esconder() : Dica.mostrar(alvo); }
+  else Dica.esconder();
+});
+window.addEventListener("scroll", () => Dica.esconder(), true);
+window.addEventListener("resize", () => Dica.esconder());
+
 /* O resumo que aparece ao passar o mouse em cada equipe empatada.
 
    Empate de 12 equipes com a mesma pontuação é o caso normal aqui, e a
@@ -5773,11 +5853,13 @@ function podioHTML(todas) {
         <span class="sesmt" title="Só concorre a equipe inspecionada pelo SESMT no período">(${campea.qtdSesmt} do SESMT)</span></div>
       ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
       ${empatadas > 1 ? `
-        <div class="empate" title="Critério de desempate: pontos finais + (visitas sem N.C ÷ 10).&#10;Empatadas na pontuação, fica à frente quem recebeu mais visita sem nenhuma não conformidade.&#10;Passe o mouse em cada equipe para ver a conta dela.">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
+        <div class="empate" data-dica="${esc("Critério de desempate: pontos finais + (visitas sem N.C ÷ 10)."
+          + "\nEmpatadas na pontuação, fica à frente quem recebeu mais visita sem nenhuma não conformidade."
+          + "\n\nPasse o mouse (ou toque) em cada equipe para ver a conta dela.")}">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
           — a ordem abaixo segue o critério de desempate</div>
         <div class="chips">${lugares[0].equipes.map((e, i) =>
           `<span class="chip${i === 0 ? " lider" : ""}"
-            title="${esc(dicaDesempate(e, lugares[0].equipes))}"
+            data-dica="${esc(dicaDesempate(e, lugares[0].equipes))}"
             >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
       <div class="criterio" title="Para concorrer, a equipe precisa de pelo menos uma inspeção do SESMT (técnico ou engenheiro de segurança) no período. As demais continuam na tabela ao lado.">Concorrem ${fmtN(linhas.length)} de ${fmtN(todas.length)} — com inspeção do SESMT</div>
     </div>
