@@ -195,7 +195,7 @@ let INSPECOES = [
 ["106","Manoel Vaz","LINHA VIVA 1","DCMD LV","18/08/2026"],["107","Manoel Vaz","LINHA VIVA 2","DCMD LV","21/08/2026"],
 ["108","Manoel Vaz","CONST 2","DCMD LV","21/08/2026"],["109","Huislan","PODA 2","DCMD PODA","04/05/2026"],
 ["110","Acacio","PODA 3","DCMD PODA","31/07/2026"],["111","Francisco","PERDAS PTSRG04","DECP","22/04/2026"],
-["112","Joab","REAVISO - CJZRI01","DECP","29/05/2026"],["113","Francisco","PERDAS PTSRG04","DECP","25/06/2026"],
+["112","Joab","REAVISO - CJZRI01","DESC","29/05/2026"],["113","Francisco","PERDAS PTSRG04","DECP","25/06/2026"],
 ["114","Francisco","PERDAS PTSRG03","DECP","28/07/2026"],["115","Huislan","PERDAS PTSRG03","DECP","10/07/2026"],
 ["116","Huislan","PERDAS PTSRG12","DECP","28/07/2026"],["117","Francisco","PERDAS PTSRG03","DECP","27/07/2026"],
 ["118","Francisco","PERDAS PTSRG03","DECP","14/08/2026"],

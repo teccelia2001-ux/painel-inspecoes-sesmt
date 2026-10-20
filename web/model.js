@@ -21,7 +21,7 @@ const DEPARTAMENTO_CANONICO = {
   "DCMD LV": "DCMD LINHA VIVA", "DCMD_LV": "DCMD LINHA VIVA",
   "DCMD CM": "DCMD C&M", "DCMD_CM": "DCMD C&M", "DCMD C&M": "DCMD C&M",
   "DCMD_PODA": "DCMD PODA", "DCMD PODA": "DCMD PODA",
-  "DECP": "DECP", "DEOP": "DEOP"
+  "DECP": "DECP", "DEOP": "DEOP", "DESC": "DESC"
 };
 const nomeDepartamento = d => {
   const t = String(d || "").trim().toUpperCase().replace(/\s+/g, " ");
@@ -153,7 +153,7 @@ const Sincronia = {
 
   /* O código do departamento no banco x o nome usado no histórico */
   DEPARTAMENTO: { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LV", DCMD_PODA: "DCMD PODA",
-                  DECP: "DECP", DEOP: "DEOP" },
+                  DECP: "DECP", DEOP: "DEOP", DESC: "DESC" },
 
   async sincronizar() {
     this.erro = null;

@@ -35,7 +35,7 @@ const CAMPOS_EQUIPE = [
       ["LV", "Linha viva — DCMD LINHA VIVA"],
       ["POD", "Poda — DCMD PODA"],
       ["PER", "Perdas — DECP"],
-      ["REA", "Reaviso — DECP"],
+      ["REA", "Reaviso — DESC"],
       ["PLA", "Plantão — DEOP"]] },
   { k: "supervisor", rot: "Supervisor", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.inspetor)
@@ -480,7 +480,7 @@ const postoGravidade = g => {
 const contaRespostas = r => (r.sesmt_respostas && r.sesmt_respostas[0]
   ? r.sesmt_respostas[0].count : 0);
 const NOME_DEPARTAMENTO = { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LINHA VIVA",
-  DCMD_PODA: "DCMD PODA", DECP: "DECP", DEOP: "DEOP" };
+  DCMD_PODA: "DCMD PODA", DECP: "DECP", DEOP: "DEOP", DESC: "DESC" };
 const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
   PER: "Perdas", PLA: "Plantão", POD: "Poda", REA: "Reaviso" };
 
@@ -489,7 +489,7 @@ const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
    A regra oficial mora no banco, em sesmt_tipos_equipe; esta cópia serve
    só para rotular a tela do painel. Mudou lá, mude aqui. */
 const DEPARTAMENTO_DO_TIPO = { LM: "DCMD C&M", MAN: "DCMD C&M", LV: "DCMD LINHA VIVA",
-  POD: "DCMD PODA", PER: "DECP", REA: "DECP", PLA: "DEOP" };
+  POD: "DCMD PODA", PER: "DECP", REA: "DESC", PLA: "DEOP" };
 
 /* Campos que a linha não guarda: o valor sai de uma conta. Só entram quando
    a linha não tem o campo — a aba Inspeções já traz departamento pronto e

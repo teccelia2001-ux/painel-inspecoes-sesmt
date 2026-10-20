@@ -1113,7 +1113,7 @@ let INSPECOES = [
 ["106","Manoel Vaz","LINHA VIVA 1","DCMD LV","18/08/2026"],["107","Manoel Vaz","LINHA VIVA 2","DCMD LV","21/08/2026"],
 ["108","Manoel Vaz","CONST 2","DCMD LV","21/08/2026"],["109","Huislan","PODA 2","DCMD PODA","04/05/2026"],
 ["110","Acacio","PODA 3","DCMD PODA","31/07/2026"],["111","Francisco","PERDAS PTSRG04","DECP","22/04/2026"],
-["112","Joab","REAVISO - CJZRI01","DECP","29/05/2026"],["113","Francisco","PERDAS PTSRG04","DECP","25/06/2026"],
+["112","Joab","REAVISO - CJZRI01","DESC","29/05/2026"],["113","Francisco","PERDAS PTSRG04","DECP","25/06/2026"],
 ["114","Francisco","PERDAS PTSRG03","DECP","28/07/2026"],["115","Huislan","PERDAS PTSRG03","DECP","10/07/2026"],
 ["116","Huislan","PERDAS PTSRG12","DECP","28/07/2026"],["117","Francisco","PERDAS PTSRG03","DECP","27/07/2026"],
 ["118","Francisco","PERDAS PTSRG03","DECP","14/08/2026"],
@@ -1234,7 +1234,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261020-1334";
+const VERSAO = "20261020-1610";
 </script>
 <script>
 /* ============================================================
@@ -1260,7 +1260,7 @@ const DEPARTAMENTO_CANONICO = {
   "DCMD LV": "DCMD LINHA VIVA", "DCMD_LV": "DCMD LINHA VIVA",
   "DCMD CM": "DCMD C&M", "DCMD_CM": "DCMD C&M", "DCMD C&M": "DCMD C&M",
   "DCMD_PODA": "DCMD PODA", "DCMD PODA": "DCMD PODA",
-  "DECP": "DECP", "DEOP": "DEOP"
+  "DECP": "DECP", "DEOP": "DEOP", "DESC": "DESC"
 };
 const nomeDepartamento = d => {
   const t = String(d || "").trim().toUpperCase().replace(/\s+/g, " ");
@@ -1392,7 +1392,7 @@ const Sincronia = {
 
   /* O código do departamento no banco x o nome usado no histórico */
   DEPARTAMENTO: { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LV", DCMD_PODA: "DCMD PODA",
-                  DECP: "DECP", DEOP: "DEOP" },
+                  DECP: "DECP", DEOP: "DEOP", DESC: "DESC" },
 
   async sincronizar() {
     this.erro = null;
@@ -2795,7 +2795,7 @@ const CAMPOS_EQUIPE = [
       ["LV", "Linha viva — DCMD LINHA VIVA"],
       ["POD", "Poda — DCMD PODA"],
       ["PER", "Perdas — DECP"],
-      ["REA", "Reaviso — DECP"],
+      ["REA", "Reaviso — DESC"],
       ["PLA", "Plantão — DEOP"]] },
   { k: "supervisor", rot: "Supervisor", tipo: "select-livre", origem: () => [...new Set(
       Cadastros.inspetores.map(i => i.inspetor)
@@ -3240,7 +3240,7 @@ const postoGravidade = g => {
 const contaRespostas = r => (r.sesmt_respostas && r.sesmt_respostas[0]
   ? r.sesmt_respostas[0].count : 0);
 const NOME_DEPARTAMENTO = { DCMD_CM: "DCMD C&M", DCMD_LV: "DCMD LINHA VIVA",
-  DCMD_PODA: "DCMD PODA", DECP: "DECP", DEOP: "DEOP" };
+  DCMD_PODA: "DCMD PODA", DECP: "DECP", DEOP: "DEOP", DESC: "DESC" };
 const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
   PER: "Perdas", PLA: "Plantão", POD: "Poda", REA: "Reaviso" };
 
@@ -3249,7 +3249,7 @@ const TIPOS_EQUIPE = { LM: "Linha morta", LV: "Linha viva", MAN: "Manutenção",
    A regra oficial mora no banco, em sesmt_tipos_equipe; esta cópia serve
    só para rotular a tela do painel. Mudou lá, mude aqui. */
 const DEPARTAMENTO_DO_TIPO = { LM: "DCMD C&M", MAN: "DCMD C&M", LV: "DCMD LINHA VIVA",
-  POD: "DCMD PODA", PER: "DECP", REA: "DECP", PLA: "DEOP" };
+  POD: "DCMD PODA", PER: "DECP", REA: "DESC", PLA: "DEOP" };
 
 /* Campos que a linha não guarda: o valor sai de uma conta. Só entram quando
    a linha não tem o campo — a aba Inspeções já traz departamento pronto e
