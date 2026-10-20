@@ -832,6 +832,38 @@ function periodoFiltrado() {
   return p.join("/") || "todo o período";
 }
 
+/* O resumo que aparece ao passar o mouse em cada equipe empatada.
+
+   Empate de 12 equipes com a mesma pontuação é o caso normal aqui, e a
+   pergunta que vem junto é sempre a mesma: por que ESTA ganhou? A conta
+   inteira fica na etiqueta, com os números de onde ela sai.
+
+   Quando duas ficam iguais TAMBÉM no desempate, a etiqueta diz isso. É o
+   limite do critério, e esconder isso numa premiação seria pior do que
+   admitir: entre elas a ordem é a de chegada dos dados, não mérito. */
+function dicaDesempate(e, empatadas) {
+  const limpas = e.qtd - e.nc;
+  const pos = empatadas.filter(x => x.desempate > e.desempate).length + 1;
+  const iguais = empatadas.filter(x => x !== e && x.desempate === e.desempate);
+  const insp = n => `${fmtN(n)} inspeç${n === 1 ? "ão" : "ões"}`;
+  const linhas = [
+    `${e.equipe} — ${pos}º no desempate, entre ${empatadas.length} equipes `
+      + `com ${fmtN(e.pontosFinal)} pontos`,
+    "",
+    `Desempate ${fmtD(e.desempate, 1)} = ${fmtN(e.pontosFinal)} pontos `
+      + `+ ${fmtN(limpas)} visita${limpas === 1 ? "" : "s"} sem N.C ÷ 10`,
+    "Empatadas nos pontos, fica à frente quem tem mais visita limpa: "
+      + "cada uma vale 0,1.",
+    "",
+    `${insp(e.qtd)} no período · ${fmtN(limpas)} sem nenhuma N.C `
+      + `· ${fmtN(e.ncLinhas)} N.C no total · ICIT ${fmtP(e.icit, 0)}`
+  ];
+  if (iguais.length) linhas.push("",
+    `Igual também no desempate a ${iguais.map(x => x.equipe).join(", ")} `
+    + "— entre elas o critério não decide, e a ordem é a de chegada dos dados.");
+  return linhas.join("\n");
+}
+
 /* Pódio: só o primeiro lugar. Havendo empate em pontos, vence quem lidera
    no critério de desempate — a mesma ordem da tabela ao lado. */
 function podioHTML(todas) {
@@ -857,11 +889,11 @@ function podioHTML(todas) {
         <span class="sesmt" title="Só concorre a equipe inspecionada pelo SESMT no período">(${campea.qtdSesmt} do SESMT)</span></div>
       ${campea.supervisor ? `<div class="sup">Supervisor: ${campea.supervisor}</div>` : ""}
       ${empatadas > 1 ? `
-        <div class="empate">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
+        <div class="empate" title="Critério de desempate: pontos finais + (visitas sem N.C ÷ 10).&#10;Empatadas na pontuação, fica à frente quem recebeu mais visita sem nenhuma não conformidade.&#10;Passe o mouse em cada equipe para ver a conta dela.">${empatadas} equipes empatadas com ${fmtN(campea.pontosFinal)} pontos
           — a ordem abaixo segue o critério de desempate</div>
         <div class="chips">${lugares[0].equipes.map((e, i) =>
           `<span class="chip${i === 0 ? " lider" : ""}"
-            title="${e.equipe} — ${e.qtd} inspeç${e.qtd === 1 ? "ão" : "ões"}, ${e.ncLinhas} N.C, desempate ${fmtD(e.desempate, 1)}"
+            title="${esc(dicaDesempate(e, lugares[0].equipes))}"
             >${i === 0 ? "🏆 " : ""}${e.equipe}</span>`).join("")}</div>` : ""}
       <div class="criterio" title="Para concorrer, a equipe precisa de pelo menos uma inspeção do SESMT (técnico ou engenheiro de segurança) no período. As demais continuam na tabela ao lado.">Concorrem ${fmtN(linhas.length)} de ${fmtN(todas.length)} — com inspeção do SESMT</div>
     </div>
