@@ -236,6 +236,24 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .corpo.rolagem{height:auto}
 .medalha{font-size:14px}
 
+/* Equipes sem inspeção — Taxa de Contato.
+   O resumo fica parado no topo e só a lista rola: com 20 equipes fora,
+   rolar levava embora justamente o número que se quer ler. */
+.sem-insp{display:flex;flex-direction:column;height:100%;gap:5px}
+.sem-insp .resumo{flex:0 0 auto;margin:0;padding:0 2px;font-size:11px;color:var(--txt2)}
+.sem-insp .resumo b{font-size:17px;color:var(--ruim);font-variant-numeric:tabular-nums}
+.sem-insp .ressalva{flex:0 0 auto;margin:0;padding:0 2px;font-size:9.5px;color:var(--txt3)}
+/* "lista" sozinho já é a caixa suspensa do slicer, e ela nasce
+   display:none — por isso o nome aqui é outro. */
+.sem-insp .rolo{flex:1 1 auto;min-height:0;overflow:auto}
+.sem-insp .rolo .tbl td{padding:3px 6px}
+.sem-insp .tudo-ok{margin:0;padding:6px 2px;font-size:11.5px;color:var(--bom);font-weight:600}
+.sem-insp .nada{margin:0;padding:6px 2px;font-size:11.5px;color:var(--txt3)}
+.v.ampliado .sem-insp .resumo{font-size:16px}
+.v.ampliado .sem-insp .resumo b{font-size:26px}
+.v.ampliado .sem-insp .ressalva{font-size:13px}
+.v.ampliado .sem-insp .tudo-ok,.v.ampliado .sem-insp .nada{font-size:17px}
+
 /* svg */
 .chart{display:block}
 .grade{stroke:#eee7de;stroke-width:1}
@@ -407,6 +425,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
   /* tabela rola na horizontal em vez de espremer as colunas */
   .rolagem{max-height:66vh}
+  /* No celular o quadro cresce até caber tudo, e com 40 equipes fora ele
+     viraria uma página inteira de nomes. Mesmo teto das outras tabelas. */
+  .sem-insp .rolo{max-height:60vh}
   .tbl{font-size:12.5px;min-width:620px}
   .tbl td,.tbl thead th{padding:8px 9px;white-space:nowrap}
 
@@ -1234,7 +1255,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261020-1610";
+const VERSAO = "20261027-1320";
 </script>
 <script>
 /* ============================================================
@@ -5318,9 +5339,13 @@ function pgTaxa() {
     { k: "qtd", rot: "Realizado", cls: "destaque" }, { k: "pct", rot: "% atingido" }
   ]);
   R.taxaSesmt  = visual(pg, 14, 171, 1095, 256, "SESMT — realizado x meta por inspetor");
-  R.taxaResumo = visual(pg, 1126, 171, 370, 256, "SESMT — total");
   R.taxaOper   = visual(pg, 14, 450, 1095, 225, "OPERAÇÃO — realizado x meta por inspetor");
-  R.taxaOperR  = visual(pg, 1126, 450, 370, 225, "OPERAÇÃO — total");
+  /* A coluna da direita leva três quadros em vez de dois desde 27/10/2026.
+     Os dois totais encolheram: eles mostram uma barra só e aguentam menos
+     altura, enquanto a lista de quem ficou sem visita precisa de linhas. */
+  R.taxaResumo  = visual(pg, 1126, 171, 370, 150, "SESMT — total");
+  R.taxaOperR   = visual(pg, 1126, 331, 370, 135, "OPERAÇÃO — total");
+  R.taxaSemInsp = visual(pg, 1126, 476, 370, 199, "Equipes sem inspeção");
   return pg;
 }
 
@@ -5506,6 +5531,7 @@ function render() {
     };
     bloco(R.taxaSesmt, R.taxaResumo, ["Técnico Segurança", "Engenheiro Segurança"]);
     bloco(R.taxaOper, R.taxaOperR, ["Supervisor", "Coordenador Operacional", "Gerente Operacional"]);
+    R.taxaSemInsp.innerHTML = semInspecaoHTML(f);
   }
 
   if (paginaAtual === "ranking") {
@@ -5718,6 +5744,70 @@ const podeSerPremiada = l => l.qtd > 0 && l.qtdSesmt > 0;
 /* O período que está valendo, escrito como se lê. Premiação sem período na
    tela é convite a discussão: a mesma equipe campeã da semana não é a
    campeã do mês, e quem olha precisa saber qual das duas está vendo. */
+/* ============================================================
+   EQUIPES SEM INSPEÇÃO NO PERÍODO
+
+   Os gráficos da Taxa de Contato contam o que FOI feito, por inspetor.
+   Quem não aparece em lugar nenhum é a equipe que ninguém visitou — e
+   era justamente ela que não tinha onde ser vista. Pedido de 27/10/2026.
+
+   O universo são as equipes ATIVAS do cadastro, não as que aparecem nas
+   inspeções: uma equipe sem nenhuma visita não existe no fato, então
+   contar pelo fato nunca a encontraria.
+
+   Os filtros de equipe e de departamento estreitam esse universo — se a
+   tela está mostrando só o DECP, não faz sentido cobrar as equipes de
+   poda. Os filtros de inspetor, polo e função são de QUEM inspeciona,
+   não da equipe: eles mudam o que conta como "visitada", e por isso a
+   lista avisa quando estão ligados.
+   ============================================================ */
+function equipesSemInspecao(f) {
+  const visitadas = new Set(f.map(x => x.equipe));
+  const doFiltro = e =>
+    (!ativo("equipe") || filtros.equipe.has(e[0])) &&
+    (!ativo("tipo")   || filtros.tipo.has(DEPARTAMENTO_DO_TIPO[e[1]]));
+  const universo = EQUIPES.filter(doFiltro);
+  const fora = universo
+    .filter(e => !visitadas.has(e[0]))
+    .map(e => ({ equipe: e[0], supervisor: e[2] || "—",
+                 departamento: DEPARTAMENTO_DO_TIPO[e[1]] || "—" }))
+    .sort((a, b) => a.equipe.localeCompare(b.equipe, "pt-BR"));
+  return { fora, total: universo.length };
+}
+
+function semInspecaoHTML(f) {
+  const { fora, total } = equipesSemInspecao(f);
+  const quando = periodoFiltrado();
+  if (!total) return `<div class="sem-insp"><p class="nada">Nenhuma equipe no `
+    + `recorte escolhido.</p></div>`;
+  if (!fora.length) return `<div class="sem-insp"><p class="tudo-ok">✓ `
+    + (total === 1 ? "A equipe recebeu" : `As ${fmtN(total)} equipes receberam`)
+    + ` inspeção em ${esc(quando)}.</p></div>`;
+
+  /* Filtro de quem inspeciona muda o sentido da lista: a equipe pode ter
+     sido visitada por outro e ainda assim aparecer aqui. Dizer isso é mais
+     honesto do que esconder o filtro. */
+  const deQuem = ["inspetor", "polo", "funcao"].filter(ativo);
+  const ressalva = deQuem.length
+    ? `<p class="ressalva">Contando só as inspeções do filtro de `
+      + `${deQuem.map(c => c === "funcao" ? "função" : c).join(" e ")}.</p>`
+    : "";
+
+  return `<div class="sem-insp">
+    <p class="resumo"><b>${fmtN(fora.length)}</b> de ${fmtN(total)}
+      sem inspeção em ${esc(quando)}</p>
+    ${ressalva}
+    <div class="rolo">
+      <table class="tbl">
+        <thead><tr><th>Equipe</th><th>Supervisor</th></tr></thead>
+        <tbody>${fora.map(e => `<tr title="${esc(e.departamento)}">`
+          + `<td>${esc(e.equipe)}</td><td>${esc(e.supervisor)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function periodoFiltrado() {
   const sem = [...filtros.semana], mes = [...filtros.mes], ano = [...filtros.ano];
   if (sem.length === 1) return "semana de " + rotuloSemana(sem[0]);

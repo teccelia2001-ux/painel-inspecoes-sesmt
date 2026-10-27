@@ -420,9 +420,13 @@ function pgTaxa() {
     { k: "qtd", rot: "Realizado", cls: "destaque" }, { k: "pct", rot: "% atingido" }
   ]);
   R.taxaSesmt  = visual(pg, 14, 171, 1095, 256, "SESMT — realizado x meta por inspetor");
-  R.taxaResumo = visual(pg, 1126, 171, 370, 256, "SESMT — total");
   R.taxaOper   = visual(pg, 14, 450, 1095, 225, "OPERAÇÃO — realizado x meta por inspetor");
-  R.taxaOperR  = visual(pg, 1126, 450, 370, 225, "OPERAÇÃO — total");
+  /* A coluna da direita leva três quadros em vez de dois desde 27/10/2026.
+     Os dois totais encolheram: eles mostram uma barra só e aguentam menos
+     altura, enquanto a lista de quem ficou sem visita precisa de linhas. */
+  R.taxaResumo  = visual(pg, 1126, 171, 370, 150, "SESMT — total");
+  R.taxaOperR   = visual(pg, 1126, 331, 370, 135, "OPERAÇÃO — total");
+  R.taxaSemInsp = visual(pg, 1126, 476, 370, 199, "Equipes sem inspeção");
   return pg;
 }
 
@@ -608,6 +612,7 @@ function render() {
     };
     bloco(R.taxaSesmt, R.taxaResumo, ["Técnico Segurança", "Engenheiro Segurança"]);
     bloco(R.taxaOper, R.taxaOperR, ["Supervisor", "Coordenador Operacional", "Gerente Operacional"]);
+    R.taxaSemInsp.innerHTML = semInspecaoHTML(f);
   }
 
   if (paginaAtual === "ranking") {
@@ -820,6 +825,70 @@ const podeSerPremiada = l => l.qtd > 0 && l.qtdSesmt > 0;
 /* O período que está valendo, escrito como se lê. Premiação sem período na
    tela é convite a discussão: a mesma equipe campeã da semana não é a
    campeã do mês, e quem olha precisa saber qual das duas está vendo. */
+/* ============================================================
+   EQUIPES SEM INSPEÇÃO NO PERÍODO
+
+   Os gráficos da Taxa de Contato contam o que FOI feito, por inspetor.
+   Quem não aparece em lugar nenhum é a equipe que ninguém visitou — e
+   era justamente ela que não tinha onde ser vista. Pedido de 27/10/2026.
+
+   O universo são as equipes ATIVAS do cadastro, não as que aparecem nas
+   inspeções: uma equipe sem nenhuma visita não existe no fato, então
+   contar pelo fato nunca a encontraria.
+
+   Os filtros de equipe e de departamento estreitam esse universo — se a
+   tela está mostrando só o DECP, não faz sentido cobrar as equipes de
+   poda. Os filtros de inspetor, polo e função são de QUEM inspeciona,
+   não da equipe: eles mudam o que conta como "visitada", e por isso a
+   lista avisa quando estão ligados.
+   ============================================================ */
+function equipesSemInspecao(f) {
+  const visitadas = new Set(f.map(x => x.equipe));
+  const doFiltro = e =>
+    (!ativo("equipe") || filtros.equipe.has(e[0])) &&
+    (!ativo("tipo")   || filtros.tipo.has(DEPARTAMENTO_DO_TIPO[e[1]]));
+  const universo = EQUIPES.filter(doFiltro);
+  const fora = universo
+    .filter(e => !visitadas.has(e[0]))
+    .map(e => ({ equipe: e[0], supervisor: e[2] || "—",
+                 departamento: DEPARTAMENTO_DO_TIPO[e[1]] || "—" }))
+    .sort((a, b) => a.equipe.localeCompare(b.equipe, "pt-BR"));
+  return { fora, total: universo.length };
+}
+
+function semInspecaoHTML(f) {
+  const { fora, total } = equipesSemInspecao(f);
+  const quando = periodoFiltrado();
+  if (!total) return `<div class="sem-insp"><p class="nada">Nenhuma equipe no `
+    + `recorte escolhido.</p></div>`;
+  if (!fora.length) return `<div class="sem-insp"><p class="tudo-ok">✓ `
+    + (total === 1 ? "A equipe recebeu" : `As ${fmtN(total)} equipes receberam`)
+    + ` inspeção em ${esc(quando)}.</p></div>`;
+
+  /* Filtro de quem inspeciona muda o sentido da lista: a equipe pode ter
+     sido visitada por outro e ainda assim aparecer aqui. Dizer isso é mais
+     honesto do que esconder o filtro. */
+  const deQuem = ["inspetor", "polo", "funcao"].filter(ativo);
+  const ressalva = deQuem.length
+    ? `<p class="ressalva">Contando só as inspeções do filtro de `
+      + `${deQuem.map(c => c === "funcao" ? "função" : c).join(" e ")}.</p>`
+    : "";
+
+  return `<div class="sem-insp">
+    <p class="resumo"><b>${fmtN(fora.length)}</b> de ${fmtN(total)}
+      sem inspeção em ${esc(quando)}</p>
+    ${ressalva}
+    <div class="rolo">
+      <table class="tbl">
+        <thead><tr><th>Equipe</th><th>Supervisor</th></tr></thead>
+        <tbody>${fora.map(e => `<tr title="${esc(e.departamento)}">`
+          + `<td>${esc(e.equipe)}</td><td>${esc(e.supervisor)}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function periodoFiltrado() {
   const sem = [...filtros.semana], mes = [...filtros.mes], ano = [...filtros.ano];
   if (sem.length === 1) return "semana de " + rotuloSemana(sem[0]);

@@ -236,6 +236,24 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .corpo.rolagem{height:auto}
 .medalha{font-size:14px}
 
+/* Equipes sem inspeção — Taxa de Contato.
+   O resumo fica parado no topo e só a lista rola: com 20 equipes fora,
+   rolar levava embora justamente o número que se quer ler. */
+.sem-insp{display:flex;flex-direction:column;height:100%;gap:5px}
+.sem-insp .resumo{flex:0 0 auto;margin:0;padding:0 2px;font-size:11px;color:var(--txt2)}
+.sem-insp .resumo b{font-size:17px;color:var(--ruim);font-variant-numeric:tabular-nums}
+.sem-insp .ressalva{flex:0 0 auto;margin:0;padding:0 2px;font-size:9.5px;color:var(--txt3)}
+/* "lista" sozinho já é a caixa suspensa do slicer, e ela nasce
+   display:none — por isso o nome aqui é outro. */
+.sem-insp .rolo{flex:1 1 auto;min-height:0;overflow:auto}
+.sem-insp .rolo .tbl td{padding:3px 6px}
+.sem-insp .tudo-ok{margin:0;padding:6px 2px;font-size:11.5px;color:var(--bom);font-weight:600}
+.sem-insp .nada{margin:0;padding:6px 2px;font-size:11.5px;color:var(--txt3)}
+.v.ampliado .sem-insp .resumo{font-size:16px}
+.v.ampliado .sem-insp .resumo b{font-size:26px}
+.v.ampliado .sem-insp .ressalva{font-size:13px}
+.v.ampliado .sem-insp .tudo-ok,.v.ampliado .sem-insp .nada{font-size:17px}
+
 /* svg */
 .chart{display:block}
 .grade{stroke:#eee7de;stroke-width:1}
@@ -407,6 +425,9 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 
   /* tabela rola na horizontal em vez de espremer as colunas */
   .rolagem{max-height:66vh}
+  /* No celular o quadro cresce até caber tudo, e com 40 equipes fora ele
+     viraria uma página inteira de nomes. Mesmo teto das outras tabelas. */
+  .sem-insp .rolo{max-height:60vh}
   .tbl{font-size:12.5px;min-width:620px}
   .tbl td,.tbl thead th{padding:8px 9px;white-space:nowrap}
 
