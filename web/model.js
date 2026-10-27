@@ -203,7 +203,10 @@ const Sincronia = {
       (naoConformes[x.id] || []).forEach(cod => {
         const p = porCodigo[cod];
         if (!p) return;
-        nc.push([idDe(x), p.texto, p.categoria || "", p.gravidade || "", p.pontos_nc || 0]);
+        /* A 6ª posição é o código da pergunta: com o uuid da inspeção, é a
+           chave da TRATATIVA dessa não conformidade (aba Tratativas). As N.C
+           do data.js não têm, e por isso não aparecem lá. */
+        nc.push([idDe(x), p.texto, p.categoria || "", p.gravidade || "", p.pontos_nc || 0, cod]);
       });
     });
 

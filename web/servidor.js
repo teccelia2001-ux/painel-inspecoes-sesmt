@@ -275,6 +275,59 @@ const Banco = {
     return mapa;
   },
 
+  /* ---------- tratativas das não conformidades ----------
+     Sem linha = pendente: só existe tratativa para o que alguém já mexeu.
+     Gravar é de administrador (RLS); ler, de quem tem login. */
+  async baixarTratativas() {
+    if (!this.autenticado()) return { tratativas: [], fotos: [] };
+    const [t, f] = await Promise.all([
+      this.pedir("sesmt_tratativas?select=inspecao,pergunta,status,descricao,"
+                 + "resolvido_em,resolvido_por_nome,atualizado_em"),
+      this.pedir("sesmt_tratativa_fotos?select=id,inspecao,pergunta,caminho,enviada_em&order=enviada_em")
+    ]);
+    return { tratativas: t || [], fotos: f || [] };
+  },
+
+  async salvarTratativa(reg) {
+    return this.pedir("sesmt_tratativas?on_conflict=inspecao,pergunta", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(reg)
+    });
+  },
+
+  /* A foto vai para o mesmo bucket das fotos de inspeção, na pasta da
+     própria inspeção: a política que já existe deixa o administrador
+     gravar ali, sem regra nova no storage. */
+  async subirFotoTratativa(inspecao, pergunta, blob) {
+    const caminho = `${inspecao}/tratativa/${pergunta}-${Date.now()}-`
+      + Math.random().toString(36).slice(2, 7) + ".jpg";
+    const r = await fetch(`${SERVIDOR.url}/storage/v1/object/inspecoes/${caminho}`, {
+      method: "POST",
+      headers: { apikey: SERVIDOR.chave, Authorization: "Bearer " + this.token,
+                 "Content-Type": "image/jpeg", "x-upsert": "false" },
+      body: blob
+    });
+    if (!r.ok) throw new Error("não deu para enviar a foto: " + (await r.text()).slice(0, 200));
+    await this.pedir("sesmt_tratativa_fotos", {
+      method: "POST", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ inspecao, pergunta, caminho })
+    });
+    return caminho;
+  },
+
+  async apagarFotoTratativa(foto) {
+    /* Primeiro a linha: se o arquivo não sair, fica um arquivo sem uso no
+       bucket — o contrário deixaria uma miniatura quebrada na tela. */
+    await this.pedir("sesmt_tratativa_fotos?id=eq." + foto.id, { method: "DELETE" });
+    await fetch(`${SERVIDOR.url}/storage/v1/object/inspecoes`, {
+      method: "DELETE",
+      headers: { apikey: SERVIDOR.chave, Authorization: "Bearer " + this.token,
+                 "Content-Type": "application/json" },
+      body: JSON.stringify({ prefixes: [foto.caminho] })
+    }).catch(() => {});
+  },
+
   /* Inspeções COMEÇADAS e não enviadas. Não entram em número nenhum do
      painel — de propósito: rascunho não é inspeção feita. Ficam numa aba
      à parte para o administrador ver o que ficou pelo caminho, já que o

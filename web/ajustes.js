@@ -237,6 +237,43 @@ const SECOES = {
           : "nunca entrou" }
     ]
   },
+  /* Tratativas — o que foi feito com cada não conformidade (27/10/2026).
+
+     A inspeção aponta o problema; a tratativa diz se ele foi corrigido, como,
+     e mostra a foto. Sem isso, a não conformidade some do assunto no dia em
+     que é registrada — e a próxima inspeção encontra a mesma coisa.
+
+     As pílulas de CATEGORIA no alto separam as N.C como no gráfico
+     "Inconformidades por categoria" (Procedimentos, Veículos, EPI/EPC), com
+     quantas ainda estão pendentes em cada uma. */
+  tratativas: {
+    titulo: "Tratativas", desc: "Cada não conformidade encontrada, e o que foi feito "
+      + "com ela. Clique numa linha para tratar: descrever a correção, anexar "
+      + "fotos e marcar como resolvida.",
+    somenteLeitura: true, chave: "chaveT",
+    filtros: [["situacao", "Situação"],
+              ["gravidade", "Gravidade", (a, b) => postoGravidade(a) - postoGravidade(b)],
+              ["ano", "Ano"], ["mesNome", "Mês", (a, b) => ORDEM_MES.indexOf(a) - ORDEM_MES.indexOf(b)],
+              ["polo", "Polo"], ["equipe", "Equipe"], ["inspetor", "Inspetor"]],
+    colunas: [
+      { t: "Data", v: r => r.dataStr },
+      { t: "Equipe", v: r => r.equipe || r.equipeBruta || "—", forte: true },
+      { t: "Inspetor", v: r => r.inspetor || r.inspetorBruto || "—" },
+      { t: "Categoria", v: r => r.categoria, etiqueta: true },
+      { t: "Gravidade", v: r => r.gravidade, etiqueta: true },
+      { t: "Não conformidade", v: r => r.descricao },
+      { t: "Situação", v: r => {
+          const e = document.createElement("span");
+          e.className = "trat-st " + (r.situacao === "Resolvido" ? "ok" : "pend");
+          e.textContent = r.situacao === "Resolvido" ? "✓ Resolvido" : "Pendente";
+          return e; } },
+      { t: "Resolução", v: r => {
+          const partes = [];
+          if (r.resolvidoEm) partes.push(new Date(r.resolvidoEm).toLocaleDateString("pt-BR"));
+          if (r.fotosTrat) partes.push("📷 " + r.fotosTrat);
+          return partes.join(" · ") || "—"; } }
+    ]
+  },
   /* Rascunhos — só leitura, e de outra fonte: vem do banco na hora, não
      do cadastro. Fica aqui, e não numa página do painel, porque é
      manutenção do sistema e não indicador: rascunho NÃO conta como
@@ -432,6 +469,62 @@ function listaPerguntas() {
 /* As não conformidades de uma inspeção: [id, pergunta, categoria, gravidade, pontos] */
 const ncDe = r => NC_BY_ID[r.id] || [];
 
+/* As não conformidades que podem ser TRATADAS: uma linha por N.C das
+   inspeções que estão no banco (as do data.js não têm o código da pergunta,
+   nem uuid para a foto ser guardada). A situação vem da tratativa, se houver
+   — sem tratativa, pendente. */
+function tratativasLinhas() {
+  const linhas = [];
+  FATO.forEach(r => {
+    const uuid = UUID_POR_ID[r.id];
+    if (!uuid) return;
+    ncDe(r).forEach(x => {
+      if (!x[5]) return;
+      const chaveT = uuid + "|" + x[5];
+      const t = Ajustes.trat[chaveT] || {};
+      const fotos = Ajustes.tratFotos[chaveT] || [];
+      linhas.push(Object.assign({}, r, {
+        mesNome: MESES_NOME[+r.mes],
+        uuid, cod: x[5], chaveT,
+        descricao: x[1] || "—",
+        categoria: x[2] || "Sem categoria",
+        gravidade: x[3] || "Sem classificação",
+        pontosNC: x[4] || 0, temNC: true,
+        situacao: t.status === "resolvido" ? "Resolvido" : "Pendente",
+        resolvidoEm: t.resolvido_em || null,
+        tratadaPor: t.resolvido_por_nome || "",
+        oQueFoiFeito: t.descricao || "",
+        fotosTrat: fotos.length
+      }));
+    });
+  });
+  return linhas;
+}
+
+/* Foto do celular sai com 3 a 8 MB, e o bucket aceita até 5 MB. Reduz para
+   1600px no lado maior, em JPEG — sobra nitidez para ver um EPI, e a foto
+   sobe rápido mesmo com sinal fraco. Sem esta etapa, a foto grande era
+   recusada pelo storage com um erro que não diz o motivo. */
+async function comprimirFoto(arquivo, lado = 1600, qualidade = 0.82) {
+  const url = URL.createObjectURL(arquivo);
+  try {
+    const img = await new Promise((ok, falha) => {
+      const i = new Image();
+      i.onload = () => ok(i);
+      i.onerror = () => falha(new Error(`"${arquivo.name}" não é uma imagem que o navegador abra`));
+      i.src = url;
+    });
+    const f = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+    const tela = document.createElement("canvas");
+    tela.width = Math.round(img.naturalWidth * f);
+    tela.height = Math.round(img.naturalHeight * f);
+    tela.getContext("2d").drawImage(img, 0, 0, tela.width, tela.height);
+    return await new Promise(ok => tela.toBlob(ok, "image/jpeg", qualidade));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /* A tabela de fato desdobrada: uma linha por não conformidade, e uma linha
    para a inspeção que não teve nenhuma.
 
@@ -563,7 +656,7 @@ const Ajustes = {
      não atravessa de uma para a outra, e isso é o certo — filtro de equipe
      não quer dizer nada na lista de inspeções. */
   VISOES: {
-    inspecoes: ["inspecoes", "rascunhos"],
+    inspecoes: ["inspecoes", "rascunhos", "tratativas"],
     ajustes: ["equipes", "usuarios", "perguntas"]
   },
 
@@ -609,6 +702,7 @@ const Ajustes = {
         /* Rascunho muda o tempo todo, e é pouca linha: busca a cada
            abertura da aba, em vez de guardar e mostrar coisa velha. */
         if (k === "rascunhos") this.carregarRascunhos();
+        if (k === "tratativas") this.carregarTratativas();
         if (k === "usuarios") this.carregarUsuarios();
       };
       corpo.querySelector(".aj-abas").appendChild(b);
@@ -1025,6 +1119,156 @@ const Ajustes = {
       });
   },
 
+  /* ---------- Tratativas ----------
+     O que foi feito com cada não conformidade. As tratativas vêm do banco
+     quando a aba abre; as não conformidades, do modelo já montado (FATO),
+     como a aba Inspeções — assim o que aparece aqui bate com os números. */
+  trat: {},                // "uuid|pergunta" -> tratativa
+  tratFotos: {},           // "uuid|pergunta" -> [fotos da resolução]
+  tratEm: null,
+  buscandoTrat: false,
+  catTrat: "",             // categoria escolhida nas pílulas; "" = todas
+
+  async carregarTratativas() {
+    if (this.buscandoTrat) return;
+    this.buscandoTrat = true;
+    try {
+      const d = await Banco.baixarTratativas();
+      this.trat = {}; this.tratFotos = {};
+      d.tratativas.forEach(t => { this.trat[t.inspecao + "|" + t.pergunta] = t; });
+      d.fotos.forEach(f => {
+        const k = f.inspecao + "|" + f.pergunta;
+        (this.tratFotos[k] = this.tratFotos[k] || []).push(f);
+      });
+      this.tratEm = new Date();
+    } catch (e) {
+      this.avisar("Não deu para buscar as tratativas: " + e.message, true);
+      this.tratEm = new Date();       // não insiste em laço: o botão Sincronizar refaz
+    } finally {
+      this.buscandoTrat = false;
+    }
+    this.render();
+  },
+
+  /* Abrir a não conformidade: o que foi encontrado, em que inspeção, e o
+     que foi feito. Para quem não é administrador a ficha é só leitura. */
+  abrirTratativa(r) {
+    const pode = Banco.podeEditar();
+    const t = this.trat[r.chaveT] || {};
+    const fotos = (this.tratFotos[r.chaveT] || []).slice();
+    const fotosInsp = FOTOS_POR_INSPECAO[r.id] || [];
+    const relato = TEXTO_DESVIOS[r.id] || "";
+    const campo = (rot, val) => `<div><b>${esc(rot)}</b>${esc(val || "—")}</div>`;
+    const resolvido = t.status === "resolvido";
+
+    this.dialogo(resolvido ? "Não conformidade resolvida" : "Tratar não conformidade",
+      `<div class="trat-nc">
+         <span class="etiqueta gr-${semAcentoAj(r.gravidade).replace(/[^a-z]/g, "")}">${esc(r.gravidade)}</span>
+         <span class="etiqueta">${esc(r.categoria)}</span>
+         <p>${esc(r.descricao)}</p>
+       </div>
+       <div class="ficha-grade">
+         ${campo("Data", r.dataStr)}${campo("Equipe", r.equipe || r.equipeBruta)}
+         ${campo("Inspetor", r.inspetor || r.inspetorBruto)}${campo("Polo", r.polo)}
+         ${campo("Departamento", r.tipo)}
+       </div>
+       ${relato ? `<p class="aj-dtexto"><b>Relato do inspetor:</b> ${esc(relato)}</p>` : ""}
+       ${fotosInsp.length ? `<button type="button" class="aj-mini trat-ver-insp">📷 Ver as
+         ${fotosInsp.length} foto${fotosInsp.length > 1 ? "s" : ""} da inspeção</button>` : ""}
+
+       <div class="aj-bloco">
+         <h4>Tratativa</h4>
+         <label class="aj-campo"><span>Situação</span>
+           <select name="status"${pode ? "" : " disabled"}>
+             <option value="pendente"${resolvido ? "" : " selected"}>Pendente</option>
+             <option value="resolvido"${resolvido ? " selected" : ""}>Resolvido</option>
+           </select></label>
+         ${resolvido && t.resolvido_em ? `<p class="aj-dtexto">Resolvido em
+           ${new Date(t.resolvido_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit",
+             year: "numeric", hour: "2-digit", minute: "2-digit" })}${
+           t.resolvido_por_nome ? " por " + esc(t.resolvido_por_nome) : ""}.</p>` : ""}
+         <label class="aj-campo"><span>O que foi feito</span>
+           <textarea name="descricao" rows="3"${pode ? "" : " readonly"}
+             placeholder="ex.: capacete substituído; equipe reorientada sobre a APR">${esc(t.descricao || "")}</textarea></label>
+         <div class="aj-campo"><span>Fotos da resolução</span>
+           <div class="trat-fotos"><span class="aj-dtexto">${fotos.length ? "Carregando…" : "Nenhuma ainda."}</span></div>
+           ${pode ? `<label class="trat-anexar">
+             <input type="file" name="fotos" accept="image/*" multiple>
+             <span>＋ Anexar fotos</span></label>
+             <div class="trat-novas"></div>` : ""}
+         </div>
+       </div>`,
+      pode ? "Salvar" : "Fechar",
+      async form => {
+        if (!pode) return;
+        const status = form.status.value;
+        const descricao = form.descricao.value.trim();
+        const novas = [...(form.fotos.files || [])];
+        const ficam = fotos.filter(f => !f.remover);
+        /* Resolver sem dizer o quê nem mostrar é só apagar o problema da lista. */
+        if (status === "resolvido" && !descricao && !novas.length && !ficam.length)
+          throw new Error("Para marcar como resolvido, descreva o que foi feito ou anexe uma foto.");
+
+        const reg = { inspecao: r.uuid, pergunta: r.cod, status, descricao };
+        /* O nome vai só na hora de resolver: editar a descrição depois não
+           troca quem resolveu. O id da conta e a hora o banco carimba. */
+        if (status === "resolvido" && t.status !== "resolvido") reg.resolvido_por_nome = Banco.usuario || "";
+        await Banco.salvarTratativa(reg);
+
+        for (const f of fotos.filter(x => x.remover)) await Banco.apagarFotoTratativa(f);
+        const ok = form.querySelector(".aj-ok");
+        for (let i = 0; i < novas.length; i++) {
+          ok.textContent = `Enviando foto ${i + 1} de ${novas.length}…`;
+          await Banco.subirFotoTratativa(r.uuid, r.cod, await comprimirFoto(novas[i]));
+        }
+        await this.carregarTratativas();
+        this.avisar(status === "resolvido" ? "Não conformidade marcada como resolvida."
+                                           : "Tratativa salva.");
+      });
+
+    const fundos = canvas.querySelectorAll(".aj-fundo");
+    const fundo = fundos[fundos.length - 1];
+    const form = fundo.querySelector("form");
+    const verInsp = fundo.querySelector(".trat-ver-insp");
+    if (verInsp) verInsp.onclick = () => this.verFotos(r, fotosInsp);
+
+    /* As fotos já enviadas: miniatura que abre em tamanho original e, para
+       o administrador, um ✕ que marca para apagar ao salvar — apagar na
+       hora, sem o Salvar, surpreenderia quem clicou em Cancelar. */
+    const caixa = fundo.querySelector(".trat-fotos");
+    if (fotos.length) Banco.assinarFotos(fotos.map(f => f.caminho)).then(urls => {
+      caixa.innerHTML = "";
+      fotos.forEach(f => {
+        const d = document.createElement("div");
+        d.className = "trat-foto";
+        d.innerHTML = urls[f.caminho]
+          ? `<a href="${urls[f.caminho]}" target="_blank" rel="noopener"><img src="${urls[f.caminho]}" alt=""></a>`
+          : `<span class="foto-erro">indisponível</span>`;
+        if (pode) {
+          const x = document.createElement("button");
+          x.type = "button"; x.className = "trat-tirar"; x.textContent = "✕";
+          x.title = "Apagar esta foto ao salvar";
+          x.onclick = () => { f.remover = !f.remover; d.classList.toggle("remover", !!f.remover); };
+          d.appendChild(x);
+        }
+        caixa.appendChild(d);
+      });
+    }).catch(e => { caixa.innerHTML = `<span class="aj-dtexto">Não deu para abrir as fotos: ${esc(e.message)}</span>`; });
+
+    /* Prévia do que vai subir, antes de salvar. */
+    const entrada = form.elements.fotos;
+    if (entrada) entrada.onchange = () => {
+      const alvo = fundo.querySelector(".trat-novas");
+      alvo.innerHTML = "";
+      [...entrada.files].forEach(a => {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(a);
+        img.onload = () => URL.revokeObjectURL(img.src);
+        alvo.appendChild(img);
+      });
+    };
+  },
+
   /* Os rascunhos não moram no Cadastros: são buscados quando a aba abre. */
   rascunhos: [],
   rascunhosEm: null,
@@ -1053,6 +1297,10 @@ const Ajustes = {
     if (secao === "perguntas") return listaPerguntas();
     if (secao === "usuarios") return this.usuarios;
     if (secao === "rascunhos") return this.rascunhos;
+    if (secao === "tratativas") {
+      const todas = tratativasLinhas();
+      return this.catTrat ? todas.filter(r => r.categoria === this.catTrat) : todas;
+    }
     if (secao === "inspecoes")
       return this.modoInsp === "nc" ? inspecoesPorNC() : inspecoesAgrupadas();
     return Cadastros.lista(secao);
@@ -1655,6 +1903,12 @@ const Ajustes = {
       : this.secao === "rascunhos"
       // já vem do banco em ordem de criação, do mais novo para o mais velho
       ? () => 0
+      : this.secao === "tratativas"
+      /* Pendente antes de resolvido; entre as pendentes, a mais grave e,
+         empatando, a MAIS ANTIGA — é a que está esperando há mais tempo. */
+      ? (a, b) => (a.situacao === "Pendente" ? 0 : 1) - (b.situacao === "Pendente" ? 0 : 1)
+                  || (postoGravidade(a.gravidade) - postoGravidade(b.gravidade))
+                  || (a.serial + a.dataStr).localeCompare(b.serial + b.dataStr)
       : this.secao === "usuarios"
       // administradores, inspetores, quem está sem login, visualizadores e,
       // por último, as contas sem nível — que são as que pedem atenção
@@ -1721,6 +1975,10 @@ const Ajustes = {
     if (s.somenteLeitura) {
       /* Aba aberta e nunca buscada — acontece ao montar o painel já nos
          Ajustes, sem passar pelo clique na aba. Busca uma vez e volta. */
+      if (this.secao === "tratativas" && !this.tratEm && !this.buscandoTrat
+          && Banco.autenticado()) {
+        this.carregarTratativas();
+      }
       if (this.secao === "rascunhos" && !this.rascunhosEm
           && !this.buscandoRascunhos && Banco.autenticado()) {
         this.carregarRascunhos();
@@ -1811,6 +2069,14 @@ const Ajustes = {
         classe: () => c.forte ? "forte" : ""
       }))), linhas);
       if (this.secao === "inspecoes") this.ligarFotos(host, linhas);
+      if (this.secao === "tratativas") {
+        [...host.querySelectorAll("tbody tr")].forEach((tr, i) => {
+          if (!linhas[i]) return;
+          tr.classList.add("aj-clicavel");
+          tr.title = Banco.podeEditar() ? "Tratar esta não conformidade" : "Ver a tratativa";
+          tr.onclick = () => this.abrirTratativa(linhas[i]);
+        });
+      }
       const cont = this.el.querySelector(".aj-cont");
       if (cont) {
         const total = this.fonte(this.secao).length;
@@ -1819,6 +2085,8 @@ const Ajustes = {
           ? (linhas.length === 1 ? "pergunta" : "perguntas")
           : this.secao === "usuarios"
           ? (linhas.length === 1 ? "usuário" : "usuários")
+          : this.secao === "tratativas"
+          ? (linhas.length === 1 ? "não conformidade" : "não conformidades")
           : this.secao === "inspecoes"
           ? (this.modoInsp === "nc" ? (linhas.length === 1 ? "linha" : "linhas")
                                     : (linhas.length === 1 ? "inspeção" : "inspeções"))
@@ -1981,6 +2249,28 @@ const Ajustes = {
     /* Alternador de modo — só na aba Inspeções. Os dois jeitos de olhar a
        mesma coisa: a visita (o que a tela pede) e o desvio (o que a planilha
        e o papel pedem). */
+    if (this.secao === "tratativas") {
+      /* Pílulas de categoria: cada uma diz quantas N.C ainda estão
+         PENDENTES de quantas existem. É a pergunta de quem abre a aba. */
+      const todas = tratativasLinhas();
+      const cats = [...new Set(todas.map(r => r.categoria))].sort((x, y) =>
+        x === "Sem categoria" ? 1 : y === "Sem categoria" ? -1 : x.localeCompare(y, "pt-BR"));
+      const conta = lista => {
+        const p = lista.filter(r => r.situacao === "Pendente").length;
+        return `<small>${p} pendente${p === 1 ? "" : "s"} de ${lista.length}</small>`;
+      };
+      const d = document.createElement("div");
+      d.className = "aj-filtro trat-cats";
+      d.innerHTML = `<span>Categoria</span><div class="trat-pilulas">
+        <button type="button" data-c=""${this.catTrat ? "" : ' class="on"'}>Todas ${conta(todas)}</button>
+        ${cats.map(c => `<button type="button" data-c="${esc(c)}"${this.catTrat === c ? ' class="on"' : ""}>${
+          esc(c)} ${conta(todas.filter(r => r.categoria === c))}</button>`).join("")}</div>`;
+      d.querySelectorAll("button").forEach(b => b.onclick = () => {
+        this.catTrat = b.dataset.c;
+        this.render();
+      });
+      host.appendChild(d);
+    }
     if (this.secao === "inspecoes") {
       const d = document.createElement("div");
       d.className = "aj-filtro aj-modo";
@@ -2236,6 +2526,8 @@ const Ajustes = {
           txt.hidden = false; txt.value = ""; txt.focus();
         } else {
           txt.hidden = true; txt.value = sel.value;
+          /* quem acompanha o campo (a meta segue a função) fica sabendo */
+          txt.dispatchEvent(new Event("input"));
         }
       });
     });
