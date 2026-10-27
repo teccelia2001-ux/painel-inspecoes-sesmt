@@ -1915,11 +1915,29 @@ const Ajustes = {
       if (c.tipo === "select") return `<label class="aj-campo"><span>${c.rot}</span>
         <select name="${c.k}">${c.opcoes.map(([v, t]) =>
           `<option value="${v}"${dados[c.k] === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>`;
+      /* Escolher da lista é o caminho normal; digitar um nome novo é a
+         exceção, e fica atrás de "Outro…".
+
+         Era um <input list=datalist> até 27/10/2026. Parecia um campo de
+         texto vazio, e quem não soubesse clicar na setinha não descobria
+         que havia nomes cadastrados — pior ainda com o campo já preenchido,
+         porque o Chrome filtra a lista pelo que está escrito e a seta passa
+         a não mostrar mais ninguém.
+
+         O <input> continua existindo e continua sendo quem leva o valor
+         para o formulário, por isso o salvamento não mudou. */
       if (c.tipo === "select-livre") {
+        const atual = dados[c.k] || "";
         const ops = c.origem();
+        if (atual && !ops.includes(atual)) ops.unshift(atual);
         return `<label class="aj-campo"><span>${c.rot}</span>
-          <input name="${c.k}" list="lista-${c.k}" value="${dados[c.k] || ""}" autocomplete="off">
-          <datalist id="lista-${c.k}">${ops.map(o => `<option value="${o}">`).join("")}</datalist></label>`;
+          <select class="aj-livre">
+            <option value=""${atual ? "" : " selected"}>— não informado —</option>
+            ${ops.map(o => `<option value="${esc(o)}"${o === atual ? " selected" : ""}>${esc(o)}</option>`).join("")}
+            <option value="__digitar__">Outro… (digitar um nome novo)</option>
+          </select>
+          <input name="${c.k}" class="aj-livre-texto" value="${esc(atual)}" hidden
+                 autocomplete="off" placeholder="Digite o nome"></label>`;
       }
       if (c.tipo === "numero") return `<label class="aj-campo"><span>${c.rot}</span>
         <input type="number" name="${c.k}" value="${dados[c.k]}" min="0" step="1"></label>`;
@@ -2037,6 +2055,20 @@ const Ajustes = {
       </div></form>`;
     canvas.appendChild(fundo);
     const form = fundo.querySelector("form");
+
+    /* Liga a lista ao campo de texto escondido que leva o valor. Fica aqui,
+       e não em abrirDialogo, para valer em qualquer diálogo que use
+       "select-livre". */
+    form.querySelectorAll(".aj-livre").forEach(sel => {
+      const txt = sel.parentElement.querySelector(".aj-livre-texto");
+      sel.addEventListener("change", () => {
+        if (sel.value === "__digitar__") {
+          txt.hidden = false; txt.value = ""; txt.focus();
+        } else {
+          txt.hidden = true; txt.value = sel.value;
+        }
+      });
+    });
 
     /* Fechar sem querer apaga o que foi digitado. Clique fora NUNCA fecha:
        só o X, o Cancelar ou o Salvar. O Esc fecha enquanto nada tiver sido

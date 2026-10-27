@@ -719,6 +719,10 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .aj-campo input,.aj-campo select{height:38px;border-radius:8px;padding:0 10px;font-size:13px;
   border:1px solid var(--linha-borda);background:var(--painel);color:var(--txt);font-weight:400}
 .aj-campo input:focus,.aj-campo select:focus{outline:2px solid var(--acento);outline-offset:-1px}
+/* O campo de texto do "select-livre" só aparece quando se escolhe "Outro…".
+   O [hidden] do navegador já daria conta, mas um display: nas regras acima
+   o anularia sem avisar — já aconteceu com .rp-item. */
+.aj-campo .aj-livre-texto[hidden]{display:none}
 .aj-aviso{margin:0;font-size:12px;color:var(--txt2);line-height:1.45}
 .aj-aviso.forte{color:var(--ruim)}
 .aj-dtexto{margin:0;font-size:12.5px;line-height:1.55;color:var(--txt2)}
