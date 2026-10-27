@@ -225,17 +225,15 @@ const Banco = {
     return j;
   },
 
-  /* ---------- acesso de visualizador ----------
+  /* ---------- aba Usuários ----------
 
-     Conta que só OLHA o painel: não é inspetor (não entra em número nenhum)
-     e não é administrador (não edita cadastro). Não precisou de regra nova no
-     banco — desde a migração 10 quem tem conta lê tudo, e escrever depende de
-     estar em sesmt_admins ou de ser dono da inspeção. O visualizador não é
-     nenhum dos dois, então ele já é, por construção, só leitura.
-
-     Passa pela mesma função de servidor do acesso do inspetor: criar conta
-     exige a chave de serviço, que não pode morar num painel público. */
-  async visualizadores(acao, dados) {
+     Todas as contas que entram no painel, com o nível de cada uma:
+     administrador, inspetor do app ou visualizador. O nível não é uma coluna
+     nova — sai de onde cada coisa já vivia (sesmt_admins, o vínculo do
+     inspetor e a marca da conta de visualizador), e é a função de servidor
+     quem junta as três. Ela também é quem cria a conta, porque isso exige a
+     chave de serviço, que não pode morar num painel público. */
+  async usuarios(acao, dados) {
     if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
     const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
       method: "POST",
@@ -244,7 +242,7 @@ const Banco = {
         Authorization: "Bearer " + this.token,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(Object.assign({ acao: "visualizador-" + acao }, dados || {}))
+      body: JSON.stringify(Object.assign({ acao: "usuario-" + acao }, dados || {}))
     });
     let j = null;
     try { j = await r.json(); } catch (e) {}
@@ -257,7 +255,7 @@ const Banco = {
          mas ela não conhece a ação e cai no "Falta o nome do inspetor". */
       if (j && /nome do inspetor/i.test(j.erro || "")) {
         throw new Error("A função de acesso no Supabase ainda é a versão antiga, "
-          + "que não conhece visualizadores. Publique a versão nova de criar-acesso.");
+          + "que não conhece a aba Usuários. Publique a versão nova de criar-acesso.");
       }
       throw new Error((j && j.erro) || ("erro " + r.status));
     }

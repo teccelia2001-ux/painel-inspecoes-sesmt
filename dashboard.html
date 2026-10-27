@@ -712,6 +712,29 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .situacao{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600}
 .situacao.sim{background:#e8f5e9;color:#1b5e20}
 .situacao.nao{background:#f3f0ec;color:var(--txt2)}
+/* Aba Usuários ---------------------------------------------------------
+   As três cores seguem a ideia de "quanto pode": laranja da marca para quem
+   edita, azul para quem faz inspeção, cinza para quem só olha. A conta sem
+   nível fica em vermelho-claro de propósito: é a que pede atenção. */
+.etiqueta.nv-admin{background:#ffe9e0;color:#b83a0e;border-color:#f6c3ad;font-weight:700}
+.etiqueta.nv-inspetor{background:#e8f0fb;color:#24508a;border-color:#c6d8f1;font-weight:700}
+.etiqueta.nv-vis{background:#f3f0ec;color:#5f564e;border-color:#ddd5cb;font-weight:700}
+.etiqueta.nv-sem{background:#fdecea;color:#b3261e;border-color:#f3c4bb;font-weight:700}
+.aj-usuario{display:flex;flex-direction:column;line-height:1.25}
+.aj-usuario small{font-size:10.5px;font-weight:400;color:var(--txt3)}
+/* minmax(0,1fr): com "1fr" puro a coluna não encolhe abaixo do tamanho natural
+   do campo, e no celular o segundo campo saía cortado pela borda do diálogo. */
+.aj-duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.aj-duas .aj-campo{min-width:0}
+.aj-duas .aj-campo input{min-width:0;width:100%;box-sizing:border-box}
+.aj-nivel-info{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border-radius:8px;
+  background:var(--painel-alt);border:1px solid var(--linha-borda)}
+.aj-nivel-info:empty{display:none}
+.aj-nivel-info p{margin:0;font-size:12px;line-height:1.4;color:var(--txt2)}
+.aj-nivel-info .etiqueta{flex:0 0 auto;white-space:nowrap}
+.aj-campo .aj-ajuda{font-size:11px;font-weight:400;color:var(--txt3)}
+/* .aj-campo declara display:flex, que ganha do [hidden] do navegador */
+.aj-campo[hidden]{display:none}
 
 /* menu de ações da linha */
 .aj-acoes{position:relative}
@@ -1316,7 +1339,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261027-1602";
+const VERSAO = "20261027-1623";
 </script>
 <script>
 /* ============================================================
@@ -2194,17 +2217,15 @@ const Banco = {
     return j;
   },
 
-  /* ---------- acesso de visualizador ----------
+  /* ---------- aba Usuários ----------
 
-     Conta que só OLHA o painel: não é inspetor (não entra em número nenhum)
-     e não é administrador (não edita cadastro). Não precisou de regra nova no
-     banco — desde a migração 10 quem tem conta lê tudo, e escrever depende de
-     estar em sesmt_admins ou de ser dono da inspeção. O visualizador não é
-     nenhum dos dois, então ele já é, por construção, só leitura.
-
-     Passa pela mesma função de servidor do acesso do inspetor: criar conta
-     exige a chave de serviço, que não pode morar num painel público. */
-  async visualizadores(acao, dados) {
+     Todas as contas que entram no painel, com o nível de cada uma:
+     administrador, inspetor do app ou visualizador. O nível não é uma coluna
+     nova — sai de onde cada coisa já vivia (sesmt_admins, o vínculo do
+     inspetor e a marca da conta de visualizador), e é a função de servidor
+     quem junta as três. Ela também é quem cria a conta, porque isso exige a
+     chave de serviço, que não pode morar num painel público. */
+  async usuarios(acao, dados) {
     if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
     const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
       method: "POST",
@@ -2213,7 +2234,7 @@ const Banco = {
         Authorization: "Bearer " + this.token,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(Object.assign({ acao: "visualizador-" + acao }, dados || {}))
+      body: JSON.stringify(Object.assign({ acao: "usuario-" + acao }, dados || {}))
     });
     let j = null;
     try { j = await r.json(); } catch (e) {}
@@ -2226,7 +2247,7 @@ const Banco = {
          mas ela não conhece a ação e cai no "Falta o nome do inspetor". */
       if (j && /nome do inspetor/i.test(j.erro || "")) {
         throw new Error("A função de acesso no Supabase ainda é a versão antiga, "
-          + "que não conhece visualizadores. Publique a versão nova de criar-acesso.");
+          + "que não conhece a aba Usuários. Publique a versão nova de criar-acesso.");
       }
       throw new Error((j && j.erro) || ("erro " + r.status));
     }
@@ -2901,6 +2922,23 @@ const CAMPOS_INSPETOR = [
   { k: "ativo", rot: "Situação", tipo: "booleano", rotSim: "Ativo", rotNao: "Inativo", padrao: true }
 ];
 
+/* Os três níveis de acesso — o mesmo desenho da página de Usuários do
+   sistema de Programação: nome, cor e uma frase dizendo o que o nível pode.
+   A frase aparece no formulário assim que se escolhe o nível, para ninguém
+   dar administrador a quem só devia olhar. */
+const NIVEIS_ACESSO = [
+  { v: "admin", rot: "Administrador", cls: "nv-admin",
+    desc: "Edita os cadastros e usa todas as ferramentas do painel: equipes, "
+        + "inspetores, perguntas, usuários e inspeções. Também visualiza tudo." },
+  { v: "inspetor", rot: "Inspetor do app", cls: "nv-inspetor",
+    desc: "Acessa o app no celular para fazer inspeções e visualiza o painel. "
+        + "Não edita nada no painel." },
+  { v: "visualizador", rot: "Visualizador", cls: "nv-vis",
+    desc: "Apenas visualiza o painel: vê números, inspeções e fotos. Não altera "
+        + "nada, não usa o app e não aparece em indicador nenhum." }
+];
+const nivelDe = v => NIVEIS_ACESSO.find(n => n.v === v);
+
 const SECOES = {
   equipes: {
     titulo: "Equipes", desc: "Equipes de campo avaliadas na Jornada Segura.",
@@ -3027,27 +3065,47 @@ const SECOES = {
     ]
   },
 
-  /* Visualizadores — contas que só OLHAM o painel.
+  /* Usuários — todas as contas de acesso, com o nível de cada uma.
 
-     Quem precisa acompanhar os números sem mexer em nada: gerente, cliente,
-     alguém do escritório. Não é inspetor (não abre inspeção no app nem entra
-     em indicador nenhum) e não é administrador (não edita cadastro).
+     Antes havia uma aba só para visualizadores, e o acesso do inspetor morava
+     na aba Inspetores, e o administrador só existia por SQL. Três lugares
+     (um deles invisível) para a mesma pergunta: "quem pode o quê?". Agora é
+     uma lista só, como no sistema de Programação.
 
-     Não precisou de regra nova no banco: desde a migração 10, quem tem conta
-     lê tudo, e gravar depende de estar em sesmt_admins ou de ser dono da
-     inspeção — o visualizador não é nenhum dos dois. A lista sai da própria
-     conta (user_metadata.tipo), pela mesma função de servidor que cria o
-     acesso do inspetor. */
-  visualizadores: {
-    titulo: "Visualizadores", desc: "Contas que entram no painel só para olhar: "
-      + "veem tudo, não mudam nada e não aparecem em indicador nenhum.",
-    somenteLeitura: true, chave: "id", novo: "Novo visualizador",
-    filtros: [],
+     A lista vem da função de servidor, que é quem enxerga as contas — elas
+     não moram no Cadastros. */
+  usuarios: {
+    titulo: "Usuários", desc: "Quem entra no painel e o que cada um pode fazer: "
+      + "administrador edita, inspetor do app faz inspeção pelo celular, "
+      + "visualizador só olha.",
+    somenteLeitura: true, chave: "id", novo: "Novo usuário",
+    filtros: [["nivelRot", "Nível"], ["situacao", "Situação"]],
     colunas: [
-      { t: "Nome", v: r => r.nome || "—", forte: true },
-      { t: "E-mail (login)", v: r => r.email || "—" },
-      { t: "Criado em", v: r => r.criado_em
-          ? new Date(r.criado_em).toLocaleDateString("pt-BR") : "—" },
+      { t: "Usuário", forte: true, v: r => {
+          const d = document.createElement("div");
+          d.className = "aj-usuario";
+          const b = document.createElement("b"); b.textContent = r.nome || "—";
+          const m = document.createElement("small"); m.textContent = r.email || "";
+          d.append(b, m);
+          return d; } },
+      { t: "Cargo", v: r => r.cargo || "—" },
+      { t: "Telefone", v: r => r.telefone || "—" },
+      { t: "Nível", v: r => {
+          const n = nivelDe(r.nivel);
+          const e = document.createElement("span");
+          e.className = "etiqueta " + (n ? n.cls : "nv-sem");
+          e.textContent = n ? n.rot : "Sem nível";
+          e.title = n ? n.desc : "Conta sem nível definido: ela entra e lê tudo, mas não é "
+            + "administradora, inspetora nem marcada como visualizadora. Edite para definir.";
+          return e; } },
+      /* O administrador que também inspeciona aparece aqui: o nível dele é
+         Administrador, mas o app de campo também o reconhece. */
+      { t: "Inspetor no app", v: r => r.inspetor || "—" },
+      { t: "Situação", v: r => {
+          const e = document.createElement("span");
+          e.className = "situacao " + (r.ativo ? "sim" : "nao");
+          e.textContent = r.situacao;
+          return e; } },
       { t: "Último acesso", v: r => r.ultimo_acesso
           ? new Date(r.ultimo_acesso).toLocaleString("pt-BR",
               { day: "2-digit", month: "2-digit", year: "2-digit",
@@ -3371,7 +3429,7 @@ const Ajustes = {
   /* Duas páginas usam esta mesma tela, com seções diferentes:
 
        Inspeções — o que o campo produziu (inspeções e rascunhos)
-       Ajustes   — o cadastro (equipes, inspetores, visualizadores)
+       Ajustes   — o cadastro (equipes, inspetores, perguntas, usuários)
 
      Antes era tudo em Ajustes, e quem só queria consultar uma inspeção
      entrava numa tela chamada "ajustes", ao lado dos botões que mexem no
@@ -3382,7 +3440,7 @@ const Ajustes = {
      não quer dizer nada na lista de inspeções. */
   VISOES: {
     inspecoes: ["inspecoes", "rascunhos"],
-    ajustes: ["equipes", "inspetores", "perguntas", "visualizadores"]
+    ajustes: ["equipes", "inspetores", "perguntas", "usuarios"]
   },
 
   montar(pg, chaves) {
@@ -3427,7 +3485,7 @@ const Ajustes = {
         /* Rascunho muda o tempo todo, e é pouca linha: busca a cada
            abertura da aba, em vez de guardar e mostrar coisa velha. */
         if (k === "rascunhos") this.carregarRascunhos();
-        if (k === "visualizadores") this.carregarVisualizadores();
+        if (k === "usuarios") this.carregarUsuarios();
       };
       corpo.querySelector(".aj-abas").appendChild(b);
     });
@@ -3435,84 +3493,168 @@ const Ajustes = {
     return pg;
   },
 
-  /* Visualizadores também não moram no Cadastros: a lista vem da função de
+  /* Usuários também não moram no Cadastros: a lista vem da função de
      servidor, que é quem enxerga as contas. */
-  visualizadores: [],
-  visualizadoresEm: null,
-  buscandoVis: false,
+  usuarios: [],
+  usuariosLivres: [],      // inspetores do cadastro que ainda não têm conta
+  usuarioEu: "",           // id de quem está logado — não se apaga a si mesmo
+  usuariosEm: null,
+  buscandoUsuarios: false,
 
-  async carregarVisualizadores() {
-    if (this.buscandoVis) return;
-    if (!Banco.podeEditar()) { this.visualizadores = []; this.render(); return; }
-    this.buscandoVis = true;
+  async carregarUsuarios() {
+    /* A trava não é por desempenho: carregarUsuarios() termina em render(), e
+       o render() pede a busca quando a aba está aberta e vazia. Sem ela, um
+       erro de rede (que deixa usuariosEm nulo) viraria laço infinito. */
+    if (this.buscandoUsuarios) return;
+    if (!Banco.podeEditar()) { this.usuarios = []; this.render(); return; }
+    this.buscandoUsuarios = true;
     try {
-      const r = await Banco.visualizadores("listar");
-      this.visualizadores = (r && r.lista) || [];
-      this.visualizadoresEm = new Date();
+      const r = await Banco.usuarios("listar");
+      /* "nivelRot" e "situacao" não vêm do servidor: são o texto que o filtro
+         e a busca enxergam, no mesmo idioma da tela. */
+      this.usuarios = ((r && r.lista) || []).map(u => Object.assign(u, {
+        nivelRot: (nivelDe(u.nivel) || { rot: "Sem nível" }).rot,
+        situacao: u.ativo ? "Ativo" : "Inativo"
+      }));
+      this.usuariosLivres = (r && r.inspetores_livres) || [];
+      this.usuarioEu = (r && r.eu) || "";
+      this.usuariosEm = new Date();
     } catch (e) {
-      this.visualizadores = [];
-      this.avisar("Não deu para buscar os visualizadores: " + e.message, true);
+      this.usuarios = [];
+      this.avisar("Não deu para buscar os usuários: " + e.message, true);
     } finally {
-      this.buscandoVis = false;
+      this.buscandoUsuarios = false;
       this.render();
     }
   },
 
-  /* Criar a conta: e-mail e senha escolhidos pelo administrador, como no
-     acesso do inspetor. A senha não fica guardada em lugar nenhum — o
-     Supabase grava só o hash —, então é preciso combiná-la com a pessoa. */
-  novoVisualizador() {
-    this.dialogo("Novo visualizador",
-      `<p class="aj-dtexto">Cria uma conta que <b>só olha</b> o painel: vê todos os
-         números, as inspeções e as fotos, e não pode alterar nada. Ela não é
-         inspetor — não aparece em ranking, meta nem Jornada Segura.</p>
-       <label class="aj-campo"><span>Nome</span>
-         <input name="nome" placeholder="Quem vai usar" required></label>
+  /* Criar e editar são o mesmo formulário, como na página de Usuários do
+     sistema de Programação: nome, e-mail, senha, contato, e o NÍVEL com uma
+     frase dizendo o que ele pode — a frase muda assim que se escolhe.
+
+     A senha é escolhida pelo administrador e não fica guardada em lugar
+     nenhum: o Supabase grava só o hash. Dá para trocar, nunca para consultar,
+     então ela é combinada com a pessoa antes de salvar. */
+  abrirUsuario(r) {
+    const novo = !r;
+    const d = Object.assign({ nome: "", email: "", cargo: "", telefone: "",
+      /* Quem nasce sem escolha nasce com o MENOR poder: errar para menos custa
+         um clique; errar para mais entrega a edição do painel a quem só devia
+         olhar. */
+      nivel: "visualizador", inspetor: "", ativo: true }, r || {});
+    const eu = !novo && r.id === this.usuarioEu;
+
+    const livres = this.usuariosLivres.slice();
+    if (d.inspetor && !livres.includes(d.inspetor)) livres.unshift(d.inspetor);
+
+    this.dialogo(novo ? "Novo usuário" : "Editar usuário",
+      `<label class="aj-campo"><span>Nome completo</span>
+         <input name="nome" value="${esc(d.nome)}" required autocomplete="off"></label>
        <label class="aj-campo"><span>E-mail (será o login)</span>
-         <input name="email" type="email" required autocomplete="off"
+         <input name="email" type="email" value="${esc(d.email)}" required autocomplete="off"
                 autocapitalize="none" spellcheck="false"></label>
-       <label class="aj-campo"><span>Senha</span>
-         <input name="senha" type="text" minlength="6" required autocomplete="off"
-                placeholder="pelo menos 6 caracteres"></label>
-       <p class="aj-dtexto">Anote a senha antes de salvar: ela não fica guardada
-         aqui, e só dá para trocar por outra.</p>`,
-      "Criar acesso",
+       <label class="aj-campo"><span>Senha${novo ? "" : " (opcional)"}</span>
+         <input name="senha" type="text" minlength="6" ${novo ? "required" : ""}
+                autocomplete="off"
+                placeholder="${novo ? "pelo menos 6 caracteres" : "deixe em branco para manter a atual"}"></label>
+       <div class="aj-duas">
+         <label class="aj-campo"><span>Telefone</span>
+           <input name="telefone" value="${esc(d.telefone)}" autocomplete="off"></label>
+         <label class="aj-campo"><span>Cargo</span>
+           <input name="cargo" value="${esc(d.cargo)}" autocomplete="off"></label>
+       </div>
+       <label class="aj-campo"><span>Nível de acesso</span>
+         <select name="nivel"${eu ? " disabled" : ""}>
+           ${d.nivel ? "" : '<option value="" selected disabled>— escolha o nível —</option>'}
+           ${NIVEIS_ACESSO.map(n => `<option value="${n.v}"${n.v === d.nivel ? " selected" : ""}>${n.rot}</option>`).join("")}
+         </select></label>
+       <div class="aj-nivel-info"></div>
+       <label class="aj-campo aj-insp" hidden><span class="aj-insp-rot"></span>
+         <select name="inspetor">
+           <option value="">— nenhum —</option>
+           ${livres.map(n => `<option value="${esc(n)}"${n === d.inspetor ? " selected" : ""}>${esc(n)}</option>`).join("")}
+         </select>
+         <small class="aj-ajuda">${livres.length
+           ? "Só aparecem inspetores do cadastro que ainda não têm conta."
+           : "Todos os inspetores do cadastro já têm conta. Para um inspetor novo, "
+             + "cadastre-o antes na aba Inspetores."}</small></label>
+       ${novo ? "" : `<label class="aj-campo"><span>Situação</span>
+         <select name="ativo"${eu ? " disabled" : ""}>
+           <option value="1"${d.ativo ? " selected" : ""}>Ativo</option>
+           <option value="0"${d.ativo ? "" : " selected"}>Inativo — não consegue entrar</option>
+         </select></label>`}
+       ${eu ? `<p class="aj-dtexto">Esta é a sua conta: você não pode mudar o seu próprio
+         nível nem desativá-la. Outro administrador faz isso, se for preciso.</p>` : ""}
+       <p class="aj-dtexto">${novo
+         ? "Anote a senha antes de salvar: ela não fica guardada aqui, e só dá para trocar por outra."
+         : "Informar uma senha troca a senha atual desta conta."}</p>`,
+      novo ? "Criar usuário" : "Salvar",
       async form => {
-        await Banco.visualizadores("criar", {
+        const nivel = form.nivel.value;
+        if (!nivel) throw new Error("Escolha o nível de acesso.");
+        const dados = {
           nome: form.nome.value.trim(),
           email: form.email.value.trim().toLowerCase(),
-          senha: form.senha.value
-        });
-        await this.carregarVisualizadores();
-        this.avisar(`Acesso criado para ${form.email.value.trim().toLowerCase()}.`);
+          cargo: form.cargo.value.trim(),
+          telefone: form.telefone.value.trim(),
+          nivel,
+          /* Visualizador não tem vínculo; administrador pode ter (ele também
+             inspeciona); inspetor precisa. */
+          inspetor: nivel === "visualizador" ? "" : form.inspetor.value
+        };
+        if (nivel === "inspetor" && !dados.inspetor)
+          throw new Error("Escolha qual inspetor do cadastro é esta pessoa.");
+        if (novo) {
+          dados.senha = form.senha.value;
+          await Banco.usuarios("criar", dados);
+        } else {
+          dados.id = r.id;
+          dados.ativo = eu ? true : form.ativo.value === "1";
+          if (eu) delete dados.nivel;           // o servidor também recusa
+          if (form.senha.value) dados.senha = form.senha.value;
+          await Banco.usuarios("editar", dados);
+        }
+        await this.carregarUsuarios();
+        /* Mexer em quem é inspetor muda o que a aba Inspetores mostra. */
+        await Cadastros.carregar().catch(() => {});
+        Cadastros.aplicarNoModelo();
+        this.render(); render();
+        this.avisar(novo ? `Usuário ${dados.email} criado.` : `Usuário ${dados.email} atualizado.`);
       });
+
+    /* O formulário já está na tela: liga a frase do nível e o campo do
+       inspetor, que só faz sentido para administrador e inspetor. */
+    const fundos = canvas.querySelectorAll(".aj-fundo");
+    const form = fundos[fundos.length - 1].querySelector("form");
+    const info = form.querySelector(".aj-nivel-info");
+    const campo = form.querySelector(".aj-insp");
+    const sel = form.querySelector('select[name="nivel"]');
+    const atualizar = () => {
+      const nv = sel.value, n = nivelDe(nv);
+      info.innerHTML = n ? `<span class="etiqueta ${n.cls}">${n.rot}</span><p>${n.desc}</p>` : "";
+      campo.hidden = !(nv === "admin" || nv === "inspetor");
+      form.querySelector(".aj-insp-rot").textContent = nv === "inspetor"
+        ? "Inspetor do cadastro" : "Também inspeciona pelo app? (opcional)";
+      form.inspetor.required = nv === "inspetor";
+    };
+    sel.addEventListener("change", atualizar);
+    atualizar();
   },
 
-  trocarSenhaVisualizador(r) {
-    this.dialogo(`Nova senha de ${r.nome || r.email}`,
-      `<p class="aj-dtexto">A senha atual não pode ser consultada — só substituída.
-         Combine a nova com a pessoa.</p>
-       <label class="aj-campo"><span>Nova senha</span>
-         <input name="senha" type="text" minlength="6" required autocomplete="off"></label>`,
-      "Trocar senha",
-      async form => {
-        await Banco.visualizadores("senha", { id: r.id, senha: form.senha.value });
-        this.avisar(`Senha trocada para ${r.email}.`);
-      });
-  },
-
-  async removerVisualizador(r) {
-    if (!confirm(`Remover o acesso de ${r.nome || r.email}?
-
-`
-        + "A conta será apagada e a pessoa deixa de entrar no painel. "
-        + "Nenhum dado de inspeção é afetado.")) return;
+  async removerUsuario(r) {
+    if (!confirm(`Apagar o usuário ${r.nome || r.email}?\n\n`
+        + "A conta é apagada e a pessoa deixa de entrar no painel e no app. "
+        + "As inspeções que ela já fez continuam, com o nome do inspetor.\n\n"
+        + "Para só impedir a entrada por um tempo, use Editar e marque Inativo.")) return;
     try {
-      await Banco.visualizadores("remover", { id: r.id });
-      await this.carregarVisualizadores();
-      this.avisar(`Acesso de ${r.email} removido.`);
+      await Banco.usuarios("remover", { id: r.id });
+      await this.carregarUsuarios();
+      await Cadastros.carregar().catch(() => {});
+      Cadastros.aplicarNoModelo();
+      this.render(); render();
+      this.avisar(`Usuário ${r.email} apagado.`);
     } catch (e) {
-      this.avisar("Não deu para remover: " + e.message, true);
+      this.avisar("Não deu para apagar: " + e.message, true);
     }
   },
 
@@ -3582,7 +3724,7 @@ const Ajustes = {
 
   fonte(secao) {
     if (secao === "perguntas") return listaPerguntas();
-    if (secao === "visualizadores") return this.visualizadores;
+    if (secao === "usuarios") return this.usuarios;
     if (secao === "rascunhos") return this.rascunhos;
     if (secao === "inspecoes")
       return this.modoInsp === "nc" ? inspecoesPorNC() : inspecoesAgrupadas();
@@ -4186,6 +4328,12 @@ const Ajustes = {
       : this.secao === "rascunhos"
       // já vem do banco em ordem de criação, do mais novo para o mais velho
       ? () => 0
+      : this.secao === "usuarios"
+      // administradores primeiro, depois inspetores, visualizadores e, por
+      // último, as contas sem nível — que são as que pedem atenção
+      ? (a, b) => (NIVEIS_ACESSO.findIndex(n => n.v === a.nivel) + 9) % 9
+                    - (NIVEIS_ACESSO.findIndex(n => n.v === b.nivel) + 9) % 9
+                  || String(a.nome || a.email).localeCompare(String(b.nome || b.email), "pt-BR")
       : this.secao === "equipes"
       ? (a, b) => ordemNatural(a.equipe, b.equipe)
       // inspetores: primeiro pela função, depois pelo nome
@@ -4198,11 +4346,11 @@ const Ajustes = {
     this.el.querySelectorAll(".aj-abas button").forEach(b =>
       b.classList.toggle("on", b.dataset.sec === this.secao));
     this.el.querySelector(".aj-tit").textContent = s.titulo;
-    this.el.querySelector(".aj-desc").textContent = this.secao === "visualizadores"
+    this.el.querySelector(".aj-desc").textContent = this.secao === "usuarios"
       ? (Banco.podeEditar()
-         ? SECOES.visualizadores.desc
-         : "Só administrador vê e cria estes acessos. Se você entrou como "
-           + "visualizador, é esta a sua conta: o painel inteiro, sem edição.")
+         ? SECOES.usuarios.desc
+         : "Só administrador vê e gerencia os acessos. Você entrou sem permissão "
+           + "de edição: o painel inteiro está aberto para olhar, sem alterar nada.")
       : this.secao === "inspecoes"
       ? (this.modoInsp === "nc"
          ? "Uma linha por não conformidade — para filtrar por gravidade, contar desvio "
@@ -4220,12 +4368,12 @@ const Ajustes = {
       || (!s.baixar && !Banco.podeEditar()) ? "none" : "";
     btNovo.querySelector("span").textContent = s.baixar || s.novo || "";
     btNovo.firstChild.textContent = s.baixar ? "" : "+ ";
-    /* A aba de visualizadores é só-leitura no sentido do cadastro (não mexe em
+    /* A aba de usuários é só-leitura no sentido do cadastro (não mexe em
        tabela do banco), mas tem criação própria: a conta nasce na função de
        servidor, não aqui. */
-    if (this.secao === "visualizadores") {
+    if (this.secao === "usuarios") {
       btNovo.style.display = Banco.podeEditar() ? "" : "none";
-      btNovo.onclick = () => this.novoVisualizador();
+      btNovo.onclick = () => this.abrirUsuario(null);
     } else if (this.secao === "perguntas") {
       /* Aqui o botão baixa a planilha, e vale para quem só olha também:
          levar a classificação para o Excel não mexe em nada. */
@@ -4251,9 +4399,9 @@ const Ajustes = {
           && !this.buscandoRascunhos && Banco.autenticado()) {
         this.carregarRascunhos();
       }
-      if (this.secao === "visualizadores" && !this.visualizadoresEm
-          && !this.buscandoVis && Banco.podeEditar()) {
-        this.carregarVisualizadores();
+      if (this.secao === "usuarios" && !this.usuariosEm
+          && !this.buscandoUsuarios && Banco.podeEditar()) {
+        this.carregarUsuarios();
       }
       /* Uma lixeira por linha, e não o menu ⋮: aqui só há uma ação.
          Aparece para administrador — a política do banco recusaria de
@@ -4297,7 +4445,7 @@ const Ajustes = {
         return b;
       } }] : [];
 
-      const acaoVis = podeEditar && this.secao === "visualizadores" ? [{ titulo: "Ações", valor: r => {
+      const acaoUsu = podeEditar && this.secao === "usuarios" ? [{ titulo: "Ações", valor: r => {
         const d = document.createElement("div");
         d.className = "aj-acoes-linha";
         const bt = (txt, dica, fn, classe) => {
@@ -4307,8 +4455,11 @@ const Ajustes = {
           b.onclick = e => { e.stopPropagation(); fn(); };
           d.appendChild(b);
         };
-        bt("•••", "Trocar a senha desta conta", () => this.trocarSenhaVisualizador(r));
-        bt("🗑", "Remover este acesso", () => this.removerVisualizador(r), "perigo");
+        bt("✎", "Editar este usuário", () => this.abrirUsuario(r));
+        /* Ninguém apaga a própria conta: a função também recusa, mas botão
+           que só dá erro é armadilha. */
+        if (r.id !== this.usuarioEu)
+          bt("🗑", "Apagar este usuário", () => this.removerUsuario(r), "perigo");
         return d;
       } }] : [];
 
@@ -4321,7 +4472,7 @@ const Ajustes = {
         return b;
       } }] : [];
       const cols = this.secao === "inspecoes" ? this.colunasInsp() : s.colunas;
-      tabela(host, acao.concat(acaoPerg).concat(acaoVis).concat(acaoInsp).concat(cols.map(c => ({
+      tabela(host, acao.concat(acaoPerg).concat(acaoUsu).concat(acaoInsp).concat(cols.map(c => ({
         titulo: c.t, num: c.num,
         valor: r => c.etiqueta
           ? Object.assign(document.createElement("span"), {
@@ -4341,8 +4492,8 @@ const Ajustes = {
         // na aba Inspeções cada linha é um desvio, não uma inspeção
         const nome = this.secao === "perguntas"
           ? (linhas.length === 1 ? "pergunta" : "perguntas")
-          : this.secao === "visualizadores"
-          ? (linhas.length === 1 ? "visualizador" : "visualizadores")
+          : this.secao === "usuarios"
+          ? (linhas.length === 1 ? "usuário" : "usuários")
           : this.secao === "inspecoes"
           ? (this.modoInsp === "nc" ? (linhas.length === 1 ? "linha" : "linhas")
                                     : (linhas.length === 1 ? "inspeção" : "inspeções"))
@@ -4584,7 +4735,7 @@ const Ajustes = {
 
     const busca = document.createElement("label");
     busca.className = "aj-filtro aj-busca";
-    busca.innerHTML = `<span>Buscar</span><input type="search" placeholder="nome, supervisor…" value="${this.busca}">`;
+    busca.innerHTML = `<span>Buscar</span><input type="search" placeholder="${this.secao === "usuarios" ? "nome, e-mail, cargo…" : "nome, supervisor…"}" value="${esc(this.busca)}">`;
     busca.querySelector("input").oninput = e => {
       this.busca = e.target.value;
       const host2 = this.el.querySelector(".aj-tabela");

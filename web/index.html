@@ -712,6 +712,29 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .situacao{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600}
 .situacao.sim{background:#e8f5e9;color:#1b5e20}
 .situacao.nao{background:#f3f0ec;color:var(--txt2)}
+/* Aba Usuários ---------------------------------------------------------
+   As três cores seguem a ideia de "quanto pode": laranja da marca para quem
+   edita, azul para quem faz inspeção, cinza para quem só olha. A conta sem
+   nível fica em vermelho-claro de propósito: é a que pede atenção. */
+.etiqueta.nv-admin{background:#ffe9e0;color:#b83a0e;border-color:#f6c3ad;font-weight:700}
+.etiqueta.nv-inspetor{background:#e8f0fb;color:#24508a;border-color:#c6d8f1;font-weight:700}
+.etiqueta.nv-vis{background:#f3f0ec;color:#5f564e;border-color:#ddd5cb;font-weight:700}
+.etiqueta.nv-sem{background:#fdecea;color:#b3261e;border-color:#f3c4bb;font-weight:700}
+.aj-usuario{display:flex;flex-direction:column;line-height:1.25}
+.aj-usuario small{font-size:10.5px;font-weight:400;color:var(--txt3)}
+/* minmax(0,1fr): com "1fr" puro a coluna não encolhe abaixo do tamanho natural
+   do campo, e no celular o segundo campo saía cortado pela borda do diálogo. */
+.aj-duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.aj-duas .aj-campo{min-width:0}
+.aj-duas .aj-campo input{min-width:0;width:100%;box-sizing:border-box}
+.aj-nivel-info{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border-radius:8px;
+  background:var(--painel-alt);border:1px solid var(--linha-borda)}
+.aj-nivel-info:empty{display:none}
+.aj-nivel-info p{margin:0;font-size:12px;line-height:1.4;color:var(--txt2)}
+.aj-nivel-info .etiqueta{flex:0 0 auto;white-space:nowrap}
+.aj-campo .aj-ajuda{font-size:11px;font-weight:400;color:var(--txt3)}
+/* .aj-campo declara display:flex, que ganha do [hidden] do navegador */
+.aj-campo[hidden]{display:none}
 
 /* menu de ações da linha */
 .aj-acoes{position:relative}
