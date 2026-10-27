@@ -1339,7 +1339,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261027-1623";
+const VERSAO = "20261027-1638";
 </script>
 <script>
 /* ============================================================
@@ -2959,7 +2959,8 @@ const SECOES = {
     ]
   },
   inspetores: {
-    titulo: "Inspetores", desc: "Quem faz as inspeções e a meta individual de cada um.",
+    titulo: "Inspetores", desc: "Quem faz as inspeções e a meta individual de cada um. "
+      + "Login, senha e e-mail: aba Usuários.",
     novo: "Novo inspetor", chave: "inspetor", campos: CAMPOS_INSPETOR, statusK: "ativo",
     filtros: [["funcao", "Função"], ["polo", "Polo"], ["ativo", "Situação"]],
     /* "acesso" não é coluna do banco: é derivado do user_id, para dar
@@ -4754,17 +4755,12 @@ const Ajustes = {
   menuAcoes(registro, podeEditar) {
     const d = document.createElement("div");
     d.className = "aj-acoes";
-    /* Acesso ao app de inspeções é assunto de inspetor, não de equipe */
-    const temAcesso = !!registro.user_id;
-    const acesso = this.secao !== "inspetores" ? "" : (temAcesso
-      ? `<button data-a="trocar-email">✉ Trocar e-mail</button>
-         <button data-a="redefinir">🔑 Redefinir senha</button>
-         <button data-a="tirar-acesso" class="perigo">⊘ Remover acesso</button>`
-      : `<button data-a="criar-acesso">🔑 Criar acesso</button>`);
+    /* O acesso (login, senha, e-mail) saiu daqui em 27/10/2026: é assunto da
+       aba Usuários, onde está o inspetor e todos os outros níveis. Esta aba
+       ficou com o CADASTRO — nome, função, polo e meta. */
     d.innerHTML = `<button class="aj-pontos" title="Ações">⋮</button>
       <div class="aj-menu">
         <button data-a="editar">✎ Editar</button>
-        ${acesso}
         <button data-a="excluir" class="perigo">🗑 Excluir</button>
       </div>`;
     d.querySelector(".aj-pontos").onclick = e => {
@@ -4790,10 +4786,6 @@ const Ajustes = {
         d.classList.remove("aberto");
         const a = b.dataset.a;
         if (a === "editar") this.abrirDialogo(registro);
-        else if (a === "criar-acesso") this.criarAcesso(registro);
-        else if (a === "trocar-email") this.trocarEmail(registro);
-        else if (a === "redefinir") this.redefinirSenha(registro);
-        else if (a === "tirar-acesso") this.tirarAcesso(registro);
         else this.confirmarExclusao(registro);
       };
     });
@@ -4801,99 +4793,11 @@ const Ajustes = {
   },
 
 
-  /* ---------- acesso do inspetor ao app de inspeções ----------
-     O painel nunca vê a chave de serviço: quem cria a conta é a função
-     no servidor. Aqui é só a tela.
-
-     A senha é escolhida pelo administrador, que vai combiná-la com o
-     inspetor. Ela não fica guardada em lugar nenhum: vai para a função,
-     que manda para o Supabase, e lá só o hash é gravado. */
-  /* Trocar o e-mail de login de quem já tem acesso (28/08/2026).
-
-     Antes, corrigir um endereço errado obrigava a remover o acesso e criar
-     outro — e criar outro gera CONTA NOVA, deixando a antiga órfã. Foi assim
-     que o Francisco ficou com três contas, duas nunca usadas.
-
-     A senha não muda, e o vínculo com o cadastro continua o mesmo: troca só
-     o endereço com que ele entra. */
-  trocarEmail(registro) {
-    /* Parte do endereço ATUAL quando ele é conhecido: quase sempre a troca é
-       consertar uma letra, não escrever tudo de novo. Só cai na sugestão pelo
-       nome quando a função do banco não devolveu o e-mail. */
-    const atual = Cadastros.acessos[registro.inspetor];
-    const sugestao = atual || (semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".")
-      .replace(/^\.|\.$/g, "") + "@teccel.com.br");
-    this.dialogo(`Trocar o e-mail de ${registro.inspetor}`,
-      `<p class="aj-dtexto">Muda o endereço com que ${registro.inspetor} entra no
-         app. <b>A senha continua a mesma</b> e a conta é a mesma — não é criada
-         outra. Avise-o, porque o login antigo deixa de funcionar na hora.</p>
-       <p class="aj-dtexto">O padrão <b>nome.sobrenome@teccel.com.br</b> é o que
-         permite o vínculo automático com o cadastro; fora dele, ligar a conta
-         vira trabalho manual.</p>
-       <label class="aj-campo"><span>Novo e-mail</span>
-         <input name="email" type="email" required value="${esc(sugestao)}"
-                autocapitalize="none" spellcheck="false"></label>`,
-      "Trocar e-mail",
-      async form => {
-        const email = form.email.value.trim();
-        if (!email) throw new Error("Informe o novo e-mail.");
-        await Banco.acessoInspetor("email", registro.inspetor, email);
-        await Cadastros.carregar();
-        Cadastros.aplicarNoModelo();
-        this.render();
-        this.avisar(`${registro.inspetor} entra agora com ${email}.`);
-      });
-  },
-
-  criarAcesso(registro) {
-    const sugestao = semAcentoAj(registro.inspetor).replace(/[^a-z0-9]+/g, ".") + "@teccel.com.br";
-    this.dialogo(`Criar acesso para ${registro.inspetor}`,
-      `<p class="aj-dtexto">Cria o login do app de inspeções e já liga a este
-         cadastro. Combine a senha com ${registro.inspetor} — ela não fica
-         guardada e depois só dá para trocar, não para consultar.</p>
-       <label class="aj-campo"><span>E-mail do inspetor</span>
-         <input name="email" type="email" required value="${sugestao}"
-                autocapitalize="none" spellcheck="false"></label>
-       ${this.camposSenha()}`,
-      "Criar acesso",
-      async form => {
-        const email = form.email.value.trim();
-        if (!email) throw new Error("Informe o e-mail.");
-        const senha = this.senhaConferida(form);
-        await Banco.acessoInspetor("criar", registro.inspetor, email, senha);
-        await Cadastros.carregar();
-        Cadastros.aplicarNoModelo();
-        this.render();
-      });
-  },
-
-  redefinirSenha(registro) {
-    this.dialogo(`Redefinir a senha de ${registro.inspetor}`,
-      `<p class="aj-dtexto">A senha anterior deixa de valer na hora, então
-         ${registro.inspetor} vai precisar da nova para entrar.</p>
-       ${this.camposSenha()}`,
-      "Redefinir",
-      async form => {
-        const senha = this.senhaConferida(form);
-        await Banco.acessoInspetor("redefinir", registro.inspetor, null, senha);
-      });
-  },
-
-  tirarAcesso(registro) {
-    this.dialogo(`Remover o acesso de ${registro.inspetor}?`,
-      `<p class="aj-dtexto">Ele deixa de conseguir criar inspeções pelo app.
-         As inspeções que já enviou continuam onde estão.<br><br>
-         A conta em si não é apagada — só deixa de ser deste inspetor. Apagar
-         conta é feito no painel do Supabase, de propósito.</p>`,
-      "Remover acesso",
-      async () => {
-        await Banco.acessoInspetor("remover", registro.inspetor);
-        await Cadastros.carregar();
-        Cadastros.aplicarNoModelo();
-        this.render();
-      }, true);
-  },
-
+  /* ---------- senha do inspetor novo ----------
+     O login do inspetor NOVO ainda nasce junto com o cadastro (ver
+     abrirDialogo), para não existir inspetor sem acesso. Todo o resto —
+     trocar e-mail, redefinir senha, tirar ou dar acesso depois — é da aba
+     Usuários. */
   /* Senha digitada duas vezes: é o admin quem digita, e quem vai usar é
      outra pessoa — um erro de digitação só apareceria quando o inspetor
      tentasse entrar, longe daqui e sem saber o que houve. */
