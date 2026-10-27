@@ -893,12 +893,13 @@ function periodoFiltrado() {
   const sem = [...filtros.semana], mes = [...filtros.mes], ano = [...filtros.ano];
   if (sem.length === 1) return "semana de " + rotuloSemana(sem[0]);
   if (sem.length) return sem.length + " semanas escolhidas";
-  const p = [];
-  if (mes.length === 1) p.push(MESES_NOME[+mes[0]]);
-  else if (mes.length) p.push(mes.length + " meses");
-  if (ano.length === 1) p.push(ano[0]);
-  else if (ano.length) p.push(ano.length + " anos");
-  return p.join("/") || "todo o período";
+  const m = mes.length === 1 ? MESES_EXTENSO[+mes[0]] : mes.length ? mes.length + " meses" : "";
+  const a = ano.length === 1 ? ano[0] : ano.length ? ano.length + " anos" : "";
+  if (!m && !a) return "todo o período";
+  if (!m || !a) return m || a;
+  /* "agosto/2026" só quando os dois são um só. "2 meses/2026" dava a
+     entender que o 2026 fazia parte da contagem. */
+  return mes.length === 1 && ano.length === 1 ? m + "/" + a : m + " · " + a;
 }
 
 /* ============================================================

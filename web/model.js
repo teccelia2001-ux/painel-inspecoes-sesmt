@@ -3,6 +3,11 @@
    ============================================================ */
 
 const MESES_NOME = ["","jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+/* O mesmo mês por extenso, para frase corrida — "sem inspeção em outubro"
+   lê melhor do que "em out". O curto continua valendo no eixo dos
+   gráficos e no rótulo dos filtros, onde o longo não caberia. */
+const MESES_EXTENSO = ["","janeiro","fevereiro","março","abril","maio","junho",
+  "julho","agosto","setembro","outubro","novembro","dezembro"];
 /* Refeito a cada reconstrucao, nao so na carga: sincronizar troca o NC
    inteiro, e um indice velho faria a nao conformidade nova nao contar
    ponto nenhum na Jornada Segura — sem erro, so numero errado. */
