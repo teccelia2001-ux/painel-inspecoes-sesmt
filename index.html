@@ -1259,7 +1259,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261027-1331";
+const VERSAO = "20261027-1332";
 </script>
 <script>
 /* ============================================================
@@ -3721,18 +3721,32 @@ const Ajustes = {
     const dep = Object.entries(Sincronia.DEPARTAMENTO);
     const [d, m, a] = String(linha.dataStr).split("/");
 
+    /* Só vale nome do cadastro — a inspeção casa com a equipe e com o
+       inspetor pelo nome, e um nome de fora a faria sumir dos números. Por
+       isso é lista, e não campo livre: o campo livre só deixava errar e
+       tomar a mensagem de recusa lá embaixo.
+
+       Se o nome que a inspeção JÁ TEM não está no cadastro (equipe apagada,
+       digitação antiga), ele continua como primeira opção, marcado, para a
+       tela mostrar a verdade em vez de trocar por outro nome sem avisar. A
+       conferência ao salvar segue valendo e obriga a escolher um válido. */
+    const opcoesDoCadastro = (nomes, atual) => {
+      /* Cadastro vazio (banco fora do ar): sem a opção atual o campo ficaria
+         sem nenhuma, e a conferência ao salvar já não cobra lista vazia. */
+      const fora = atual && !nomes.includes(atual);
+      return (fora ? `<option value="${esc(atual)}" selected>${esc(atual)}${nomes.length ? " (fora do cadastro)" : ""}</option>` : "")
+        + (atual ? "" : `<option value="" selected disabled>— escolha —</option>`)
+        + nomes.map(n => `<option value="${esc(n)}"${n === atual ? " selected" : ""}>${esc(n)}</option>`).join("");
+    };
+
     this.dialogo(`Editar inspeção de ${linha.equipe}`,
       `<p class="aj-dtexto">Corrige o cabeçalho da inspeção. <b>As respostas do
          checklist não mudam</b> — elas são o que o inspetor viu em campo.</p>
        <label class="aj-campo"><span>Equipe</span>
-         <input name="equipe" list="lista-eq-insp" value="${esc(linha.equipe)}" required>
-         <datalist id="lista-eq-insp">${equipes.map(e =>
-           `<option value="${esc(e)}">`).join("")}</datalist></label>
+         <select name="equipe" required>${opcoesDoCadastro(equipes, linha.equipe)}</select></label>
        <label class="aj-campo"><span>Inspetor</span>
-         <input name="inspetor" list="lista-insp-insp" required
-                value="${esc(linha.inspetor || linha.inspetorBruto || "")}">
-         <datalist id="lista-insp-insp">${inspetores.map(i =>
-           `<option value="${esc(i)}">`).join("")}</datalist></label>
+         <select name="inspetor" required>${opcoesDoCadastro(inspetores,
+           linha.inspetor || linha.inspetorBruto || "")}</select></label>
        <label class="aj-campo"><span>Data</span>
          <input name="data" type="date" required value="${a}-${m}-${d}"></label>
        <label class="aj-campo"><span>Departamento</span>
