@@ -1656,6 +1656,25 @@ async function imagemDaPagina(escala) {
         n.style.maxHeight = "none";
         if (n.style.overflow || n.style.overflowY) n.style.overflow = "visible";
       });
+
+      /* Caixa de rolagem DENTRO do corpo, com o estilo vindo do CSS e não de
+         style inline — a lista de "Equipes sem inspeção" é assim. O .corpo
+         em si não rola (quem rola é a lista dentro dele), então a conta
+         acima dava zero e a imagem saía com a lista cortada na altura da
+         tela, mostrando 12 das 16 equipes.
+
+         Percorre o corpo REAL e o clone em paralelo (têm a mesma estrutura)
+         para saber onde há rolagem e quanto falta mostrar; no clone, solta
+         a rolagem. A imagem cresce pela soma do que estava escondido. */
+      const reais = alvo.querySelectorAll(".corpo *");
+      const copias = corpoCopia.querySelectorAll("*");
+      reais.forEach((r, i) => {
+        const ov = getComputedStyle(r).overflowY;
+        if (ov !== "auto" && ov !== "scroll") return;
+        const falta = r.scrollHeight - r.clientHeight;
+        if (falta > 0) alt += falta;
+        if (copias[i]) { copias[i].style.overflow = "visible"; copias[i].style.maxHeight = "none"; }
+      });
     }
     /* Tira o quadro da posição absoluta: no SVG ele começa em 0,0. */
     copia.style.position = "relative";
