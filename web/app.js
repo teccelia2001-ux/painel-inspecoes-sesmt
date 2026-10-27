@@ -780,6 +780,29 @@ function agruparPorPontos(linhas) {
 }
 
 /* Pódio invertido: as equipes que mais perderam pontos */
+/* Equipes empatadas num mesmo lugar: uma por linha, cada uma com as suas N.C.
+
+   Antes saíam todas na mesma frase, separadas por "·", e o nome quebrava no
+   meio — "PERDAS - PTSRG12 · CNT 09 · REAVISO - ITORI01" lia-se como um nome
+   só, e a soma de N.C no canto não dizia de quem era. Empatar nos pontos não
+   é ter as mesmas N.C: a conta por equipe aparece ao lado do nome.
+
+   A ORDEM é o critério de desempate do pódio dos melhores, lido ao
+   contrário (pedido de 27/10/2026): pontos finais + visitas sem N.C ÷ 10,
+   e entre empatadas nos pontos fica por último quem teve MENOS visita
+   limpa. jornada() já entrega as equipes do mais alto desempate para o
+   mais baixo; o pior vem primeiro, então é só virar a lista. */
+function nomesEmpatados(equipes) {
+  const ordem = equipes.slice().reverse();
+  return `<span class="nomes lista-empate">
+    <i class="empatadas" data-dica="${esc("Critério de desempate: pontos finais + (visitas sem N.C ÷ 10)."
+      + "\nEmpatadas na pontuação, fica por último quem recebeu menos visita sem nenhuma não conformidade."
+      + "\n\nPasse o mouse (ou toque) em cada equipe para ver a conta dela.")}">${ordem.length} equipes empatadas · pior primeiro</i>
+    ${ordem.map(e => `<span class="par" data-dica="${esc(dicaDesempate(e, ordem, true))}">`
+      + `<em>${esc(e.equipe)}</em><small>${fmtN(e.ncLinhas)} N.C</small></span>`).join("")}
+  </span>`;
+}
+
 function podioPioresHTML(linhas) {
   if (!linhas.length) return `<div class="podio piores"><div class="tit">sem dados</div></div>`;
   const lugares = agruparPorPontos(linhas);
@@ -797,13 +820,12 @@ function podioPioresHTML(linhas) {
     <div class="tit">⚠️ Precisam de atenção</div>
     <div class="lista-lugares">
       ${fundo.map((lug, i) => `
-        <div class="lugar${i === 0 ? " pior" : ""}" title="${lug.equipes.map(e =>
-            `${e.equipe} — ${e.ncLinhas} N.C, ICIT ${fmtP(e.icit, 0)}`).join(" | ")}">
+        <div class="lugar${i === 0 ? " pior" : ""}"${lug.equipes.length > 1 ? "" : ` title="${esc(
+            `${lug.equipes[0].equipe} — ${lug.equipes[0].ncLinhas} N.C, ICIT ${fmtP(lug.equipes[0].icit, 0)}`)}"`}>
           <span class="medalha">${marcas[i]}</span>
-          <span class="nomes">${lug.equipes.map(e => e.equipe).join(" · ")}${
-            lug.equipes.length > 1
-              ? `<i class="empatadas">${lug.equipes.length} empatadas</i>` : ""}</span>
-          <span class="detalhe">${fmtN(lug.equipes.reduce((a, e) => a + e.ncLinhas, 0))} N.C</span>
+          ${lug.equipes.length > 1 ? nomesEmpatados(lug.equipes) : `
+          <span class="nomes">${esc(lug.equipes[0].equipe)}</span>
+          <span class="detalhe">${fmtN(lug.equipes[0].ncLinhas)} N.C</span>`}
           <b>${fmtN(lug.pontos)}</b></div>`).join("")}
     </div>
   </div>`;
@@ -1059,19 +1081,26 @@ window.addEventListener("resize", () => Dica.esconder());
    Quando duas ficam iguais TAMBÉM no desempate, a etiqueta diz isso. É o
    limite do critério, e esconder isso numa premiação seria pior do que
    admitir: entre elas a ordem é a de chegada dos dados, não mérito. */
-function dicaDesempate(e, empatadas) {
+function dicaDesempate(e, empatadas, pior) {
   const limpas = e.qtd - e.nc;
-  const pos = empatadas.filter(x => x.desempate > e.desempate).length + 1;
+  /* No pódio dos piores o critério é o MESMO, lido ao contrário: quem tem
+     menos visita limpa fica por último. Por isso a posição conta quem está
+     abaixo, e não acima. */
+  const pos = pior
+    ? empatadas.filter(x => x.desempate < e.desempate).length + 1
+    : empatadas.filter(x => x.desempate > e.desempate).length + 1;
   const iguais = empatadas.filter(x => x !== e && x.desempate === e.desempate);
   const insp = n => `${fmtN(n)} inspeç${n === 1 ? "ão" : "ões"}`;
   const linhas = [
-    `${e.equipe} — ${pos}º no desempate, entre ${empatadas.length} equipes `
+    `${e.equipe} — ${pos}º ${pior ? "pior " : ""}no desempate, entre ${empatadas.length} equipes `
       + `com ${fmtN(e.pontosFinal)} pontos`,
     "",
     `Desempate ${fmtD(e.desempate, 1)} = ${fmtN(e.pontosFinal)} pontos `
       + `+ ${fmtN(limpas)} visita${limpas === 1 ? "" : "s"} sem N.C ÷ 10`,
-    "Empatadas nos pontos, fica à frente quem tem mais visita limpa: "
-      + "cada uma vale 0,1.",
+    pior ? "Empatadas nos pontos, fica por último quem tem menos visita limpa: "
+           + "cada uma vale 0,1."
+         : "Empatadas nos pontos, fica à frente quem tem mais visita limpa: "
+           + "cada uma vale 0,1.",
     "",
     `${insp(e.qtd)} no período · ${fmtN(limpas)} sem nenhuma N.C `
       + `· ${fmtN(e.ncLinhas)} N.C no total · ICIT ${fmtP(e.icit, 0)}`
