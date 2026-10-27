@@ -21,7 +21,7 @@
 const SERVIDOR = {
   url: "https://ldqegnfcjeljvywbravl.supabase.co",   // projeto painel-sesmt, São Paulo
   chave: "sb_publishable_4IcV3231DtKqDuBdoPdG8A_sgt8vbOP",
-  // slug da Edge Function que cria o login do inspetor — ver acessoInspetor()
+  // slug da Edge Function que cria e gerencia as contas — ver usuarios()
   funcaoAcesso: "swift-responder",
   sessao: "sesmt.sessao.v1"
 };
@@ -187,44 +187,6 @@ const Banco = {
     await this.verificarAdmin();
     return { equipes: eq, inspetores: insp };
   },
-  /* ---------- acesso do inspetor ao app de inspeções ----------
-     Criar conta exige a chave de serviço, que dá poder total sobre o
-     banco. Este painel é público no GitHub Pages, então essa chave não
-     pode morar aqui. Quem cria é a função criar-acesso, no servidor,
-     que guarda a chave como segredo e confere se quem pediu é mesmo
-     administrador — com o token de quem pediu, contra a mesma lista
-     sesmt_admins que este painel usa. */
-  async acessoInspetor(acao, inspetor, email, senha) {
-    if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
-    /* O slug é gerado pelo editor do Supabase e NÃO muda quando se renomeia
-       a função: o campo Name de lá é só rótulo. Pior, publicar de novo pelo
-       editor cria outra função, com outro slug, em vez de atualizar a que
-       existe — foi assim que apareceram três no projeto, cada uma com uma
-       versão diferente do código.
-
-       Se a função for publicada de novo, o slug novo aparece na lista de
-       Edge Functions, coluna URL, e é esta constante que muda. */
-    const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
-      method: "POST",
-      headers: {
-        apikey: SERVIDOR.chave,
-        Authorization: "Bearer " + this.token,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ acao, inspetor, email, senha })
-    });
-    let j = null;
-    try { j = await r.json(); } catch (e) {}
-    if (!r.ok) {
-      if (r.status === 404 && !j) {
-        throw new Error("A função de criar acesso não respondeu. Confira, no Supabase, "
-          + `se o slug dela ainda é ${SERVIDOR.funcaoAcesso}.`);
-      }
-      throw new Error((j && j.erro) || ("erro " + r.status));
-    }
-    return j;
-  },
-
   /* ---------- aba Usuários ----------
 
      Todas as contas que entram no painel, com o nível de cada uma:

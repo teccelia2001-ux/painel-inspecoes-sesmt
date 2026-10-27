@@ -720,6 +720,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .etiqueta.nv-inspetor{background:#e8f0fb;color:#24508a;border-color:#c6d8f1;font-weight:700}
 .etiqueta.nv-vis{background:#f3f0ec;color:#5f564e;border-color:#ddd5cb;font-weight:700}
 .etiqueta.nv-sem{background:#fdecea;color:#b3261e;border-color:#f3c4bb;font-weight:700}
+.etiqueta.nv-semlogin{background:#fff6e0;color:#8a5a00;border-color:#f0dca8;font-weight:700}
+.aj-bloco{display:flex;flex-direction:column;gap:10px;padding:11px 12px 12px;border-radius:9px;
+  border:1px solid var(--linha-borda);background:var(--painel)}
+.aj-bloco h4{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)}
+.aj-check{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--txt);cursor:pointer}
+.aj-check input{width:16px;height:16px;margin:0;accent-color:var(--acento)}
+/* display:flex ganha do [hidden] do navegador */
+.aj-bloco[hidden],.aj-check[hidden],.aj-dtexto[hidden]{display:none}
 .aj-usuario{display:flex;flex-direction:column;line-height:1.25}
 .aj-usuario small{font-size:10.5px;font-weight:400;color:var(--txt3)}
 /* minmax(0,1fr): com "1fr" puro a coluna não encolhe abaixo do tamanho natural
@@ -1339,7 +1347,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261027-1638";
+const VERSAO = "20261027-1646";
 </script>
 <script>
 /* ============================================================
@@ -2013,7 +2021,7 @@ function opcoes(campo) {
 const SERVIDOR = {
   url: "https://ldqegnfcjeljvywbravl.supabase.co",   // projeto painel-sesmt, São Paulo
   chave: "sb_publishable_4IcV3231DtKqDuBdoPdG8A_sgt8vbOP",
-  // slug da Edge Function que cria o login do inspetor — ver acessoInspetor()
+  // slug da Edge Function que cria e gerencia as contas — ver usuarios()
   funcaoAcesso: "swift-responder",
   sessao: "sesmt.sessao.v1"
 };
@@ -2179,44 +2187,6 @@ const Banco = {
     await this.verificarAdmin();
     return { equipes: eq, inspetores: insp };
   },
-  /* ---------- acesso do inspetor ao app de inspeções ----------
-     Criar conta exige a chave de serviço, que dá poder total sobre o
-     banco. Este painel é público no GitHub Pages, então essa chave não
-     pode morar aqui. Quem cria é a função criar-acesso, no servidor,
-     que guarda a chave como segredo e confere se quem pediu é mesmo
-     administrador — com o token de quem pediu, contra a mesma lista
-     sesmt_admins que este painel usa. */
-  async acessoInspetor(acao, inspetor, email, senha) {
-    if (!this.podeEditar()) throw new Error("Só administrador pode mexer em acesso.");
-    /* O slug é gerado pelo editor do Supabase e NÃO muda quando se renomeia
-       a função: o campo Name de lá é só rótulo. Pior, publicar de novo pelo
-       editor cria outra função, com outro slug, em vez de atualizar a que
-       existe — foi assim que apareceram três no projeto, cada uma com uma
-       versão diferente do código.
-
-       Se a função for publicada de novo, o slug novo aparece na lista de
-       Edge Functions, coluna URL, e é esta constante que muda. */
-    const r = await fetch(SERVIDOR.url + "/functions/v1/" + SERVIDOR.funcaoAcesso, {
-      method: "POST",
-      headers: {
-        apikey: SERVIDOR.chave,
-        Authorization: "Bearer " + this.token,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ acao, inspetor, email, senha })
-    });
-    let j = null;
-    try { j = await r.json(); } catch (e) {}
-    if (!r.ok) {
-      if (r.status === 404 && !j) {
-        throw new Error("A função de criar acesso não respondeu. Confira, no Supabase, "
-          + `se o slug dela ainda é ${SERVIDOR.funcaoAcesso}.`);
-      }
-      throw new Error((j && j.erro) || ("erro " + r.status));
-    }
-    return j;
-  },
-
   /* ---------- aba Usuários ----------
 
      Todas as contas que entram no painel, com o nível de cada uma:
@@ -2937,7 +2907,14 @@ const NIVEIS_ACESSO = [
     desc: "Apenas visualiza o painel: vê números, inspeções e fotos. Não altera "
         + "nada, não usa o app e não aparece em indicador nenhum." }
 ];
-const nivelDe = v => NIVEIS_ACESSO.find(n => n.v === v);
+/* Não é nível de conta: é o inspetor que está no cadastro (conta na meta, no
+   ranking e nos gráficos) mas não tem login. Aparece na lista para a meta
+   dele continuar tendo onde ser mudada. */
+const NIVEL_SEM_LOGIN = { v: "semlogin", rot: "Sem login", cls: "nv-semlogin",
+  desc: "Está no cadastro de inspetores — conta na meta, no ranking e nos gráficos —, "
+      + "mas não entra no app nem no painel. Escolha um nível para criar o login." };
+const ORDEM_NIVEL = ["admin", "inspetor", "semlogin", "visualizador", ""];
+const nivelDe = v => v === "semlogin" ? NIVEL_SEM_LOGIN : NIVEIS_ACESSO.find(n => n.v === v);
 
 const SECOES = {
   equipes: {
@@ -2956,27 +2933,6 @@ const SECOES = {
       { t: "Tipo", v: r => TIPOS_EQUIPE[r.tipo] || r.tipo || "—", etiqueta: true },
       { t: "Departamento", v: r => DEPARTAMENTO_DO_TIPO[r.tipo] || "—", etiqueta: true },
       { t: "Pontos", v: r => fmtN(r.pontos), num: true }
-    ]
-  },
-  inspetores: {
-    titulo: "Inspetores", desc: "Quem faz as inspeções e a meta individual de cada um. "
-      + "Login, senha e e-mail: aba Usuários.",
-    novo: "Novo inspetor", chave: "inspetor", campos: CAMPOS_INSPETOR, statusK: "ativo",
-    filtros: [["funcao", "Função"], ["polo", "Polo"], ["ativo", "Situação"]],
-    /* "acesso" não é coluna do banco: é derivado do user_id, para dar
-       um filtro de "quem ainda não tem login" sem inventar campo. */
-    colunas: [
-      { t: "Inspetor", v: r => r.inspetor, forte: true },
-      { t: "Função", v: r => r.funcao || "—" },
-      { t: "Polo", v: r => r.polo || "—", etiqueta: true },
-      { t: "Meta", v: r => fmtN(r.meta), num: true },
-      /* O e-mail em si, e não "tem login": é ele que o administrador precisa
-         para avisar a pessoa, conferir se está no padrão do cadastro ou
-         perceber que duas contas ficaram parecidas. Só aparece para
-         administrador — para os outros, a função do banco devolve vazio e
-         a coluna cai no "tem login" de antes. */
-      { t: "Acesso", v: r => !r.user_id ? "—"
-          : (Cadastros.acessos[r.inspetor] || "tem login") }
     ]
   },
   /* Inspeções — as feitas, para consultar e baixar.
@@ -3066,31 +3022,31 @@ const SECOES = {
     ]
   },
 
-  /* Usuários — todas as contas de acesso, com o nível de cada uma.
+  /* Usuários — todas as pessoas, com o nível de acesso de cada uma.
 
-     Antes havia uma aba só para visualizadores, e o acesso do inspetor morava
-     na aba Inspetores, e o administrador só existia por SQL. Três lugares
-     (um deles invisível) para a mesma pergunta: "quem pode o quê?". Agora é
-     uma lista só, como no sistema de Programação.
+     Antes eram três lugares para a mesma pergunta ("quem pode o quê?"): uma
+     aba de visualizadores, o acesso do inspetor na aba Inspetores, e o
+     administrador, que só existia por SQL. Desde 27/10/2026 é uma lista só,
+     como no sistema de Programação — e a aba Inspetores saiu: o cadastro do
+     inspetor (função, polo, meta) é editado aqui, na linha dele.
 
-     A lista vem da função de servidor, que é quem enxerga as contas — elas
-     não moram no Cadastros. */
+     As contas vêm da função de servidor, que é quem as enxerga; o cadastro
+     vem do banco, como antes. montarUsuarios() junta os dois. */
   usuarios: {
-    titulo: "Usuários", desc: "Quem entra no painel e o que cada um pode fazer: "
-      + "administrador edita, inspetor do app faz inspeção pelo celular, "
-      + "visualizador só olha.",
+    titulo: "Usuários", desc: "Quem entra no painel e no app, o que cada um pode fazer e, "
+      + "para quem inspeciona, a função, o polo e a meta.",
     somenteLeitura: true, chave: "id", novo: "Novo usuário",
-    filtros: [["nivelRot", "Nível"], ["situacao", "Situação"]],
+    filtros: [["nivelRot", "Nível"], ["funcao", "Função"], ["polo", "Polo"],
+              ["situacao", "Situação"]],
     colunas: [
       { t: "Usuário", forte: true, v: r => {
           const d = document.createElement("div");
           d.className = "aj-usuario";
           const b = document.createElement("b"); b.textContent = r.nome || "—";
-          const m = document.createElement("small"); m.textContent = r.email || "";
+          const m = document.createElement("small");
+          m.textContent = r.conta ? r.email || "" : "sem login";
           d.append(b, m);
           return d; } },
-      { t: "Cargo", v: r => r.cargo || "—" },
-      { t: "Telefone", v: r => r.telefone || "—" },
       { t: "Nível", v: r => {
           const n = nivelDe(r.nivel);
           const e = document.createElement("span");
@@ -3099,15 +3055,20 @@ const SECOES = {
           e.title = n ? n.desc : "Conta sem nível definido: ela entra e lê tudo, mas não é "
             + "administradora, inspetora nem marcada como visualizadora. Edite para definir.";
           return e; } },
-      /* O administrador que também inspeciona aparece aqui: o nível dele é
-         Administrador, mas o app de campo também o reconhece. */
-      { t: "Inspetor no app", v: r => r.inspetor || "—" },
+      /* Função, polo e meta são do cadastro de inspetor — o que era a aba
+         Inspetores. A função decide se a pessoa entra no bloco SESMT ou
+         OPERAÇÃO da Taxa de Contato; para quem não inspeciona, sai o cargo. */
+      { t: "Função / cargo", v: r => r.funcao || "—" },
+      { t: "Polo", v: r => r.polo || "—" },
+      { t: "Meta", v: r => r.meta === null ? "—"
+          : r.naMeta ? fmtN(r.meta) : fmtN(r.meta) + " · fora", num: true },
+      { t: "Telefone", v: r => r.telefone || "—" },
       { t: "Situação", v: r => {
           const e = document.createElement("span");
-          e.className = "situacao " + (r.ativo ? "sim" : "nao");
+          e.className = "situacao " + (r.ativoGeral ? "sim" : "nao");
           e.textContent = r.situacao;
           return e; } },
-      { t: "Último acesso", v: r => r.ultimo_acesso
+      { t: "Último acesso", v: r => !r.conta ? "—" : r.ultimo_acesso
           ? new Date(r.ultimo_acesso).toLocaleString("pt-BR",
               { day: "2-digit", month: "2-digit", year: "2-digit",
                 hour: "2-digit", minute: "2-digit" })
@@ -3430,7 +3391,7 @@ const Ajustes = {
   /* Duas páginas usam esta mesma tela, com seções diferentes:
 
        Inspeções — o que o campo produziu (inspeções e rascunhos)
-       Ajustes   — o cadastro (equipes, inspetores, perguntas, usuários)
+       Ajustes   — o cadastro (equipes, usuários e inspetores, perguntas)
 
      Antes era tudo em Ajustes, e quem só queria consultar uma inspeção
      entrava numa tela chamada "ajustes", ao lado dos botões que mexem no
@@ -3441,7 +3402,7 @@ const Ajustes = {
      não quer dizer nada na lista de inspeções. */
   VISOES: {
     inspecoes: ["inspecoes", "rascunhos"],
-    ajustes: ["equipes", "inspetores", "perguntas", "usuarios"]
+    ajustes: ["equipes", "usuarios", "perguntas"]
   },
 
   montar(pg, chaves) {
@@ -3494,169 +3455,372 @@ const Ajustes = {
     return pg;
   },
 
-  /* Usuários também não moram no Cadastros: a lista vem da função de
-     servidor, que é quem enxerga as contas. */
+  /* Usuários também não moram no Cadastros: as contas vêm da função de
+     servidor, que é quem as enxerga. O cadastro de inspetores (função, polo,
+     meta) continua no Cadastros e é juntado aqui, linha a linha. */
   usuarios: [],
-  usuariosLivres: [],      // inspetores do cadastro que ainda não têm conta
   usuarioEu: "",           // id de quem está logado — não se apaga a si mesmo
   usuariosEm: null,
   buscandoUsuarios: false,
+
+  /* Uma linha por PESSOA, juntando as duas fontes:
+
+       conta de login (função de servidor)  +  cadastro de inspetor (banco)
+
+     Desde 27/10/2026 a aba Inspetores não existe: o que ela mostrava (função,
+     polo, meta, situação) aparece aqui, na linha da conta ligada àquele
+     cadastro. O inspetor que está no cadastro mas não tem login ganha a sua
+     própria linha, com o nível "Sem login" — sem ela, a meta dele não teria
+     onde ser mudada, e é ele que aparece nos gráficos. */
+  montarUsuarios(contas) {
+    const porNome = new Map(Cadastros.inspetores.map(i => [i.inspetor, i]));
+    const ligados = new Set();
+    const linhas = contas.map(u => {
+      const cad = u.inspetor ? porNome.get(u.inspetor) || null : null;
+      if (cad) ligados.add(cad.id);
+      return Object.assign({}, u, { conta: true, cad });
+    });
+    Cadastros.inspetores.filter(i => !ligados.has(i.id)).forEach(i => linhas.push({
+      id: "cad:" + i.id, conta: false, email: "", nome: i.inspetor, cargo: "",
+      telefone: "", ativo: true, ultimo_acesso: null, cad: i, inspetor: i.inspetor,
+      /* Para quem não é administrador a função não devolve contas, então
+         o vínculo é o único sinal de login que se tem: user_id preenchido. */
+      nivel: i.user_id ? "inspetor" : "semlogin"
+    }));
+    /* DUAS situações, que não se misturam:
+         - a do LOGIN (consegue entrar?), que é da conta;
+         - a do CADASTRO (entra na meta e no ranking?), que é do inspetor.
+       Um administrador pode estar ativo e fora da meta — o Jeferson, por
+       exemplo. Juntar as duas num campo só fazia ele aparecer "Inativo" e,
+       ao salvar, mexia numa delas sem ninguém pedir. A coluna Situação mostra
+       a do login; quem não tem login mostra a do cadastro. */
+    return linhas.map(r => {
+      const ativo = r.conta ? !!r.ativo : !!(r.cad && r.cad.ativo);
+      return Object.assign(r, {
+        naMeta: r.cad ? !!r.cad.ativo : null,
+        nivelRot: (nivelDe(r.nivel) || { rot: "Sem nível" }).rot,
+        funcao: r.cad ? r.cad.funcao || "" : r.cargo || "",
+        polo: r.cad ? r.cad.polo || "" : "",
+        meta: r.cad ? Number(r.cad.meta) || 0 : null,
+        ativoGeral: ativo,
+        situacao: ativo ? "Ativo" : "Inativo"
+      });
+    });
+  },
 
   async carregarUsuarios() {
     /* A trava não é por desempenho: carregarUsuarios() termina em render(), e
        o render() pede a busca quando a aba está aberta e vazia. Sem ela, um
        erro de rede (que deixa usuariosEm nulo) viraria laço infinito. */
     if (this.buscandoUsuarios) return;
-    if (!Banco.podeEditar()) { this.usuarios = []; this.render(); return; }
     this.buscandoUsuarios = true;
     try {
-      const r = await Banco.usuarios("listar");
-      /* "nivelRot" e "situacao" não vêm do servidor: são o texto que o filtro
-         e a busca enxergam, no mesmo idioma da tela. */
-      this.usuarios = ((r && r.lista) || []).map(u => Object.assign(u, {
-        nivelRot: (nivelDe(u.nivel) || { rot: "Sem nível" }).rot,
-        situacao: u.ativo ? "Ativo" : "Inativo"
-      }));
-      this.usuariosLivres = (r && r.inspetores_livres) || [];
+      /* Quem não é administrador vê o cadastro de inspetores, como via na
+         aba Inspetores — só não vê as contas, que são assunto de quem
+         administra. */
+      const r = Banco.podeEditar() ? await Banco.usuarios("listar") : null;
       this.usuarioEu = (r && r.eu) || "";
+      this.usuarios = this.montarUsuarios((r && r.lista) || []);
       this.usuariosEm = new Date();
     } catch (e) {
-      this.usuarios = [];
-      this.avisar("Não deu para buscar os usuários: " + e.message, true);
+      this.usuarios = this.montarUsuarios([]);
+      this.avisar("Não deu para buscar as contas: " + e.message
+        + " O cadastro de inspetores aparece mesmo assim.", true);
     } finally {
       this.buscandoUsuarios = false;
       this.render();
     }
   },
 
-  /* Criar e editar são o mesmo formulário, como na página de Usuários do
-     sistema de Programação: nome, e-mail, senha, contato, e o NÍVEL com uma
-     frase dizendo o que ele pode — a frase muda assim que se escolhe.
+  /* Campo de escolha com "Outro…" — o mesmo desenho do "select-livre" dos
+     cadastros, e ligado pela mesma rotina de dialogo(). */
+  campoLivre(nome, rotulo, ops, atual) {
+    const lista = ops.slice();
+    if (atual && !lista.includes(atual)) lista.unshift(atual);
+    return `<label class="aj-campo"><span>${rotulo}</span>
+      <select class="aj-livre" data-livre="${nome}">
+        <option value=""${atual ? "" : " selected"}>— não informado —</option>
+        ${lista.map(o => `<option value="${esc(o)}"${o === atual ? " selected" : ""}>${esc(o)}</option>`).join("")}
+        <option value="__digitar__">Outro… (digitar)</option>
+      </select>
+      <input name="${nome}" class="aj-livre-texto" value="${esc(atual || "")}" hidden
+             autocomplete="off" placeholder="Digite"></label>`;
+  },
+
+  /* Um formulário para os três casos, como na página de Usuários do sistema
+     de Programação:
+
+       novo usuário            — conta e, se for inspetor, o cadastro dele
+       conta que já existe     — a conta, e o cadastro se estiver ligada
+       inspetor "Sem login"    — o cadastro; escolher um nível cria o login
+
+     O bloco do CADASTRO (nome no painel, função, polo, meta) é o que a aba
+     Inspetores fazia. Ele aparece para o inspetor, para o administrador que
+     também inspeciona e para quem está sem login.
 
      A senha é escolhida pelo administrador e não fica guardada em lugar
-     nenhum: o Supabase grava só o hash. Dá para trocar, nunca para consultar,
-     então ela é combinada com a pessoa antes de salvar. */
+     nenhum: o Supabase grava só o hash. */
   abrirUsuario(r) {
     const novo = !r;
+    const soCadastro = !!r && !r.conta;
+    const eu = !!r && r.conta && r.id === this.usuarioEu;
     const d = Object.assign({ nome: "", email: "", cargo: "", telefone: "",
       /* Quem nasce sem escolha nasce com o MENOR poder: errar para menos custa
          um clique; errar para mais entrega a edição do painel a quem só devia
          olhar. */
-      nivel: "visualizador", inspetor: "", ativo: true }, r || {});
-    const eu = !novo && r.id === this.usuarioEu;
+      nivel: "visualizador", ativoGeral: true, cad: null }, r || {});
+    const cad = d.cad;
 
-    const livres = this.usuariosLivres.slice();
-    if (d.inspetor && !livres.includes(d.inspetor)) livres.unshift(d.inspetor);
+    /* Cadastros de inspetor que podem ser ligados a esta conta: os que não
+       têm login, e o dela mesma. */
+    const livres = Cadastros.inspetores.filter(i => !i.user_id || (cad && i.id === cad.id))
+      .sort((a, b) => ordemNatural(a.inspetor, b.inspetor));
+    const funcoes = CAMPOS_INSPETOR.find(c => c.k === "funcao").origem();
+    const polos = CAMPOS_INSPETOR.find(c => c.k === "polo").origem();
 
-    this.dialogo(novo ? "Novo usuário" : "Editar usuário",
-      `<label class="aj-campo"><span>Nome completo</span>
-         <input name="nome" value="${esc(d.nome)}" required autocomplete="off"></label>
-       <label class="aj-campo"><span>E-mail (será o login)</span>
-         <input name="email" type="email" value="${esc(d.email)}" required autocomplete="off"
-                autocapitalize="none" spellcheck="false"></label>
-       <label class="aj-campo"><span>Senha${novo ? "" : " (opcional)"}</span>
-         <input name="senha" type="text" minlength="6" ${novo ? "required" : ""}
-                autocomplete="off"
-                placeholder="${novo ? "pelo menos 6 caracteres" : "deixe em branco para manter a atual"}"></label>
-       <div class="aj-duas">
-         <label class="aj-campo"><span>Telefone</span>
-           <input name="telefone" value="${esc(d.telefone)}" autocomplete="off"></label>
-         <label class="aj-campo"><span>Cargo</span>
-           <input name="cargo" value="${esc(d.cargo)}" autocomplete="off"></label>
-       </div>
-       <label class="aj-campo"><span>Nível de acesso</span>
+    /* Linha de cadastro cujo login existe mas não pôde ser lido agora (a
+       função não respondeu): só o cadastro é editável, para não tentar criar
+       um segundo login para quem já tem. */
+    const loginIlegivel = soCadastro && cad && cad.user_id;
+    if (soCadastro) d.nivel = "semlogin";
+    const niveis = loginIlegivel
+      ? [{ v: "semlogin", rot: "Só o cadastro (o login não pôde ser lido agora)" }]
+      : soCadastro
+      ? [{ v: "semlogin", rot: "Sem login — só o cadastro" }]
+          .concat(NIVEIS_ACESSO.filter(n => n.v !== "visualizador")
+            .map(n => ({ v: n.v, rot: n.rot + " — criar o login" })))
+      : NIVEIS_ACESSO;
+
+    this.dialogo(novo ? "Novo usuário" : soCadastro ? "Editar inspetor" : "Editar usuário",
+      `<label class="aj-campo"><span>Nível de acesso</span>
          <select name="nivel"${eu ? " disabled" : ""}>
            ${d.nivel ? "" : '<option value="" selected disabled>— escolha o nível —</option>'}
-           ${NIVEIS_ACESSO.map(n => `<option value="${n.v}"${n.v === d.nivel ? " selected" : ""}>${n.rot}</option>`).join("")}
+           ${niveis.map(n => `<option value="${n.v}"${n.v === d.nivel ? " selected" : ""}>${n.rot}</option>`).join("")}
          </select></label>
        <div class="aj-nivel-info"></div>
-       <label class="aj-campo aj-insp" hidden><span class="aj-insp-rot"></span>
-         <select name="inspetor">
-           <option value="">— nenhum —</option>
-           ${livres.map(n => `<option value="${esc(n)}"${n === d.inspetor ? " selected" : ""}>${esc(n)}</option>`).join("")}
-         </select>
-         <small class="aj-ajuda">${livres.length
-           ? "Só aparecem inspetores do cadastro que ainda não têm conta."
-           : "Todos os inspetores do cadastro já têm conta. Para um inspetor novo, "
-             + "cadastre-o antes na aba Inspetores."}</small></label>
-       ${novo ? "" : `<label class="aj-campo"><span>Situação</span>
+
+       <div class="aj-bloco aj-conta">
+         <h4>Login</h4>
+         <label class="aj-campo"><span>Nome completo</span>
+           <input name="nome" value="${esc(soCadastro ? "" : d.nome)}" autocomplete="off"></label>
+         <label class="aj-campo"><span>E-mail (será o login)</span>
+           <input name="email" type="email" value="${esc(d.email)}" autocomplete="off"
+                  autocapitalize="none" spellcheck="false"></label>
+         <label class="aj-campo"><span>Senha${novo || soCadastro ? "" : " (opcional)"}</span>
+           <input name="senha" type="text" minlength="6" autocomplete="off"
+                  placeholder="${novo || soCadastro ? "pelo menos 6 caracteres" : "deixe em branco para manter a atual"}"></label>
+         <div class="aj-duas">
+           <label class="aj-campo"><span>Telefone</span>
+             <input name="telefone" value="${esc(d.telefone)}" autocomplete="off"></label>
+           <label class="aj-campo aj-cargo"><span>Cargo</span>
+             <input name="cargo" value="${esc(d.cargo)}" autocomplete="off"></label>
+         </div>
+       </div>
+
+       <label class="aj-check aj-inspeciona" hidden>
+         <input type="checkbox" name="inspeciona"${cad ? " checked" : ""}>
+         Também inspeciona pelo app (entra na meta e no ranking)</label>
+
+       <div class="aj-bloco aj-cadastro" hidden>
+         <h4>Cadastro de inspetor</h4>
+         ${cad ? "" : `<label class="aj-campo"><span>Cadastro</span>
+           <select name="cadastro">
+             <option value="">— novo cadastro —</option>
+             ${livres.map(i => `<option value="${esc(i.id)}">${esc(i.inspetor)} (já cadastrado, sem login)</option>`).join("")}
+           </select></label>`}
+         <label class="aj-campo"><span>Nome no painel</span>
+           <input name="cadnome" value="${esc(cad ? cad.inspetor : "")}" autocomplete="off"
+                  placeholder="como aparece nos gráficos — ex.: Jose Iran"></label>
+         <p class="aj-dtexto">É o nome que casa com as inspeções. Mudar aqui renomeia:
+           as inspeções antigas acompanham o nome novo.</p>
+         ${this.campoLivre("funcao", "Função", funcoes, cad ? cad.funcao : "")}
+         ${this.campoLivre("polo", "Polo", polos, cad ? cad.polo : "")}
+         <label class="aj-campo"><span>Meta de inspeção (por mês)</span>
+           <input name="meta" type="number" min="0" step="1" value="${cad ? Number(cad.meta) || 0 : 0}"></label>
+         <label class="aj-campo"><span>Entra na meta e no ranking?</span>
+           <select name="cadativo">
+             <option value="1"${!cad || cad.ativo ? " selected" : ""}>Sim — conta nos indicadores</option>
+             <option value="0"${cad && !cad.ativo ? " selected" : ""}>Não — fica fora (afastado, saiu)</option>
+           </select></label>
+       </div>
+
+       ${!r || !r.conta ? "" : `<label class="aj-campo"><span>Login</span>
          <select name="ativo"${eu ? " disabled" : ""}>
-           <option value="1"${d.ativo ? " selected" : ""}>Ativo</option>
-           <option value="0"${d.ativo ? "" : " selected"}>Inativo — não consegue entrar</option>
+           <option value="1"${r.ativo ? " selected" : ""}>Ativo — consegue entrar</option>
+           <option value="0"${r.ativo ? "" : " selected"}>Inativo — não consegue entrar</option>
          </select></label>`}
        ${eu ? `<p class="aj-dtexto">Esta é a sua conta: você não pode mudar o seu próprio
          nível nem desativá-la. Outro administrador faz isso, se for preciso.</p>` : ""}
-       <p class="aj-dtexto">${novo
+       <p class="aj-dtexto aj-nota-senha">${novo || soCadastro
          ? "Anote a senha antes de salvar: ela não fica guardada aqui, e só dá para trocar por outra."
          : "Informar uma senha troca a senha atual desta conta."}</p>`,
       novo ? "Criar usuário" : "Salvar",
-      async form => {
-        const nivel = form.nivel.value;
-        if (!nivel) throw new Error("Escolha o nível de acesso.");
-        const dados = {
-          nome: form.nome.value.trim(),
-          email: form.email.value.trim().toLowerCase(),
-          cargo: form.cargo.value.trim(),
-          telefone: form.telefone.value.trim(),
-          nivel,
-          /* Visualizador não tem vínculo; administrador pode ter (ele também
-             inspeciona); inspetor precisa. */
-          inspetor: nivel === "visualizador" ? "" : form.inspetor.value
-        };
-        if (nivel === "inspetor" && !dados.inspetor)
-          throw new Error("Escolha qual inspetor do cadastro é esta pessoa.");
-        if (novo) {
+      form => this.salvarUsuario(form, r, { novo, soCadastro, eu }));
+
+    /* O formulário já está na tela: liga o que aparece conforme o nível. */
+    const fundos = canvas.querySelectorAll(".aj-fundo");
+    const form = fundos[fundos.length - 1].querySelector("form");
+    const sel = form.querySelector('select[name="nivel"]');
+    const q = s => form.querySelector(s);
+    const atualizar = () => {
+      const nv = sel.value, n = nivelDe(nv);
+      q(".aj-nivel-info").innerHTML = n
+        ? `<span class="etiqueta ${n.cls}">${n.rot}</span><p>${n.desc}</p>` : "";
+      const criaConta = !(soCadastro && nv === "semlogin");
+      q(".aj-conta").hidden = !criaConta;
+      q(".aj-inspeciona").hidden = nv !== "admin";
+      const comCad = nv === "inspetor" || nv === "semlogin"
+        || (nv === "admin" && form.inspeciona.checked);
+      q(".aj-cadastro").hidden = !comCad;
+      /* Com o cadastro na tela, a função dele faz o papel do cargo. */
+      q(".aj-cargo").hidden = comCad;
+      q(".aj-nota-senha").hidden = !criaConta;
+      form.nome.required = criaConta;
+      form.email.required = criaConta;
+      form.senha.required = criaConta && (novo || soCadastro);
+      form.cadnome.required = comCad;
+    };
+    sel.addEventListener("change", atualizar);
+    form.inspeciona.addEventListener("change", atualizar);
+    /* Escolher um cadastro que já existe traz função, polo e meta dele. */
+    if (form.cadastro) form.cadastro.addEventListener("change", () => {
+      const i = Cadastros.inspetores.find(x => String(x.id) === form.cadastro.value);
+      form.cadnome.value = i ? i.inspetor : "";
+      form.meta.value = i ? Number(i.meta) || 0 : 0;
+      form.cadativo.value = !i || i.ativo ? "1" : "0";
+      [["funcao", i ? i.funcao : ""], ["polo", i ? i.polo : ""]].forEach(([k, v]) => {
+        const s = form.querySelector(`select[data-livre="${k}"]`);
+        if (v && ![...s.options].some(o => o.value === v))
+          s.insertBefore(new Option(v, v), s.options[1]);
+        s.value = v || "";
+        form.elements[k].value = v || "";
+        form.elements[k].hidden = true;
+      });
+    });
+    atualizar();
+  },
+
+  /* Grava na ordem que deixa menos coisa pela metade se algo falhar:
+     primeiro o cadastro (é o que os números do painel usam), depois a conta.
+     Se a conta nova falhar, o cadastro NOVO criado agora é desfeito — senão
+     a segunda tentativa esbarraria em "já existe um cadastro com esse nome". */
+  async salvarUsuario(form, r, { novo, soCadastro, eu }) {
+    const nivel = form.nivel.value;
+    if (!nivel) throw new Error("Escolha o nível de acesso.");
+    const comCad = nivel === "inspetor" || nivel === "semlogin"
+      || (nivel === "admin" && form.inspeciona.checked);
+    const ativo = !(r && r.conta) || eu ? true : form.ativo.value === "1";
+    const criaConta = !(soCadastro && nivel === "semlogin");
+
+    /* 1) O cadastro de inspetor, se houver. */
+    let cadSalvo = null, cadCriadoAgora = false;
+    if (comCad) {
+      const atual = r && r.cad ? r.cad
+        : form.cadastro && form.cadastro.value
+          ? Cadastros.inspetores.find(i => String(i.id) === form.cadastro.value) : null;
+      const reg = Object.assign({}, atual || {}, {
+        inspetor: form.cadnome.value.trim(),
+        funcao: form.funcao.value.trim(),
+        polo: form.polo.value.trim(),
+        meta: Number(form.meta.value) || 0,
+        ativo: form.cadativo.value === "1"
+      });
+      if (!reg.inspetor) throw new Error("Informe o nome no painel.");
+      const repetido = Cadastros.inspetores.some(i => i.id !== reg.id
+        && String(i.inspetor).toLowerCase() === reg.inspetor.toLowerCase());
+      if (repetido) throw new Error(`Já existe um inspetor cadastrado como ${reg.inspetor}.`);
+      if (criaConta) {
+        // confere a conta ANTES de gravar o cadastro, pelo mesmo motivo
+        if (!form.nome.value.trim()) throw new Error("Informe o nome completo.");
+        if (!form.email.value.trim()) throw new Error("Informe o e-mail.");
+      }
+      cadCriadoAgora = !reg.id;
+      await Cadastros.salvar("inspetores", reg);
+      cadSalvo = Cadastros.inspetores.find(i =>
+        String(i.inspetor).toLowerCase() === reg.inspetor.toLowerCase()) || reg;
+    }
+
+    /* 2) A conta. */
+    if (criaConta) {
+      const dados = {
+        nome: form.nome.value.trim(),
+        email: form.email.value.trim().toLowerCase(),
+        cargo: comCad ? (cadSalvo.funcao || "") : form.cargo.value.trim(),
+        telefone: form.telefone.value.trim(),
+        nivel,
+        inspetor: comCad ? cadSalvo.inspetor : ""
+      };
+      try {
+        if (novo || soCadastro) {
           dados.senha = form.senha.value;
           await Banco.usuarios("criar", dados);
         } else {
           dados.id = r.id;
-          dados.ativo = eu ? true : form.ativo.value === "1";
+          dados.ativo = ativo;
           if (eu) delete dados.nivel;           // o servidor também recusa
           if (form.senha.value) dados.senha = form.senha.value;
           await Banco.usuarios("editar", dados);
         }
-        await this.carregarUsuarios();
-        /* Mexer em quem é inspetor muda o que a aba Inspetores mostra. */
-        await Cadastros.carregar().catch(() => {});
-        Cadastros.aplicarNoModelo();
-        this.render(); render();
-        this.avisar(novo ? `Usuário ${dados.email} criado.` : `Usuário ${dados.email} atualizado.`);
-      });
+      } catch (e) {
+        if (cadCriadoAgora && cadSalvo && cadSalvo.id) {
+          await Cadastros.excluir("inspetores", cadSalvo.id).catch(() => {});
+        }
+        throw e;
+      }
+    }
 
-    /* O formulário já está na tela: liga a frase do nível e o campo do
-       inspetor, que só faz sentido para administrador e inspetor. */
-    const fundos = canvas.querySelectorAll(".aj-fundo");
-    const form = fundos[fundos.length - 1].querySelector("form");
-    const info = form.querySelector(".aj-nivel-info");
-    const campo = form.querySelector(".aj-insp");
-    const sel = form.querySelector('select[name="nivel"]');
-    const atualizar = () => {
-      const nv = sel.value, n = nivelDe(nv);
-      info.innerHTML = n ? `<span class="etiqueta ${n.cls}">${n.rot}</span><p>${n.desc}</p>` : "";
-      campo.hidden = !(nv === "admin" || nv === "inspetor");
-      form.querySelector(".aj-insp-rot").textContent = nv === "inspetor"
-        ? "Inspetor do cadastro" : "Também inspeciona pelo app? (opcional)";
-      form.inspetor.required = nv === "inspetor";
-    };
-    sel.addEventListener("change", atualizar);
-    atualizar();
+    await Cadastros.carregar().catch(() => {});
+    Cadastros.aplicarNoModelo();
+    await this.carregarUsuarios();
+    render();
+    this.avisar(!criaConta ? `Cadastro de ${cadSalvo.inspetor} salvo.`
+      : novo || soCadastro ? `Usuário ${form.email.value.trim().toLowerCase()} criado.`
+      : `Usuário ${form.email.value.trim().toLowerCase()} atualizado.`);
   },
 
-  async removerUsuario(r) {
-    if (!confirm(`Apagar o usuário ${r.nome || r.email}?\n\n`
-        + "A conta é apagada e a pessoa deixa de entrar no painel e no app. "
-        + "As inspeções que ela já fez continuam, com o nome do inspetor.\n\n"
-        + "Para só impedir a entrada por um tempo, use Editar e marque Inativo.")) return;
-    try {
-      await Banco.usuarios("remover", { id: r.id });
-      await this.carregarUsuarios();
-      await Cadastros.carregar().catch(() => {});
-      Cadastros.aplicarNoModelo();
-      this.render(); render();
-      this.avisar(`Usuário ${r.email} apagado.`);
-    } catch (e) {
-      this.avisar("Não deu para apagar: " + e.message, true);
-    }
+  /* Apagar tem dois sentidos para quem é inspetor, e trocar um pelo outro
+     custa caro: apagar só o LOGIN deixa a pessoa no cadastro (meta, ranking,
+     o nome nas inspeções); apagar o CADASTRO tira o inspetor dos números. Por
+     isso a escolha é explícita, e o padrão é o mais brando. */
+  removerUsuario(r) {
+    const cad = r.cad;
+    const usos = cad ? FATO.filter(f => f.inspetorBruto === cad.inspetor
+                                       || f.inspetor === cad.inspetor).length : 0;
+    const avisoUsos = usos
+      ? `<p class="aj-aviso forte">Há <b>${usos}</b> inspeç${usos === 1 ? "ão" : "ões"} com o nome
+         ${esc(cad.inspetor)}. Elas continuam no painel, mas passam a aparecer sem
+         inspetor. Para tirar da meta e do ranking sem perder o histórico, edite e
+         marque como Inativo.</p>` : "";
+    const opcoes = !r.conta ? "" : !cad ? "" : `
+      <label class="aj-check"><input type="radio" name="oque" value="login" checked>
+        Só o login — ${esc(cad.inspetor)} continua no cadastro, sem acesso</label>
+      <label class="aj-check"><input type="radio" name="oque" value="tudo">
+        O login e o cadastro de inspetor</label>`;
+    this.dialogo(`Apagar ${esc(r.nome || r.email)}?`,
+      `<p class="aj-aviso">Esta ação não pode ser desfeita.</p>
+       ${r.conta ? `<p class="aj-dtexto">A conta ${esc(r.email)} é apagada e deixa de entrar
+         no painel e no app. Para só impedir a entrada por um tempo, use Editar e
+         marque Inativo.</p>` : ""}
+       ${opcoes}
+       ${cad ? `<div class="aj-aviso-cad"${r.conta ? " hidden" : ""}>${avisoUsos}</div>` : ""}`,
+      "Apagar",
+      async form => {
+        const tudo = !r.conta || (cad && form.oque && form.oque.value === "tudo");
+        if (r.conta) await Banco.usuarios("remover", { id: r.id });
+        if (cad && tudo) await Cadastros.excluir("inspetores", cad.id);
+        await Cadastros.carregar().catch(() => {});
+        Cadastros.aplicarNoModelo();
+        await this.carregarUsuarios();
+        render();
+        this.avisar(`${r.nome || r.email} apagado.`);
+      }, true);
+    /* O aviso das inspeções só faz sentido quando o cadastro vai junto. */
+    const fundos = canvas.querySelectorAll(".aj-fundo");
+    const form = fundos[fundos.length - 1].querySelector("form");
+    const aviso = form.querySelector(".aj-aviso-cad");
+    form.querySelectorAll('input[name="oque"]').forEach(x => x.addEventListener("change", () => {
+      if (aviso) aviso.hidden = form.oque.value !== "tudo";
+    }));
   },
 
   /* Classificar uma pergunta do checklist.
@@ -4330,10 +4494,9 @@ const Ajustes = {
       // já vem do banco em ordem de criação, do mais novo para o mais velho
       ? () => 0
       : this.secao === "usuarios"
-      // administradores primeiro, depois inspetores, visualizadores e, por
-      // último, as contas sem nível — que são as que pedem atenção
-      ? (a, b) => (NIVEIS_ACESSO.findIndex(n => n.v === a.nivel) + 9) % 9
-                    - (NIVEIS_ACESSO.findIndex(n => n.v === b.nivel) + 9) % 9
+      // administradores, inspetores, quem está sem login, visualizadores e,
+      // por último, as contas sem nível — que são as que pedem atenção
+      ? (a, b) => ORDEM_NIVEL.indexOf(a.nivel) - ORDEM_NIVEL.indexOf(b.nivel)
                   || String(a.nome || a.email).localeCompare(String(b.nome || b.email), "pt-BR")
       : this.secao === "equipes"
       ? (a, b) => ordemNatural(a.equipe, b.equipe)
@@ -4350,8 +4513,8 @@ const Ajustes = {
     this.el.querySelector(".aj-desc").textContent = this.secao === "usuarios"
       ? (Banco.podeEditar()
          ? SECOES.usuarios.desc
-         : "Só administrador vê e gerencia os acessos. Você entrou sem permissão "
-           + "de edição: o painel inteiro está aberto para olhar, sem alterar nada.")
+         : "O cadastro de quem inspeciona — função, polo e meta. As contas de "
+           + "acesso só o administrador vê e gerencia.")
       : this.secao === "inspecoes"
       ? (this.modoInsp === "nc"
          ? "Uma linha por não conformidade — para filtrar por gravidade, contar desvio "
@@ -4400,8 +4563,7 @@ const Ajustes = {
           && !this.buscandoRascunhos && Banco.autenticado()) {
         this.carregarRascunhos();
       }
-      if (this.secao === "usuarios" && !this.usuariosEm
-          && !this.buscandoUsuarios && Banco.podeEditar()) {
+      if (this.secao === "usuarios" && !this.usuariosEm && !this.buscandoUsuarios) {
         this.carregarUsuarios();
       }
       /* Uma lixeira por linha, e não o menu ⋮: aqui só há uma ação.
@@ -4793,32 +4955,6 @@ const Ajustes = {
   },
 
 
-  /* ---------- senha do inspetor novo ----------
-     O login do inspetor NOVO ainda nasce junto com o cadastro (ver
-     abrirDialogo), para não existir inspetor sem acesso. Todo o resto —
-     trocar e-mail, redefinir senha, tirar ou dar acesso depois — é da aba
-     Usuários. */
-  /* Senha digitada duas vezes: é o admin quem digita, e quem vai usar é
-     outra pessoa — um erro de digitação só apareceria quando o inspetor
-     tentasse entrar, longe daqui e sem saber o que houve. */
-  camposSenha() {
-    return `<label class="aj-campo"><span>Senha</span>
-        <input name="senha" type="password" required minlength="6"
-               autocomplete="new-password" placeholder="ao menos 6 caracteres"></label>
-      <label class="aj-campo"><span>Repita a senha</span>
-        <input name="senha2" type="password" required minlength="6"
-               autocomplete="new-password"></label>
-      <label class="aj-vermostrar"><input type="checkbox" name="ver"> Mostrar a senha</label>`;
-  },
-
-  senhaConferida(form) {
-    const a = form.senha.value, b = form.senha2.value;
-    if (!a) throw new Error("Informe a senha.");
-    if (a.length < 6) throw new Error("A senha precisa de pelo menos 6 caracteres.");
-    if (a !== b) throw new Error("As duas senhas não são iguais.");
-    return a;
-  },
-
   /* ---------- diálogo de criação/edição ---------- */
   abrirDialogo(registro) {
     const s = SECOES[this.secao];
@@ -4864,26 +5000,7 @@ const Ajustes = {
         <input name="${c.k}" value="${dados[c.k] || ""}" ${c.obrigatorio ? "required" : ""} autocomplete="off"></label>`;
     }).join("");
 
-    /* Inspetor novo sai COM login, sempre. Era opcional até 27/08/2026, e
-       antes disso um segundo passo separado — o resultado foi cadastro sem
-       acesso, que só se descobre quando a pessoa tenta usar o app. Inspetor
-       existe para inspecionar, e hoje inspecionar é pelo app.
-
-       Vale só para quem é novo: quem já está cadastrado usa o ⋮ → Criar
-       acesso, e não vai ganhar um login por ter sido editado. */
-    const comAcesso = novo && this.secao === "inspetores" && Banco.podeEditar();
-    const blocoAcesso = !comAcesso ? "" : `
-      <div class="aj-acesso">
-        <p class="aj-dtexto"><b>Login do app.</b> O inspetor entra com estes
-          dados para fazer inspeção pelo celular. Combine a senha com ele — ela
-          não fica guardada e depois só dá para trocar, não para consultar.</p>
-        <label class="aj-campo"><span>E-mail do inspetor</span>
-          <input name="email" type="email" required
-                 autocapitalize="none" spellcheck="false"></label>
-        ${this.camposSenha()}
-      </div>`;
-
-    this.dialogo(novo ? s.novo : `Editar ${dados[s.chave]}`, corpo + blocoAcesso,
+    this.dialogo(novo ? s.novo : `Editar ${dados[s.chave]}`, corpo,
       novo ? "Criar" : "Salvar", async form => {
         const reg = Object.assign({}, registro);
         s.campos.forEach(c => {
@@ -4897,33 +5014,8 @@ const Ajustes = {
           r.id !== reg.id && String(r[s.chave]).toLowerCase() === reg[s.chave].toLowerCase());
         if (repetido) throw new Error(`Já existe um cadastro com o nome ${reg[s.chave]}.`);
 
-        /* Confere e-mail e senha ANTES de gravar o cadastro: reclamar depois
-           deixaria o inspetor já criado, e a segunda tentativa esbarraria no
-           "já existe um cadastro com esse nome". */
-        const querAcesso = comAcesso;
-        let email = "", senha = "";
-        if (querAcesso) {
-          email = form.email.value.trim();
-          if (!email) throw new Error("Informe o e-mail do inspetor.");
-          senha = this.senhaConferida(form);
-        }
-
         await Cadastros.salvar(this.secao, reg);
 
-        if (querAcesso) {
-          /* O cadastro já está gravado. Se o acesso falhar aqui, não dá para
-             desfazer sem apagar o inspetor — então o diálogo fecha e o aviso
-             diz exatamente o que ficou pela metade. */
-          try {
-            await Banco.acessoInspetor("criar", reg.inspetor, email, senha);
-            await Cadastros.carregar();
-            Cadastros.aplicarNoModelo();
-            this.avisar(`${reg.inspetor} cadastrado, e o login ${email} já está criado.`);
-          } catch (e) {
-            this.avisar(`${reg.inspetor} foi cadastrado, mas o login NÃO foi criado: `
-              + e.message + " Crie pelo ⋮ → Criar acesso, na linha dele.", true);
-          }
-        }
         this.render(); render();
       });
   },

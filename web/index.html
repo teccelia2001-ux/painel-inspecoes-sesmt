@@ -720,6 +720,14 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
 .etiqueta.nv-inspetor{background:#e8f0fb;color:#24508a;border-color:#c6d8f1;font-weight:700}
 .etiqueta.nv-vis{background:#f3f0ec;color:#5f564e;border-color:#ddd5cb;font-weight:700}
 .etiqueta.nv-sem{background:#fdecea;color:#b3261e;border-color:#f3c4bb;font-weight:700}
+.etiqueta.nv-semlogin{background:#fff6e0;color:#8a5a00;border-color:#f0dca8;font-weight:700}
+.aj-bloco{display:flex;flex-direction:column;gap:10px;padding:11px 12px 12px;border-radius:9px;
+  border:1px solid var(--linha-borda);background:var(--painel)}
+.aj-bloco h4{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)}
+.aj-check{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--txt);cursor:pointer}
+.aj-check input{width:16px;height:16px;margin:0;accent-color:var(--acento)}
+/* display:flex ganha do [hidden] do navegador */
+.aj-bloco[hidden],.aj-check[hidden],.aj-dtexto[hidden]{display:none}
 .aj-usuario{display:flex;flex-direction:column;line-height:1.25}
 .aj-usuario small{font-size:10.5px;font-weight:400;color:var(--txt3)}
 /* minmax(0,1fr): com "1fr" puro a coluna não encolhe abaixo do tamanho natural
