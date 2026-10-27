@@ -247,6 +247,38 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
    display:none — por isso o nome aqui é outro. */
 .sem-insp .rolo{flex:1 1 auto;min-height:0;overflow:auto}
 .sem-insp .rolo .tbl td{padding:3px 6px}
+.sem-insp .cobertura{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:0 2px;
+  font-size:10px;color:var(--txt3)}
+.sem-insp .cobertura .barra{flex:0 0 70px;height:5px;border-radius:3px;background:#f3c4bb;overflow:hidden}
+.sem-insp .cobertura .barra i{display:block;height:100%;background:var(--bom)}
+.sem-insp .agrupar{flex:0 0 auto;display:none;align-items:center;gap:4px;padding:0 2px;
+  font-size:10px;color:var(--txt3)}
+.sem-insp .agrupar button{border:1px solid var(--linha-borda);background:var(--painel);
+  color:var(--txt2);border-radius:12px;padding:1px 9px;font-size:10px;cursor:pointer}
+.sem-insp .agrupar button:hover{border-color:var(--acento);color:var(--acento-forte)}
+.sem-insp .agrupar button.on{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:700}
+.sem-insp tr.grupo td{background:var(--painel-alt);padding:4px 6px;font-size:11px;
+  border-bottom:1px solid var(--linha-borda)}
+.sem-insp tr.grupo .qtd{margin-left:8px;font-size:10px;color:var(--txt3);font-weight:400}
+/* Sem o cabeçalho no quadro pequeno: "há 45 dias", "nunca inspecionada" e a
+   etiqueta do departamento dizem o que são, e a linha que sobra vira mais
+   uma equipe visível. O cabeçalho volta no ampliado. */
+.v:not(.ampliado) .sem-insp thead{display:none}
+.sem-insp .ult-cel{white-space:nowrap}
+.sem-insp .ult{font-weight:600}
+.sem-insp .ult.velha,.sem-insp .ult.nunca{color:var(--ruim)}
+.sem-insp .ult-cel small{display:none;margin-left:6px;color:var(--txt3)}
+.sem-insp .etiqueta{font-size:9.5px;padding:1px 7px}
+/* Os botões de agrupar e a data completa só no ampliado: no quadro pequeno
+   cada linha a mais é uma equipe que deixa de aparecer. */
+.v.ampliado .sem-insp .agrupar{display:flex;font-size:13px;gap:6px;padding:4px 2px}
+.v.ampliado .sem-insp .agrupar button{font-size:13px;padding:3px 13px}
+.v.ampliado .sem-insp .ult-cel small{display:inline;font-size:13px}
+.v.ampliado .sem-insp .cobertura{font-size:14px}
+.v.ampliado .sem-insp .cobertura .barra{flex-basis:180px;height:8px}
+.v.ampliado .sem-insp tr.grupo td{font-size:16px;padding:7px 8px}
+.v.ampliado .sem-insp tr.grupo .qtd{font-size:13px}
+.v.ampliado .sem-insp .etiqueta{font-size:13px;padding:2px 11px}
 .sem-insp .tudo-ok{margin:0;padding:6px 2px;font-size:11.5px;color:var(--bom);font-weight:600}
 .sem-insp .nada{margin:0;padding:6px 2px;font-size:11.5px;color:var(--txt3)}
 .v.ampliado .sem-insp .resumo{font-size:16px}
@@ -428,6 +460,11 @@ html,body{margin:0;height:100%;background:var(--fundo);color:var(--txt);
   /* No celular o quadro cresce até caber tudo, e com 40 equipes fora ele
      viraria uma página inteira de nomes. Mesmo teto das outras tabelas. */
   .sem-insp .rolo{max-height:60vh}
+  /* No celular o quadro não tem altura apertada, então o que o quadro
+     pequeno do computador esconde aparece: botões de agrupar e cabeçalho. */
+  .sem-insp .agrupar{display:flex;padding:3px 2px;font-size:12px}
+  .sem-insp .agrupar button{font-size:12px;padding:4px 12px}
+  .v:not(.ampliado) .sem-insp thead{display:table-header-group}
   .tbl{font-size:12.5px;min-width:620px}
   .tbl td,.tbl thead th{padding:8px 9px;white-space:nowrap}
 

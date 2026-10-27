@@ -424,9 +424,9 @@ function pgTaxa() {
   /* A coluna da direita leva três quadros em vez de dois desde 27/10/2026.
      Os dois totais encolheram: eles mostram uma barra só e aguentam menos
      altura, enquanto a lista de quem ficou sem visita precisa de linhas. */
-  R.taxaResumo  = visual(pg, 1126, 171, 370, 150, "SESMT — total");
-  R.taxaOperR   = visual(pg, 1126, 331, 370, 135, "OPERAÇÃO — total");
-  R.taxaSemInsp = visual(pg, 1126, 476, 370, 199, "Equipes sem inspeção");
+  R.taxaResumo  = visual(pg, 1126, 171, 370, 140, "SESMT — total");
+  R.taxaOperR   = visual(pg, 1126, 321, 370, 125, "OPERAÇÃO — total");
+  R.taxaSemInsp = visual(pg, 1126, 456, 370, 219, "Equipes sem inspeção");
   return pg;
 }
 
@@ -848,13 +848,32 @@ function equipesSemInspecao(f) {
     (!ativo("equipe") || filtros.equipe.has(e[0])) &&
     (!ativo("tipo")   || filtros.tipo.has(DEPARTAMENTO_DO_TIPO[e[1]]));
   const universo = EQUIPES.filter(doFiltro);
+
+  /* Última visita de CADA equipe, olhando o histórico inteiro e não só o
+     período: a pergunta de quem cobra não é "ficou de fora em outubro?",
+     que a lista já responde, e sim "há quanto tempo ninguém passa lá?". */
+  const ultima = new Map();
+  FATO.forEach(x => {
+    if (x.equipe && (!ultima.has(x.equipe) || x.data > ultima.get(x.equipe)))
+      ultima.set(x.equipe, x.data);
+  });
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+
   const fora = universo
     .filter(e => !visitadas.has(e[0]))
-    .map(e => ({ equipe: e[0], supervisor: e[2] || "—",
-                 departamento: DEPARTAMENTO_DO_TIPO[e[1]] || "—" }))
-    .sort((a, b) => a.equipe.localeCompare(b.equipe, "pt-BR"));
+    .map(e => {
+      const u = ultima.get(e[0]) || null;
+      return { equipe: e[0], supervisor: e[2] || "Sem supervisor",
+               departamento: DEPARTAMENTO_DO_TIPO[e[1]] || "Sem departamento",
+               ultima: u, dias: u ? Math.round((hoje - u) / 864e5) : null };
+    });
   return { fora, total: universo.length };
 }
+
+/* Como agrupar a lista. Por supervisor é o padrão porque quem usa isto
+   cobra pessoas, não equipes soltas: "Junielly tem 11 sem visita" vira uma
+   conversa; uma lista de 16 nomes, não. */
+let semInspAgrupar = "supervisor";
 
 function semInspecaoHTML(f) {
   const { fora, total } = equipesSemInspecao(f);
@@ -874,20 +893,79 @@ function semInspecaoHTML(f) {
       + `${deQuem.map(c => c === "funcao" ? "função" : c).join(" e ")}.</p>`
     : "";
 
+  const cobertas = total - fora.length;
+  const pctCob = Math.round(cobertas / total * 100);
+  const n = fora.length;
+
+  /* Mais abandonada primeiro: nunca visitada, depois a que está há mais
+     tempo sem visita. É a ordem em que alguém precisa agir. */
+  const maisAntiga = (a, b) => (b.dias ?? 1e9) - (a.dias ?? 1e9)
+    || a.equipe.localeCompare(b.equipe, "pt-BR", { numeric: true });
+
+  const ultimaCel = e => e.ultima
+    ? `<span class="ult ${e.dias >= 30 ? "velha" : ""}">há ${fmtN(e.dias)} ${e.dias === 1 ? "dia" : "dias"}</span>`
+      + `<small>${e.ultima.toLocaleDateString("pt-BR")}</small>`
+    : `<span class="ult nunca">nunca inspecionada</span>`;
+  const chip = t => `<span class="etiqueta">${esc(t)}</span>`;
+
+  const modo = semInspAgrupar;
+  const colunas = modo === "supervisor"
+    ? [["Equipe", e => esc(e.equipe)], ["Departamento", e => chip(e.departamento)]]
+    : modo === "departamento"
+    ? [["Equipe", e => esc(e.equipe)], ["Supervisor", e => esc(e.supervisor)]]
+    : [["Equipe", e => esc(e.equipe)], ["Supervisor", e => esc(e.supervisor)],
+       ["Departamento", e => chip(e.departamento)]];
+  const nCol = colunas.length + 1;
+
+  const linha = e => `<tr>${colunas.map(c => `<td>${c[1](e)}</td>`).join("")}`
+    + `<td class="ult-cel">${ultimaCel(e)}</td></tr>`;
+
+  let corpo;
+  if (modo === "nenhum") {
+    corpo = fora.slice().sort(maisAntiga).map(linha).join("");
+  } else {
+    const campo = modo === "departamento" ? "departamento" : "supervisor";
+    const grupos = new Map();
+    fora.forEach(e => {
+      if (!grupos.has(e[campo])) grupos.set(e[campo], []);
+      grupos.get(e[campo]).push(e);
+    });
+    corpo = [...grupos]
+      .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], "pt-BR"))
+      .map(([nome, eqs]) => `<tr class="grupo"><td colspan="${nCol}"><b>${esc(nome)}</b>`
+        + `<span class="qtd">${eqs.length} ${eqs.length === 1 ? "equipe" : "equipes"}</span></td></tr>`
+        + eqs.sort(maisAntiga).map(linha).join("")).join("");
+  }
+
+  const botao = (k, rot) => `<button type="button" data-agrupa="${k}"`
+    + `${modo === k ? ' class="on"' : ""}>${rot}</button>`;
+
   return `<div class="sem-insp">
-    <p class="resumo"><b>${fmtN(fora.length)}</b> de ${fmtN(total)}
-      sem inspeção em ${esc(quando)}</p>
+    <p class="resumo"><b>${fmtN(n)}</b> ${n === 1 ? "equipe sem inspeção" : "equipes sem inspeção"}
+      em ${esc(quando)}</p>
+    <div class="cobertura" title="${fmtN(cobertas)} de ${fmtN(total)} equipes receberam ao menos uma inspeção">
+      <div class="barra"><i style="width:${pctCob}%"></i></div>
+      <span>${fmtN(cobertas)} de ${fmtN(total)} inspecionadas · ${pctCob}%</span>
+    </div>
     ${ressalva}
+    <div class="agrupar"><span>Agrupar por</span>
+      ${botao("supervisor", "Supervisor")}${botao("departamento", "Departamento")}${botao("nenhum", "Nenhum")}
+    </div>
     <div class="rolo">
       <table class="tbl">
-        <thead><tr><th>Equipe</th><th>Supervisor</th></tr></thead>
-        <tbody>${fora.map(e => `<tr title="${esc(e.departamento)}">`
-          + `<td>${esc(e.equipe)}</td><td>${esc(e.supervisor)}</td></tr>`).join("")}
-        </tbody>
+        <thead><tr>${colunas.map(c => `<th>${c[0]}</th>`).join("")}<th>Última inspeção</th></tr></thead>
+        <tbody>${corpo}</tbody>
       </table>
     </div>
   </div>`;
 }
+
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-agrupa]");
+  if (!b || semInspAgrupar === b.dataset.agrupa) return;
+  semInspAgrupar = b.dataset.agrupa;
+  render();
+});
 
 function periodoFiltrado() {
   const sem = [...filtros.semana], mes = [...filtros.mes], ano = [...filtros.ano];
