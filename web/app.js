@@ -177,12 +177,23 @@ function botaoAmpliar(painel) {
 
 function visual(pai, x, y, w, h, titulo) {
   const d = box(pai, x, y, w, h, "painel");
-  if (titulo) d.appendChild(Object.assign(document.createElement("div"), { className: "titulo", textContent: titulo }));
+  if (titulo) {
+    const t = Object.assign(document.createElement("div"), { className: "titulo", textContent: titulo });
+    t.dataset.base = titulo;      // o título sem o período; ver render()
+    d.appendChild(t);
+  }
   const c = document.createElement("div");
   c.className = "corpo" + (titulo ? "" : " semtitulo");
   d.appendChild(c);
   botaoAmpliar(d);
   return c;
+}
+/* Quadro estreito com legenda: com o período no título (28/10/2026),
+   "OPERAÇÃO — TOTAL · OUTUBRO/2026" passava por baixo da legenda, que mora no
+   canto de cima. Nesses a legenda desce para o rodapé do quadro — e o gráfico
+   encolhe para dar lugar a ela, porque mede o próprio tamanho ao desenhar. */
+function legendaEmbaixo(...corpos) {
+  corpos.forEach(c => c.parentElement.classList.add("legenda-embaixo"));
 }
 function cartao(pai, x, y, w, h, rotulo, classe) {
   const d = box(pai, x, y, w, h, "card " + (classe || ""));
@@ -427,6 +438,7 @@ function pgTaxa() {
   R.taxaResumo  = visual(pg, 1126, 171, 370, 140, "SESMT — total");
   R.taxaOperR   = visual(pg, 1126, 321, 370, 125, "OPERAÇÃO — total");
   R.taxaSemInsp = visual(pg, 1126, 456, 370, 219, "Equipes sem inspeção");
+  legendaEmbaixo(R.taxaResumo, R.taxaOperR);
   return pg;
 }
 
@@ -454,6 +466,7 @@ function pgAvanco() {
   R.avIcit  = visual(pg, 14, 448, 1003, 227, "ICIT mês a mês");
   R.avG1    = visual(pg, 1029, 171, 464, 257, "Taxa de contato total");
   R.avG2    = visual(pg, 1029, 448, 464, 227, "ICIT total");
+  legendaEmbaixo(R.avG1);
   return pg;
 }
 
@@ -469,6 +482,7 @@ function pgIcit() {
      para dizer a mesma coisa. O espaço foi para os três que restaram. */
   R.icInsp   = visual(pg, 17, 164, 486, 269, "ICIT por inspetor");
   R.icCat    = visual(pg, 513, 164, 400, 269, "Inconformidades por categoria");
+  legendaEmbaixo(R.icCat);
   R.icTop    = visual(pg, 923, 164, 573, 269, "Top 5 inconformidades");
   R.icEquipe = visual(pg, 17, 444, 894, 231, "ICIT por equipe");
   /* "ICIT por supervisor" saiu em 27/08/2026, a pedido: repetia o mesmo recorte
@@ -582,6 +596,18 @@ function render() {
     s.title = `${quandoRodape.dica}\nv${VERSAO} é a versão do arquivo publicado.`;
   });
   const f = fatoFiltrado(), ms = mesesAtivos(), k = kpis(f, ms);
+
+  /* O período filtrado no título de CADA quadro (28/10/2026) — "Ranking de
+     inspetores — outubro". O gráfico de outubro e o do ano inteiro têm a
+     mesma cara, e o print levado para a reunião precisa dizer de qual se
+     trata; o título vai junto no PNG e no PDF. Quadro cujo título já tem
+     travessão ganha um ponto, para não sair "SESMT — total — outubro".
+     O resumo do PAINEL fica de fora: ele é "sem filtros" por definição. */
+  const periodo = periodoFiltrado();
+  canvas.querySelectorAll(".pagina.ativa .v > .titulo[data-base]").forEach(t => {
+    const b = t.dataset.base;
+    t.textContent = b + (b.includes("—") ? " · " : " — ") + periodo;
+  });
   const base = {
     meta: fmtN(k.Meta_Insp), metaDia: fmtD(k.Meta_insp_dia, 0), qtd: fmtN(k.Qtd_Insp),
     pct: fmtP(k.pctInspecao, 0), icit: fmtP(k.ICIT, 0), insNC: fmtN(k.Qtd_Inspecao_NC)
@@ -617,11 +643,6 @@ function render() {
 
   if (paginaAtual === "ranking") {
     setCards(R.rkCards, base);
-    /* O período no título (28/10/2026): o ranking de outubro e o do ano
-       inteiro têm a mesma cara, e quem tira print para a reunião precisa que
-       a imagem diga de qual se trata. A caixa alta vem do CSS do título. */
-    R.rkTabela.parentElement.querySelector(".titulo").textContent =
-      "Ranking de inspetores — " + periodoFiltrado();
     // sem a linha "(vazio)": inspeções sem inspetor cadastrado não entram no ranking
 
     /* Ordem: quem fez MAIS INSPEÇÕES vem primeiro (09/09/2026).
