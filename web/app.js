@@ -617,6 +617,11 @@ function render() {
 
   if (paginaAtual === "ranking") {
     setCards(R.rkCards, base);
+    /* O período no título (28/10/2026): o ranking de outubro e o do ano
+       inteiro têm a mesma cara, e quem tira print para a reunião precisa que
+       a imagem diga de qual se trata. A caixa alta vem do CSS do título. */
+    R.rkTabela.parentElement.querySelector(".titulo").textContent =
+      "Ranking de inspetores — " + periodoFiltrado();
     // sem a linha "(vazio)": inspeções sem inspetor cadastrado não entram no ranking
 
     /* Ordem: quem fez MAIS INSPEÇÕES vem primeiro (09/09/2026).

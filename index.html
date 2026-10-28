@@ -1382,7 +1382,7 @@ const ATUALIZACAO = "26/08/2026 08:48:46";
    parado em 20260826-1100 enquanto o painel mudava dezenas de vezes em
    27/08/2026 — carimbo que não acompanha a publicação não serve para
    conferir cache, que é a única razão de ele existir. */
-const VERSAO = "20261027-1713";
+const VERSAO = "20261028-1056";
 </script>
 <script>
 /* ============================================================
@@ -6178,6 +6178,11 @@ function render() {
 
   if (paginaAtual === "ranking") {
     setCards(R.rkCards, base);
+    /* O período no título (28/10/2026): o ranking de outubro e o do ano
+       inteiro têm a mesma cara, e quem tira print para a reunião precisa que
+       a imagem diga de qual se trata. A caixa alta vem do CSS do título. */
+    R.rkTabela.parentElement.querySelector(".titulo").textContent =
+      "Ranking de inspetores — " + periodoFiltrado();
     // sem a linha "(vazio)": inspeções sem inspetor cadastrado não entram no ranking
 
     /* Ordem: quem fez MAIS INSPEÇÕES vem primeiro (09/09/2026).
